@@ -2,6 +2,7 @@
 #include <sst_config.h>
 #include "icreader.h"
 
+using namespace SST::Vanadis;
 
 InstCacheReader::InstCacheReader(Component* parent, Params& params) :
 	SubComponent(parent) {
@@ -32,14 +33,13 @@ InstCacheReader::InstCacheReader(Component* parent, Params& params) :
 
 	// Ensure our buffers are up to size
 	readReqs.reserve(cacheLinesPerBuffer);
-	abandonReqs.reserve(cacheLinesPerBuffer * 2);
+	abandonedReqs.reserve(cacheLinesPerBuffer * 2);
 
-	for(int i = 0; i < cacheLinesPerBuffer) {
+	for(int i = 0; i < cacheLinesPerBuffer; ++i) {
 		readReqs[i] = NULL;
 	}
 
-	mem = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface",
-		parent, params));
+	mem = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface", params));
 
 	if(verbose) {
 		output->verbose(CALL_INFO, 1, 0, "Instruction Cache Reader Parameters:\n");
@@ -57,7 +57,7 @@ void InstCacheReader::initialize(const uint32_t core_id) {
 	mem->initialize(linkBuffer, new SimpleMem::Handler<InstCacheReader>(
 		this, &InstCacheReader::handleCacheResponse));
 
-	delete linkBuffer;
+	delete[] linkBuffer;
 }
 
 InstCacheReader::~InstCacheReader() {
@@ -84,9 +84,9 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 
 	bool found = false;
 
-	for(auto abandonReqItr = abandonReqs.begin(); abandonReqItr != abandonReq.end(); abandonReqItr++) {
-		if( (*abandonReqItr).id == resp.id ) {
-			abandonReqs.remove(abandonReqItr);
+	for(auto abandonReqItr = abandonedReqs.begin(); abandonReqItr != abandonedReqs.end(); abandonReqItr++) {
+		if( (*abandonReqItr)->id == resp->id ) {
+			abandonedReqs.erase(abandonReqItr);
 			found = true;
 			break;
 		}
@@ -96,22 +96,22 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 		return;
 	}
 
-	const uint64_t offset = resp->getAddr() - nextBufferIP;
+	const uint64_t offset = resp->addr - nextBufferIP;
 
 	// This shouldn't happen but we are still debugging code so lets keep it
 	// as a sanity check
-	if( (offset + resp.size) >= (nextBufferIP + bufferLength) ) {
+	if( (offset + resp->size) >= (nextBufferIP + bufferLength) ) {
 		output->fatal(CALL_INFO, -1, "Error: offset (%" PRIu64 ") + RespSize (%" PRIu64 ") exceeds buffer size for nextBufferIP=%" PRIu64 ", BuffLen=%" PRIu64 "\n",
-			offset, resp.size, nextBufferIP, bufferLength);
+			offset, static_cast<uint64_t>(resp->size), nextBufferIP, bufferLength);
 	}
 
 	char* dataVecPtr = (char*) &(resp->data[0]);
-	for(size_t i = 0; i < resp.size; ++i) {
+	for(size_t i = 0; i < resp->size; ++i) {
 		nextBuffer[offset + i] = dataVecPtr[i];
 	}
 
 	for(int i = 0; i < readReqs.size(); ++i) {
-		if(readReqs[i].id == resp.id) {
+		if(readReqs[i]->id == resp->id) {
 			readReqs[i] = NULL;
 			found = true;
 			break;
@@ -150,7 +150,7 @@ void InstCacheReader::postReadsForNextBuffer() {
 
 		bool foundSlot = false;
 
-		for(int j = 0; j < readReqs; ++j) {
+		for(int j = 0; j < readReqs.size(); ++j) {
 			if( NULL == readReqs[j] ) {
 				if(verbose) {
 					output->verbose(CALL_INFO, 4, 0, "-> Read Addr: %" PRIu64 " Length: %" PRIu64 ", Slot=%d\n",
@@ -169,7 +169,7 @@ void InstCacheReader::postReadsForNextBuffer() {
 		}
 
 		// Send the event to the cache handler
-		cacheLink->sendRequest(readLine);
+		mem->sendRequest(readLine);
 	}
 }
 
@@ -253,7 +253,7 @@ bool InstCacheReader::fill(const uint64_t ip, void* instBuffer,
 
 	if(verbose) {
 		output->verbose(CALL_INFO, 8, 0, "Req ID: %" PRIu64 " causes a buffer flush and reset\n", ip);
-		output->verbose(CALL_INFO, 8, 0, "-> Will reset to base buffer pointer: %" PRIu64 ", calculated: ReqIP=%" PRIu64 ", BufLen=%" PRIu64 ", Offset=%" PRIu64 "\n"
+		output->verbose(CALL_INFO, 8, 0, "-> Will reset to base buffer pointer: %" PRIu64 ", calculated: ReqIP=%" PRIu64 ", BufLen=%" PRIu64 ", Offset=%" PRIu64 "\n",
 			bufferAlignedIP, ip, bufferOffset, bufferLength);
 	}
 

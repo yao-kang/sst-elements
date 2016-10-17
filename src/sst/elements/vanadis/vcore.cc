@@ -1,6 +1,11 @@
 
 #include <sst_config.h>
+#include <sst/core/interfaces/simpleMem.h>
+
 #include "vcore.h"
+
+using namespace SST::Interfaces;
+using namespace SST::Vanadis;
 
 VanadisCore::VanadisCore(ComponentId_t id, Params& params) {
 
@@ -15,6 +20,20 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) {
 	output->verbose(CALL_INFO, 1, 0, "Core: %" PRIu32 " register clock at: %s\n",
 		coreID, clock.c_str());
 
+	std::string icacheRdr = params.find<std::string>("icachereader", "vanadis.InstCacheReader");
+
+	output->verbose(CALL_INFO, 1, 0, "Loading instruction cache reader subcomponent (\"%s\")...\n", icacheRdr.c_str());
+
+	Params iRdrParams = params.find_prefix_params("icachereader.");
+	icacheReader = dynamic_cast<InstCacheReader*>( loadSubComponent(icacheRdr, this, iRdrParams) );
+
+	if(NULL == icacheReader) {
+		output->fatal(CALL_INFO, -1, "Unable to load instruction cache reader subcomponent: %s\n",
+			icacheRdr.c_str());
+	} else {
+		output->verbose(CALL_INFO, 1, 0, "Load instruction cache reader successful.\n");
+	}
+
 	registerClock( clock, new Clock::Handler<VanadisCore>(this, &VanadisCore::tick) );
 	active = true;
 }
@@ -22,6 +41,10 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) {
 VanadisCore::~VanadisCore() {
 	if(NULL != output) {
 		delete output;
+	}
+
+	if(NULL != icacheReader) {
+		delete icacheReader;
 	}
 }
 

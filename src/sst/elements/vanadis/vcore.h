@@ -7,6 +7,8 @@
 #include <sst/core/component.h>
 #include <sst/core/params.h>
 
+#include "icreader/icreader.h"
+
 namespace SST {
 namespace Vanadis {
 
@@ -19,6 +21,7 @@ public:
 	bool tick( SST::Cycle_t );
 
 protected:
+	InstCacheReader* icacheReader;
 	int verbose;
 	bool active;
 	uint32_t coreID;

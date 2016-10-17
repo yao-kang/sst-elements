@@ -9,7 +9,8 @@ comp_LTLIBRARIES = libvanadis.la
 libvanadis_la_SOURCES = \
 	vcore.cc \
 	vcore.h \
-	icreader.cc \
-	icreader.h	
+	icreader/icreader.cc \
+	icreader/icreader.h \
+	libvanadis.cc
 
 libvanadis_la_LDFLAGS = -module -avoid-version

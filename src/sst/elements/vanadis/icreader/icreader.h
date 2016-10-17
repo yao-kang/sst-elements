@@ -9,6 +9,8 @@
 
 #include <vector>
 
+using namespace SST::Interfaces;
+
 namespace SST {
 namespace Vanadis {
 
@@ -23,12 +25,12 @@ public:
 	void initialize(const uint32_t core_id);
 
 protected:
-	bool fillFromCurrentBuffer(const uint64_t ip, void* instBuffer, const uint64_t fillLen);
+	void fillFromCurrentBuffer(const uint64_t ip, void* instBuffer, const uint64_t fillLen);
 	void postReadsForNextBuffer();
 	void rotateBuffers();
 
 	SimpleMem* mem;
-	SST::Link icacheLink;
+	SST::Link* icacheLink;
 	std::vector<SimpleMem::Request*> readReqs;
 	std::vector<SimpleMem::Request*> abandonedReqs;
 
@@ -43,7 +45,7 @@ protected:
 
 	uint64_t bufferLength;
 	uint64_t cacheLineSize;
-	uint64_t cachesLinesPerBuffer;
+	uint64_t cacheLinesPerBuffer;
 
 	uint32_t coreID;
 };
