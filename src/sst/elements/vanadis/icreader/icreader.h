@@ -24,13 +24,14 @@ public:
 	void handleCacheResponse(SimpleMem::Request* resp);
 	void initialize(const uint32_t core_id);
 
+	void setSimpleMem(SimpleMem* newMem);
+
 protected:
 	void fillFromCurrentBuffer(const uint64_t ip, void* instBuffer, const uint64_t fillLen);
 	void postReadsForNextBuffer();
 	void rotateBuffers();
 
 	SimpleMem* mem;
-	SST::Link* icacheLink;
 	std::vector<SimpleMem::Request*> readReqs;
 	std::vector<SimpleMem::Request*> abandonedReqs;
 

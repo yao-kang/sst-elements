@@ -16,10 +16,6 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) {
 	sprintf(outputPrefix, "VanadisCore[%" PRIu32 "][@f:@l:@p]: ", coreID);
 	output = new SST::Output(outputPrefix, verbose, 0, SST::Output::STDOUT);
 
-	std::string clock = params.find<std::string>("clock", "1.0GHz");
-	output->verbose(CALL_INFO, 1, 0, "Core: %" PRIu32 " register clock at: %s\n",
-		coreID, clock.c_str());
-
 	std::string icacheRdr = params.find<std::string>("icachereader", "vanadis.InstCacheReader");
 
 	output->verbose(CALL_INFO, 1, 0, "Loading instruction cache reader subcomponent (\"%s\")...\n", icacheRdr.c_str());
@@ -34,7 +30,28 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) {
 		output->verbose(CALL_INFO, 1, 0, "Load instruction cache reader successful.\n");
 	}
 
-	registerClock( clock, new Clock::Handler<VanadisCore>(this, &VanadisCore::tick) );
+	std::string icacheMemInt = params.find<std::string>("icachememiface", "memHierarchy.memInterface");
+	output->verbose(CALL_INFO, 1, 0, "Loading instruction cache memory interface: \"%s\" ...\n",
+		icacheMemInt.c_str());
+
+	Params icacheIFaceParams = params.find_prefix_params("icachememifaceparams.");
+	icacheMem = dynamic_cast<SimpleMem*>( loadModuleWithComponent(icacheMemInt, this, icacheIFaceParams) );
+
+	if(NULL == icacheMem) {
+		output->fatal(CALL_INFO, -1, "Error: unable to load instruction cache interface: %s\n",
+			icacheMemInt.c_str());
+	} else {
+		output->verbose(CALL_INFO, 1, 0, "Loading instruction cache interface successfully\n");
+	}
+
+	icacheReader->setSimpleMem(icacheMem);
+
+	const std::string cpuClock = params.find<std::string>("clock", "1GHz");
+	output->verbose(CALL_INFO, 1, 0, "Core: %" PRIu32 " register clock at: %s\n",
+		coreID, cpuClock.c_str());
+
+	registerClock( cpuClock, new Clock::Handler<VanadisCore>(this, &VanadisCore::tick) );
+
 	active = true;
 }
 

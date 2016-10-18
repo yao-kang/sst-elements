@@ -40,14 +40,19 @@ static const ElementInfoSubComponent subcomponents[] = {
 	{ NULL, NULL, NULL, NULL, NULL, NULL }
 };
 
+static const ElementInfoPort vcore_ports[] = {
+        { "icache_link",      	"Link to instruction cache", NULL },
+        { NULL, NULL, NULL }
+};
+
 static const ElementInfoComponent components[] = {
         {
-                "BaseCPU",
-                "Creates a base Miranda CPU ready to load an address generator",
+                "VanadisCore",
+                "Creates a processor core for Vanadis",
                 NULL,
                 load_VanadisCore,
 		vcore_params,
-		NULL, // ports
+		vcore_ports,
                 COMPONENT_CATEGORY_PROCESSOR,
 		NULL // stats
         },

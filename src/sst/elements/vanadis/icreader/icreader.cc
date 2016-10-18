@@ -5,7 +5,7 @@
 using namespace SST::Vanadis;
 
 InstCacheReader::InstCacheReader(Component* parent, Params& params) :
-	SubComponent(parent) {
+	SubComponent(parent), mem(NULL) {
 
 	coreID          = 0;
 
@@ -39,7 +39,21 @@ InstCacheReader::InstCacheReader(Component* parent, Params& params) :
 		readReqs[i] = NULL;
 	}
 
-	mem = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface", params));
+	//Params interfaceParams = params.find_prefix_params("icacheparams.");
+	//mem = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface", this, interfaceParams));
+	//
+	//if(NULL == mem) {
+	//	output->fatal(CALL_INFO, -1, "Error: unable to initialize instruction cache Simple Mem interface.\n");
+	//}
+	//
+	//bool init_success = mem->initialize("icache_link", new SimpleMem::Handler<InstCacheReader>(
+        //        this, &InstCacheReader::handleCacheResponse) );
+	//
+	//if(init_success) {
+	//	output->verbose(CALL_INFO, 1, 0, "Simple Mem initialization for instruction cache completed successfully.\n");
+	//} else {
+	//	output->fatal(CALL_INFO, -1, "Error: unable to initialize Simple Mem for instruction cache.\n");
+	//}
 
 	if(verbose) {
 		output->verbose(CALL_INFO, 1, 0, "Instruction Cache Reader Parameters:\n");
@@ -263,3 +277,6 @@ bool InstCacheReader::fill(const uint64_t ip, void* instBuffer,
 	return false;
 }
 
+void InstCacheReader::setSimpleMem(SimpleMem* newSimpleMem) {
+	mem = newSimpleMem;
+}

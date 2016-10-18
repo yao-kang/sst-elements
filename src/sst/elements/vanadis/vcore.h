@@ -18,10 +18,14 @@ public:
 	VanadisCore(ComponentId_t id, Params& params);
 	~VanadisCore();
 
+protected:
+	VanadisCore(const VanadisCore&);
+	void operator=(const VanadisCore&);
+
 	bool tick( SST::Cycle_t );
 
-protected:
 	InstCacheReader* icacheReader;
+	SimpleMem* icacheMem;
 	int verbose;
 	bool active;
 	uint32_t coreID;
