@@ -24,6 +24,7 @@ static const ElementInfoParam instCacheReader_params[] = {
 static const ElementInfoParam vcore_params[] = {
 	{ "verbose",		"Sets verbostiy of output", 	"0" },
 	{ "coreid", 		"Sets the ID of this core",     "0" },
+ 	{ "exe",                "Sets the exectuable to be simulated", "" },
 	{ NULL, NULL, NULL }
 };
 

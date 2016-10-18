@@ -63,6 +63,30 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) :
 
 	active = true;
 	ip = params.find<uint64_t>("startip", 1024);
+
+	std::string exePath = params.find<std::string>("exe", "");
+
+	if("" == exePath) {
+		output->fatal(CALL_INFO, -1, "Executable was not specified! Please add the \"exe\" parameter\n");
+	} else {
+		output->verbose(CALL_INFO, 1, 0, "Executable: \"%s\"\n", exePath.c_str());
+	}
+
+	if( 0 == coreID ) {
+		output->verbose(CALL_INFO, 1, 0, "Opening %s for ELF reading...\n", exePath.c_str());
+		ELFDefinition* elfInfo = ELFDefinition::readObject(exePath, output);
+		output->verbose(CALL_INFO, 1, 0, "ELF read complete, analyzing...\n");
+
+		if(NULL == elfInfo) {
+			output->fatal(CALL_INFO, 1, 0, "Unable to successfully read ELF for: %s\n", exePath.c_str());
+		}
+
+		output->verbose(CALL_INFO, 1, 0, "ELF Information (%s)\n", exePath.c_str());
+		output->verbose(CALL_INFO, 1, 0, "-> Binary Class:      %s\n",
+			(elfInfo->getELFClass() == BIT_32 ? "32-bit" : "64-bit"));
+		output->verbose(CALL_INFO, 1, 0, "-> Endian:            %s\n",
+			(elfInfo->getELFEndian() == ENDIAN_LITTLE) ? "Little-Endian" : "Big-Endian");
+	}
 }
 
 VanadisCore::~VanadisCore() {

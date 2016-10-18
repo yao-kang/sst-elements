@@ -8,7 +8,8 @@ vcore.addParams( {
 	"verbose" : 1,
 	"coreid"  : 0,
 	"clock"   : "1.0GHz",
-	"icachereader.verbose" : 8
+	"icachereader.verbose" : 0,
+	"exe"     : "/usr/bin/du"
 })
 
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")

@@ -10,6 +10,7 @@
 #include <sst/core/params.h>
 
 #include "icreader/icreader.h"
+#include "elf/elfreader.h"
 
 namespace SST {
 namespace Vanadis {
