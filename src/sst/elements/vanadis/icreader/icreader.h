@@ -2,6 +2,8 @@
 #ifndef _H_SST_ELEMENTS_VANADIS_IC_READER_H
 #define _H_SST_ELEMENTS_VANADIS_IC_READER_H
 
+#include <sst_config.h>
+
 #include <sst/core/output.h>
 #include <sst/core/link.h>
 #include <sst/core/subcomponent.h>

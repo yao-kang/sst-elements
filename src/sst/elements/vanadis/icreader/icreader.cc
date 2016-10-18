@@ -5,7 +5,7 @@
 using namespace SST::Vanadis;
 
 InstCacheReader::InstCacheReader(Component* parent, Params& params) :
-	SubComponent(parent), mem(NULL) {
+	SubComponent(parent) {
 
 	coreID          = 0;
 
@@ -35,10 +35,6 @@ InstCacheReader::InstCacheReader(Component* parent, Params& params) :
 	readReqs.reserve(cacheLinesPerBuffer);
 	abandonedReqs.reserve(cacheLinesPerBuffer * 2);
 
-	for(int i = 0; i < cacheLinesPerBuffer; ++i) {
-		readReqs[i] = NULL;
-	}
-
 	//Params interfaceParams = params.find_prefix_params("icacheparams.");
 	//mem = dynamic_cast<SimpleMem*>(loadModuleWithComponent("memHierarchy.memInterface", this, interfaceParams));
 	//
@@ -54,6 +50,8 @@ InstCacheReader::InstCacheReader(Component* parent, Params& params) :
 	//} else {
 	//	output->fatal(CALL_INFO, -1, "Error: unable to initialize Simple Mem for instruction cache.\n");
 	//}
+
+	mem = NULL;
 
 	if(verbose) {
 		output->verbose(CALL_INFO, 1, 0, "Instruction Cache Reader Parameters:\n");
@@ -114,7 +112,7 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 
 	// This shouldn't happen but we are still debugging code so lets keep it
 	// as a sanity check
-	if( (offset + resp->size) >= (nextBufferIP + bufferLength) ) {
+	if( (offset + resp->size) > (nextBufferIP + bufferLength) ) {
 		output->fatal(CALL_INFO, -1, "Error: offset (%" PRIu64 ") + RespSize (%" PRIu64 ") exceeds buffer size for nextBufferIP=%" PRIu64 ", BuffLen=%" PRIu64 "\n",
 			offset, static_cast<uint64_t>(resp->size), nextBufferIP, bufferLength);
 	}
@@ -124,9 +122,9 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 		nextBuffer[offset + i] = dataVecPtr[i];
 	}
 
-	for(int i = 0; i < readReqs.size(); ++i) {
-		if(readReqs[i]->id == resp->id) {
-			readReqs[i] = NULL;
+	for(auto readReqItr = readReqs.begin() ; readReqItr != readReqs.end() ; readReqItr++) {
+		if( (*readReqItr)->id == resp->id ) {
+			readReqs.erase(readReqItr);
 			found = true;
 			break;
 		}
@@ -162,25 +160,8 @@ void InstCacheReader::postReadsForNextBuffer() {
 			nextBufferIP + (i * cacheLineSize),
 			cacheLineSize);
 
-		bool foundSlot = false;
-
-		for(int j = 0; j < readReqs.size(); ++j) {
-			if( NULL == readReqs[j] ) {
-				if(verbose) {
-					output->verbose(CALL_INFO, 4, 0, "-> Read Addr: %" PRIu64 " Length: %" PRIu64 ", Slot=%d\n",
-						nextBufferIP + (i * cacheLineSize),
-						cacheLineSize, j);
-				}
-
-				readReqs[j] = readLine;
-				foundSlot = true;
-				break;
-			}
-		}
-
-		if(! foundSlot) {
-			output->fatal(CALL_INFO, -4, "Error: unable to find a slot for an instruction cache line read request. All slots are full.\n");
-		}
+		// Record the read in our pending transactions
+		readReqs.push_back(readLine);
 
 		// Send the event to the cache handler
 		mem->sendRequest(readLine);

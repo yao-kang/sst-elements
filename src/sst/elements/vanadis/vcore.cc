@@ -7,7 +7,8 @@
 using namespace SST::Interfaces;
 using namespace SST::Vanadis;
 
-VanadisCore::VanadisCore(ComponentId_t id, Params& params) {
+VanadisCore::VanadisCore(ComponentId_t id, Params& params) :
+	Component(id) {
 
 	verbose = params.find<int>("verbose", 0);
 	coreID  = params.find<uint32_t>("coreid", 0);
@@ -44,15 +45,24 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) {
 		output->verbose(CALL_INFO, 1, 0, "Loading instruction cache interface successfully\n");
 	}
 
+	const bool icacheWireupSuccess = icacheMem->initialize("icache_link",
+		new SimpleMem::Handler<InstCacheReader>(icacheReader, &InstCacheReader::handleCacheResponse) );
+
+	if(! icacheWireupSuccess) {
+		output->fatal(CALL_INFO, -1, "Error: unable to write up icache_link for instruction cache reading\n");
+	}
+
 	icacheReader->setSimpleMem(icacheMem);
 
-	const std::string cpuClock = params.find<std::string>("clock", "1GHz");
+	const std::string cpuClock = params.find<std::string>("clock", "1 GHz");
 	output->verbose(CALL_INFO, 1, 0, "Core: %" PRIu32 " register clock at: %s\n",
 		coreID, cpuClock.c_str());
 
-	registerClock( cpuClock, new Clock::Handler<VanadisCore>(this, &VanadisCore::tick) );
+	clockHandler = new Clock::Handler<VanadisCore>(this, &VanadisCore::tick);
+	registerClock( cpuClock, clockHandler );
 
 	active = true;
+	ip = params.find<uint64_t>("startip", 1024);
 }
 
 VanadisCore::~VanadisCore() {
@@ -72,13 +82,22 @@ bool VanadisCore::tick( SST::Cycle_t cycle ) {
 			coreID, cycle);
 	}
 
+	uint32_t currentIns = 0;
+	const bool fillSuccess = icacheReader->fill(ip, &currentIns, static_cast<uint64_t>(sizeof(currentIns)));
 
+	if(fillSuccess) {
+		ip += static_cast<uint64_t>(4);
+	}
+
+	if(ip >= 32768) {
+		ip = 0;
+	}
 
 	if(verbose) {
 		output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " End-Tick: %" PRIu64 "\n",
 			coreID, cycle);
 	}
 
-	return active;
+	return false;
 
 }

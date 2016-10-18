@@ -1,13 +1,14 @@
 import sst
 
 # Define SST core options
-sst.setProgramOption("stopAtCycle", "0 ns")
+sst.setProgramOption("stopAtCycle", "0ns")
 
 vcore = sst.Component("vcore0", "vanadis.VanadisCore")
 vcore.addParams( {
-	"verbose" : 8,
+	"verbose" : 1,
 	"coreid"  : 0,
-	"clock"   : "1.0GHz"
+	"clock"   : "1.0GHz",
+	"icachereader.verbose" : 8
 })
 
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")

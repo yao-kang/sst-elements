@@ -3,6 +3,8 @@
 #ifndef _H_SST_ELEMENTS_VANADIS_CPU_
 #define _H_SST_ELEMENTS_VANADIS_CPU_
 
+#include <sst_config.h>
+
 #include <sst/core/output.h>
 #include <sst/core/component.h>
 #include <sst/core/params.h>
@@ -26,6 +28,10 @@ protected:
 
 	InstCacheReader* icacheReader;
 	SimpleMem* icacheMem;
+	Clock::HandlerBase* clockHandler;
+
+	uint64_t ip;
+
 	int verbose;
 	bool active;
 	uint32_t coreID;
