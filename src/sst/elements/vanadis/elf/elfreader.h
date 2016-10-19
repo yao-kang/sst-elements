@@ -36,11 +36,12 @@ public:
 	ELFDefinition() {}
 	~ELFDefinition() {}
 
-	static ELFDefinition* readObject(std::string objPath, SST::Output* output) {
+	static ELFDefinition* readObject(std::string elfObjPath, SST::Output* output) {
 		ELFDefinition* def = new ELFDefinition();
+		def->objPath = elfObjPath;
 
-		output->verbose(CALL_INFO, 1, 0, "Opening: %s...\n", objPath.c_str());
-		FILE* objFile = fopen(objPath.c_str(), "rb");
+		output->verbose(CALL_INFO, 1, 0, "Opening: %s...\n", elfObjPath.c_str());
+		FILE* objFile = fopen(elfObjPath.c_str(), "rb");
 
 		if(NULL == objFile) {
 			output->verbose(CALL_INFO, 1, 0, "Error: unable to open file for ELF reading.\n");
@@ -95,6 +96,7 @@ public:
 //	ELFObjectType getObjectType() const { return objType; }
 //	ELFObjectMachineType getObjectMachineType() const { return objMachineType; }
 //	uint64_t getEntryPoint() const { return objEntryAddress; }
+
 	std::string getObjectPath() const { return objPath; }
 	ELFObjectClass getELFClass() const { return objClass; }
 	ELFObjectEndianness getELFEndian() const { return objEndian; }
