@@ -201,7 +201,6 @@ private:
         bool queuesEmpty = coherenceMgr->sendOutgoingCommands(getCurrentSimTimeNano());
         
         bool nicIdle = true;
-        if (bottomNetworkLink_) nicIdle = bottomNetworkLink_->clock();
         if (checkMaxWaitInterval_ > 0 && timestamp_ % checkMaxWaitInterval_ == 0) checkMaxWait();
         
         // MSHR occupancy

@@ -439,7 +439,6 @@ bool DirectoryController::clock(SST::Cycle_t cycle){
         memMsgQueue.erase(memMsgQueue.begin());
     }
 
-    bool netIdle = network->clock();
     bool empty = workQueue.empty();
 
 #ifdef __SST_DEBUG_OUTPUT__
@@ -458,7 +457,8 @@ bool DirectoryController::clock(SST::Cycle_t cycle){
         }
     }
 
-    if (empty && netIdle && clockOn) {
+
+    if (empty && clockOn) {
         clockOn = false;
         lastActiveClockCycle = timestamp;
         return true;

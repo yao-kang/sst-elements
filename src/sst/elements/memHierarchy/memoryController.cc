@@ -315,7 +315,6 @@ void MemController::addRequest(MemEvent* ev) {
 
 bool MemController::clock(Cycle_t cycle) {
     totalCycles->addData(1);
-    if (networkLink_) networkLink_->clock();
 
     int reqsThisCycle = 0;
     while ( !requestQueue_.empty()) {

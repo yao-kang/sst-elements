@@ -68,6 +68,8 @@ void MemNIC::moduleInit(ComponentInfo &ci, Event::HandlerBase *handler)
 
     recvNotifyHandler = new SimpleNetwork::Handler<MemNIC>(this, &MemNIC::recvNotify);
     link_control->setNotifyOnReceive(recvNotifyHandler);
+
+    sendNotifyHandler = new SimpleNetwork::Handler<MemNIC>(this, &MemNIC::sendNotify);
 }
 
 
@@ -199,10 +201,16 @@ std::string MemNIC::findTargetDestination(Addr addr)
 }
 
 
-bool MemNIC::clock(void)
+bool MemNIC::runSend( SimpleNetwork::Request* req )
 {
     /* If stuff to send, and space to send it, send */
-    bool empty = sendQueue.empty();
+
+    bool wasEmpty = sendQueue.empty();
+
+    if ( req ) {
+        sendQueue.push_back(req);
+    }
+
     while (!sendQueue.empty()) {
         SimpleNetwork::Request *head = sendQueue.front();
         if ( link_control->spaceToSend(0, head->size_in_bits) ) {
@@ -219,14 +227,19 @@ bool MemNIC::clock(void)
 #endif
                 sendQueue.pop_front();
             } else {
-                break;
+                dbg->fatal(CALL_INFO, -1, "send faild\n");
             }
         } else {
+            // if we are not being called by the link control we may need to 
+            // install the notifier
+            if ( req && wasEmpty ) {
+                link_control->setNotifyOnReceive(recvNotifyHandler);
+            }
             break;
         }
     }
 
-    return empty;
+    return ! sendQueue.empty();
 }
 
 /*  
@@ -287,6 +300,11 @@ MemEvent* MemNIC::recv(void)
     return NULL;
 }
 
+bool MemNIC::sendNotify(int) {
+
+    // returning false will remove notifier
+    return runSend();
+}
 
 void MemNIC::send(MemEvent *ev)
 {
@@ -302,8 +320,9 @@ void MemNIC::send(MemEvent *ev)
                 comp->getName().c_str(), ev->getDst().c_str(), req->size_in_bits, CommandString[ev->getCmd()], ev->getSize(), ev->getPayloadSize());
 #endif
     req->givePayload(mre);
+
     
-    sendQueue.push_back(req);
+    runSend( req );
 }
 
 

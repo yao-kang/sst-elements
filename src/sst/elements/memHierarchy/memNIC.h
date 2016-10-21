@@ -186,6 +186,7 @@ private:
     //Event::HandlerBase *parentRecvNotifyHandler;
     SST::Interfaces::SimpleNetwork *link_control;
     SST::Interfaces::SimpleNetwork::Handler<MemNIC>* recvNotifyHandler;
+    SST::Interfaces::SimpleNetwork::Handler<MemNIC>* sendNotifyHandler;
 
     std::deque<MemRtrEvent*> initQueue;
     // std::deque<MemRtrEvent *> sendQueue;
@@ -232,7 +233,7 @@ public:
     void setup(void);
     void init(unsigned int phase);
     void finish(void);
-    bool clock(void);
+    bool runSend( Interfaces::SimpleNetwork::Request* req = NULL );
     bool isValidDestination(std::string target);
 
     void send(MemEvent *ev);
@@ -249,6 +250,7 @@ public:
 
     // Callback function for linkControl
     bool recvNotify(int vn);
+    bool sendNotify(int vn);
 
 };
 

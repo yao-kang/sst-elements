@@ -100,8 +100,6 @@ bool DMAEngine::clock(Cycle_t cycle)
      * If new command, check overlap, and delay if needed, otherwise process
      */
 
-    networkLink->clock();
-
     MemEvent *me = NULL;
     SST::Event *se = NULL;
 
