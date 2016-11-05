@@ -19,11 +19,13 @@ class VanadisCore : public SST::Component {
 
 public:
 	VanadisCore(ComponentId_t id, Params& params);
+	void init(unsigned int phase);
 	~VanadisCore();
 
 protected:
 	VanadisCore(const VanadisCore&);
 	void operator=(const VanadisCore&);
+	void copyData(const char* src, char* dest, const size_t len);
 
 	bool tick( SST::Cycle_t );
 
@@ -37,6 +39,7 @@ protected:
 	bool active;
 	uint32_t coreID;
 	Output* output;
+	std::string exePath;
 
 };
 

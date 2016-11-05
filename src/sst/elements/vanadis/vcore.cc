@@ -62,9 +62,9 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) :
 	registerClock( cpuClock, clockHandler );
 
 	active = true;
-	ip = params.find<uint64_t>("startip", 1024);
+	ip = params.find<uint64_t>("startip", 0);
 
-	std::string exePath = params.find<std::string>("exe", "");
+	exePath = params.find<std::string>("exe", "");
 
 	if("" == exePath) {
 		output->fatal(CALL_INFO, -1, "Executable was not specified! Please add the \"exe\" parameter\n");
@@ -86,6 +86,89 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) :
 			(elfInfo->getELFClass() == BIT_32 ? "32-bit" : "64-bit"));
 		output->verbose(CALL_INFO, 1, 0, "-> Endian:            %s\n",
 			(elfInfo->getELFEndian() == ENDIAN_LITTLE) ? "Little-Endian" : "Big-Endian");
+		output->verbose(CALL_INFO, 1, 0, "-> Start Address:     0x%" PRIx64 "\n",
+			elfInfo->getEntryPoint());
+			
+		output->verbose(CALL_INFO, 1, 0, "Setting instruction pointer of core 0 to: 0x%" PRIx64 "...\n",
+			elfInfo->getEntryPoint());
+
+		ip = elfInfo->getEntryPoint();
+	}
+}
+
+void VanadisCore::copyData(const char* src, char* dest, const size_t len) {
+	for(size_t i = 0; i < len; ++i) {
+		dest[i] = src[i];
+	}
+	
+	for(size_t i = 0; i < 5; ++i) {
+		printf("%c|%c ", src[i], dest[i]);
+	}
+	
+	printf("\n");
+} 
+
+void VanadisCore::init(unsigned int phase) {
+
+	output->verbose(CALL_INFO, 1, 0, "Init: CoreID: %" PRIu32 " Phase: %" PRIu32 "\n",
+		coreID, static_cast<uint32_t>(phase));
+
+	if( 0 == coreID && 0 == phase) {
+		if( "" != exePath ){
+			// Read in a populate our memory
+			FILE* readExe = fopen(exePath.c_str(), "r");
+		
+			if(NULL == readExe) {
+				output->fatal(CALL_INFO, -1, "Error: unable to read: \'%s\' for loading into memory.\n",
+					exePath.c_str());
+			}
+		
+			// Seek at end of the file, lets see how large the executable is
+			fseek(readExe, 0, SEEK_END);
+		
+			long exeLength = ftell(readExe);
+		
+			if(exeLength == 0) {
+				output->fatal(CALL_INFO, -1, "Error: executable (%s) is zero length.\n",
+					exePath.c_str());
+			} else {
+				output->verbose(CALL_INFO, 1, 0, "Executable: %s will be read into the system memory for simulation.\n",
+					exePath.c_str());
+				output->verbose(CALL_INFO, 1, 0, "Executable length: %" PRIu64 " bytes.\n",
+					static_cast<uint64_t>(exeLength));
+			}
+		
+			// Reset file pointer back to zero
+			fseek(readExe, 0, SEEK_SET);
+		
+			std::vector<uint8_t> exeBinary;
+			exeBinary.reserve(exeLength);
+
+			size_t objRead = fread( (char*) &exeBinary[0], 1,
+				static_cast<size_t>(exeLength), readExe);
+
+			if( objRead != static_cast<size_t>(exeLength) ) {
+				output->fatal(CALL_INFO, -1, "Error reading binary (%s) expected length: %" PRIu64 ", bytes actually read: %" PRIu64 "\n",
+					exePath.c_str(), static_cast<uint64_t>(exeLength), static_cast<uint64_t>(objRead));
+			} else {
+				output->verbose(CALL_INFO, 1, 0, "Executable binary read successfully from disk, closing file handles.\n");
+			}
+
+			output->verbose(CALL_INFO, 1, 0, "Creating huge memory write for executable...\n");
+
+			// One single huge  request for the system to put the binary into memory
+			SimpleMem::Request* writeExe = new SimpleMem::Request(SimpleMem::Request::Write,
+				0, exeLength, exeBinary);
+
+			output->verbose(CALL_INFO, 1, 0, "Done creating huge executable for memory write, will now send to the caches...\n");
+
+			icacheMem->sendInitData(writeExe);
+
+			output->verbose(CALL_INFO, 1, 0, "Sent to instruction caches for memory update.\n");
+
+			fclose(readExe);
+			output->verbose(CALL_INFO, 1, 0, "Init for Vanadis core is complete.\n");
+		}
 	}
 }
 
@@ -102,8 +185,8 @@ VanadisCore::~VanadisCore() {
 bool VanadisCore::tick( SST::Cycle_t cycle ) {
 
 	if(verbose) {
-		output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " Start-Tick: %" PRIu64 "\n",
-			coreID, cycle);
+		output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " Start-Tick: %" PRIu64 ", ip=%" PRIu64 "\n",
+			coreID, cycle, ip);
 	}
 
 	uint32_t currentIns = 0;
@@ -111,15 +194,15 @@ bool VanadisCore::tick( SST::Cycle_t cycle ) {
 
 	if(fillSuccess) {
 		ip += static_cast<uint64_t>(4);
-	}
 
-	if(ip >= 32768) {
-		ip = 0;
-	}
-
-	if(verbose) {
-		output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " End-Tick: %" PRIu64 "\n",
-			coreID, cycle);
+		if(verbose) {
+			output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " End-Tick: %" PRIu64 ", instruction=%" PRIu32 "\n",
+				coreID, cycle, currentIns);
+		}
+	} else {
+		if(verbose) {
+			output->verbose(CALL_INFO, 2, 0, "Fill failed, will have to wait.\n");
+		}
 	}
 
 	return false;

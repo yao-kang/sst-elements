@@ -116,6 +116,12 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 		output->fatal(CALL_INFO, -1, "Error: offset (%" PRIu64 ") + RespSize (%" PRIu64 ") exceeds buffer size for nextBufferIP=%" PRIu64 ", BuffLen=%" PRIu64 "\n",
 			offset, static_cast<uint64_t>(resp->size), nextBufferIP, bufferLength);
 	}
+	
+	for(int i = 0; i < resp->size; i++) {
+		printf("[%d]=%d ", i, (int) resp->data[i]);
+	}
+	
+	printf("\n");
 
 	char* dataVecPtr = (char*) &(resp->data[0]);
 	for(size_t i = 0; i < resp->size; ++i) {

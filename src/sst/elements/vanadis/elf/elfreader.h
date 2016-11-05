@@ -75,7 +75,7 @@ public:
 		} else if (elfHeader[4] == 0x02) {
 			def->objClass = BIT_64;
 		} else {
-			output->verbose(CALL_INFO, 1, 0, "Error: unknown ELF object class.\n");
+			output->verbose(CALL_INFO, 1, 0, "Error: unknown ELF object class (not 32-bit or 64-bit).\n");
 			return NULL;
 		}
 
@@ -84,9 +84,53 @@ public:
 		} else if( elfHeader[5] == 0x02 ) {
 			def->objEndian = ENDIAN_BIG;
 		} else {
-			output->verbose(CALL_INFO, 1, 0, "Error: unknown ELF endian type.\n");
+			output->verbose(CALL_INFO, 1, 0, "Error: unknown ELF endian type (not LSB or MSB).\n");
 			return NULL;
 		}
+		
+		/*
+		    uint16_t      e_type;
+               uint16_t      e_machine;
+               uint32_t      e_version;
+               ElfN_Addr     e_entry;
+               ElfN_Off      e_phoff;
+               ElfN_Off      e_shoff;
+               uint32_t      e_flags;
+               uint16_t      e_ehsize;
+               uint16_t      e_phentsize;
+               uint16_t      e_phnum;
+               uint16_t      e_shentsize;
+               uint16_t      e_shnum;
+               uint16_t      e_shstrndx;
+        */
+        
+        bytesRead = fread(&def->objType, sizeof(def->objType), 1, objFile);
+        
+        if(bytesRead != 1) {
+        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF object type, did not get uint16_t from read\n");
+        	return NULL;
+        }
+        
+        bytesRead = fread(&def->objMachineType, sizeof(def->objMachineType), 1, objFile);
+        
+        if(bytesRead != 1) {
+        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF object machine type, did not get uint16_t from read\n");
+        	return NULL;
+        }
+        
+        bytesRead = fread(&def->objHeaderVersion, sizeof(def->objHeaderVersion), 1, objFile);
+        
+        if(bytesRead != 1) {
+        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF object version, did not get a uint32_t from read\n");
+        	return NULL;
+        }
+        
+        bytesRead = fread(&def->objEntryAddress, sizeof(def->objEntryAddress), 1, objFile);
+        
+        if(bytesRead != 1) {
+        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read the ELF start address for the binary, expected a uint64_t\n");
+        	return NULL;
+        }
 
 		fclose(objFile);
 
@@ -95,7 +139,8 @@ public:
 
 //	ELFObjectType getObjectType() const { return objType; }
 //	ELFObjectMachineType getObjectMachineType() const { return objMachineType; }
-//	uint64_t getEntryPoint() const { return objEntryAddress; }
+	
+	uint64_t getEntryPoint() const { return objEntryAddress; }
 
 	std::string getObjectPath() const { return objPath; }
 	ELFObjectClass getELFClass() const { return objClass; }
