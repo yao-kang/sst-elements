@@ -118,7 +118,7 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 	}
 	
 	for(int i = 0; i < resp->size; i++) {
-		printf("[%d]=%d ", i, (int) resp->data[i]);
+		printf("[%d]=%" PRIu8 "", i, (uint8_t) resp->data[i]);
 	}
 	
 	printf("\n");

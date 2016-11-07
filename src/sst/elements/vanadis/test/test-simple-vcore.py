@@ -32,7 +32,9 @@ comp_memory.addParams({
       "coherence_protocol" : "MESI",
       "backend.access_time" : "100 ns",
       "backend.mem_size" : "2048MiB",
-      "clock" : "1GHz"
+      "clock" : "1GHz",
+      "debug" : 1,
+      "debug_level" : 10
 })
 
 # Define the simulation links
