@@ -5,11 +5,11 @@ sst.setProgramOption("stopAtCycle", "0ns")
 
 vcore = sst.Component("vcore0", "vanadis.VanadisCore")
 vcore.addParams( {
-	"verbose" : 1,
+	"verbose" : 16,
 	"coreid"  : 0,
 	"clock"   : "1.0GHz",
-	"icachereader.verbose" : 0,
-	"exe"     : "/usr/bin/du"
+	"icachereader.verbose" : 16,
+	"exe"     : "/Users/sdhammo/Documents/RISCV/test-apps/stream-riscv"
 })
 
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")
@@ -22,6 +22,7 @@ comp_l1cache.addParams({
       "cache_line_size" : "64",
       "prefetcher" : "cassini.StridePrefetcher",
       "debug" : "1",
+      "debug_level" : 10,
       "L1" : "1",
       "cache_size" : "32KB"
 })
@@ -30,7 +31,7 @@ comp_memory = sst.Component("memory", "memHierarchy.MemController")
 comp_memory.addParams({
       "coherence_protocol" : "MESI",
       "backend.access_time" : "100 ns",
-      "backend.mem_size" : "4096MiB",
+      "backend.mem_size" : "2048MiB",
       "clock" : "1GHz"
 })
 
