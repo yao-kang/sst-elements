@@ -33,6 +33,7 @@ protected:
 	VanadisRISCVDecoder* decoder;
 	InstCacheReader* icacheReader;
 	SimpleMem* icacheMem;
+	ELFDefinition* elfInfo;
 	Clock::HandlerBase* clockHandler;
 
 	uint64_t ip;

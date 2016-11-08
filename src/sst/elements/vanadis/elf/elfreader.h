@@ -156,6 +156,8 @@ public:
 	ELFObjectClass 		getELFClass() const { return objClass; }
 	ELFObjectEndianness getELFEndian() const { return objEndian; }
 
+	ELFProgramHeader*   getELFProgramHeader(uint16_t index) { return &programHeaders[index]; }
+
 protected:
 	std::string objPath;
 	

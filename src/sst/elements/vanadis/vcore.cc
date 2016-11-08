@@ -74,7 +74,7 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) :
 
 	if( 0 == coreID ) {
 		output->verbose(CALL_INFO, 1, 0, "Opening %s for ELF reading...\n", exePath.c_str());
-		ELFDefinition* elfInfo = ELFDefinition::readObject(exePath, output);
+		elfInfo = ELFDefinition::readObject(exePath, output);
 		output->verbose(CALL_INFO, 1, 0, "ELF read complete, analyzing...\n");
 
 		if(NULL == elfInfo) {
@@ -94,6 +94,19 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) :
 			elfInfo->getProgramHeaderEntryCount());
 		output->verbose(CALL_INFO, 1, 0, "-> Prg Header Entry Size:  %" PRIu16 "B\n",
 			elfInfo->getProgramHeaderEntrySize());
+
+		output->verbose(CALL_INFO, 1, 0, "-> Prg Headers:\n");
+		
+		for(uint16_t i = 0; i < elfInfo->getProgramHeaderEntryCount(); ++i) {
+			ELFProgramHeader* currentHeader = elfInfo->getELFProgramHeader(i);
+			
+			output->verbose(CALL_INFO, 1, 0, "|--> [%5" PRIu16 "] Type: %" PRIu32 " Offset: %" PRIu64 "/0x%" PRIx64 " VirtAddr: %" PRIu64 "/0x%" PRIx64 "\n",
+				i, currentHeader->type,
+				currentHeader->offset, currentHeader->offset,
+				currentHeader->virtAddress, currentHeader->virtAddress);
+			output->verbose(CALL_INFO, 1, 0, "|--> [%5" PRIu16 "] Size(File): %" PRIu64 " Size(Mem): %" PRIu64 "\n",
+				i, currentHeader->filesz, currentHeader->memsz);
+		}
 
 		output->verbose(CALL_INFO, 1, 0, "Setting instruction pointer of core 0 to: 0x%" PRIx64 "...\n",
 			elfInfo->getEntryPoint());
@@ -133,55 +146,50 @@ void VanadisCore::init(unsigned int phase) {
 					exePath.c_str());
 			}
 
-			// Seek at end of the file, lets see how large the executable is
-			fseek(readExe, 0, SEEK_END);
-			long exeLength = ftell(readExe);
-
-			if(exeLength == 0) {
-				output->fatal(CALL_INFO, -1, "Error: executable (%s) is zero length.\n",
-					exePath.c_str());
-			} else {
-				output->verbose(CALL_INFO, 1, 0, "Executable: %s will be read into the system memory for simulation.\n",
-					exePath.c_str());
-				output->verbose(CALL_INFO, 1, 0, "Executable length: %" PRIu64 " bytes.\n",
-					static_cast<uint64_t>(exeLength));
+			uint64_t maxOffset = 0;
+			
+			for(uint16_t i = 0; i < elfInfo->getProgramHeaderEntryCount(); ++i) {
+				ELFProgramHeader* currentHeader = elfInfo->getELFProgramHeader(i);
+	
+				maxOffset = std::max(maxOffset, currentHeader->virtAddress + currentHeader->memsz);
 			}
+			
+			output->verbose(CALL_INFO, 1, 0, "Scanned %" PRIu16 " ELF program headers, maximum virtual start + offset gives: %" PRIu64 "/0x%" PRIx64 "\n",
+				elfInfo->getProgramHeaderEntryCount(), maxOffset, maxOffset);
 
-			// Reset file pointer back to zero
-			rewind(readExe);
-
-			std::vector<uint8_t> exeBinary;
-			exeBinary.reserve(exeLength);
-
-			for(size_t i = 0; i < exeLength; ++i) {
-				exeBinary.push_back(static_cast<uint8_t>(0));
+			std::vector<uint8_t> exeImage;
+			exeImage.reserve(maxOffset);
+			
+			for(size_t i = 0; i < maxOffset; ++i) {
+				exeImage.push_back(0);
 			}
-
-			size_t objRead = fread( (char*) &exeBinary[0], 1,
-				static_cast<size_t>(exeLength), readExe);
-
-			if( objRead != static_cast<size_t>(exeLength) ) {
-				output->fatal(CALL_INFO, -1, "Error reading binary (%s) expected length: %" PRIu64 ", bytes actually read: %" PRIu64 "\n",
-					exePath.c_str(), static_cast<uint64_t>(exeLength), static_cast<uint64_t>(objRead));
-			} else {
-				output->verbose(CALL_INFO, 1, 0, "Executable binary read successfully from disk, closing file handles.\n");
-			}
-
-			for(size_t i = ip; i <= (ip + 64); i += 4) {
-				uint32_t theInst = 0;
-				copyData((char*) &exeBinary[i], (char*) &theInst, sizeof(theInst));
-
-				output->verbose(CALL_INFO, 1, 0, "Instruction [%10" PRIu64 " (%" PRIx64 ")]: 0x%" PRIx32 " / %" PRIu32 "\n",
-					static_cast<uint64_t>(i),
-					static_cast<uint64_t>(i), theInst, theInst);
+			
+			for(uint16_t i = 0; i < elfInfo->getProgramHeaderEntryCount(); ++i) {
+				ELFProgramHeader* currentHeader = elfInfo->getELFProgramHeader(i);
+	
+				output->verbose(CALL_INFO, 1, 0, "Program Header: %" PRIu16 ", Type: %" PRIu16 " Reading: %" PRIu64 " from offset: %" PRIu64 "/0x%" PRIx64 "...\n",
+					i, currentHeader->type, currentHeader->filesz,
+					currentHeader->offset, currentHeader->offset);
+				output->verbose(CALL_INFO, 1, 0, "-> Inserting into memory at %" PRIu64 "/0x%" PRIx64 "\n",
+					currentHeader->virtAddress, currentHeader->virtAddress);
+					
+				fseek(readExe, currentHeader->offset, SEEK_SET);
+	
+				size_t bytesRead = fread(&exeImage[currentHeader->virtAddress], 1,
+					currentHeader->filesz, readExe);
+					
+				if( bytesRead != currentHeader->filesz ) {
+					output->fatal(CALL_INFO, -1, "Error: reading program header %" PRIu16 ", expected: %" PRIu64 " bytes from file, read: %" PRIu64 "\n",
+						i, currentHeader->filesz, bytesRead);
+				}
 			}
 
 			output->verbose(CALL_INFO, 1, 0, "Creating huge memory write for executable (%" PRIu64 " bytes)\n",
-				static_cast<uint64_t>(exeLength));
+				static_cast<uint64_t>(exeImage.size()));
 
 			// One single huge  request for the system to put the binary into memory
 			SimpleMem::Request* writeExe = new SimpleMem::Request(SimpleMem::Request::Write,
-				0, exeLength, exeBinary);
+				0, exeImage.size(), exeImage);
 
 			output->verbose(CALL_INFO, 1, 0, "Done creating huge executable for memory write, will now send to the caches...\n");
 

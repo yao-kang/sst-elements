@@ -199,7 +199,7 @@ void InstCacheReader::fillFromCurrentBuffer(const uint64_t ip, void* instBuffer,
 	char* instBufferChar  = static_cast<char*>(instBuffer);
 
 	for(int i = 0; i < fillLen; i++) {
-		instBufferChar[i] = currentBuffer[offset + (fillLen - i - 1)];
+		instBufferChar[i] = currentBuffer[offset + i];
 	}
 }
 
