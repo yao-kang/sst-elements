@@ -116,11 +116,11 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 		output->fatal(CALL_INFO, -1, "Error: offset (%" PRIu64 ") + RespSize (%" PRIu64 ") exceeds buffer size for nextBufferIP=%" PRIu64 ", BuffLen=%" PRIu64 "\n",
 			offset, static_cast<uint64_t>(resp->size), nextBufferIP, bufferLength);
 	}
-	
+
 	for(int i = 0; i < resp->size; i++) {
-		printf("[%d]=%" PRIu8 "", i, (uint8_t) resp->data[i]);
+		printf("[%d]=0x%" PRIx8 "", i, (uint8_t) resp->data[i]);
 	}
-	
+
 	printf("\n");
 
 	char* dataVecPtr = (char*) &(resp->data[0]);
@@ -198,9 +198,23 @@ void InstCacheReader::fillFromCurrentBuffer(const uint64_t ip, void* instBuffer,
 	const uint64_t offset = ip - currentBufferIP;
 	char* instBufferChar  = static_cast<char*>(instBuffer);
 
-        for(uint64_t i = 0; i < fillLen; ++i) {
-        	instBufferChar[i] = currentBuffer[i + offset];
-        }
+	for(int i = 0; i < fillLen; i++) {
+		instBufferChar[i] = currentBuffer[offset + (fillLen - i - 1)];
+	}
+}
+
+void InstCacheReader::printCurrentBuffer() {
+	char* binary8Buff = (char*) malloc(sizeof(char) * 9);
+	binary8Buff[8] = '\0';
+
+	for(uint64_t i = 0; i < bufferLength; ++i) {
+		binaryStringize8(currentBuffer[i], binary8Buff);
+		
+		printf("%10" PRIx64 " : %8s | %d | 0x%" PRIx8 "\n", (currentBufferIP + i), binary8Buff,
+			static_cast<int>(currentBuffer[i]), static_cast<uint8_t>(currentBuffer[i]));
+	}
+	
+	free(binary8Buff);
 }
 
 bool InstCacheReader::fill(const uint64_t ip, void* instBuffer,

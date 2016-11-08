@@ -82,31 +82,41 @@ VanadisCore::VanadisCore(ComponentId_t id, Params& params) :
 		}
 
 		output->verbose(CALL_INFO, 1, 0, "ELF Information (%s)\n", exePath.c_str());
-		output->verbose(CALL_INFO, 1, 0, "-> Binary Class:      %s\n",
+		output->verbose(CALL_INFO, 1, 0, "-> Binary Class:           %s\n",
 			(elfInfo->getELFClass() == BIT_32 ? "32-bit" : "64-bit"));
-		output->verbose(CALL_INFO, 1, 0, "-> Endian:            %s\n",
+		output->verbose(CALL_INFO, 1, 0, "-> Endian:                 %s\n",
 			(elfInfo->getELFEndian() == ENDIAN_LITTLE) ? "Little-Endian" : "Big-Endian");
-		output->verbose(CALL_INFO, 1, 0, "-> Start Address:     0x%" PRIx64 "\n",
+		output->verbose(CALL_INFO, 1, 0, "-> Start Address:          0x%" PRIx64 "\n",
 			elfInfo->getEntryPoint());
-			
+		output->verbose(CALL_INFO, 1, 0, "-> Prg Header Offset:      0x%" PRIx64 "\n",
+			elfInfo->getProgramHeaderOffset());
+		output->verbose(CALL_INFO, 1, 0, "-> Prg Header Entries:     %" PRIu16 "\n",
+			elfInfo->getProgramHeaderEntryCount());
+		output->verbose(CALL_INFO, 1, 0, "-> Prg Header Entry Size:  %" PRIu16 "B\n",
+			elfInfo->getProgramHeaderEntrySize());
+
 		output->verbose(CALL_INFO, 1, 0, "Setting instruction pointer of core 0 to: 0x%" PRIx64 "...\n",
 			elfInfo->getEntryPoint());
 
-		ip = elfInfo->getEntryPoint();
+		if(0 == ip)
+			ip = elfInfo->getEntryPoint();
 	}
+	
+	decoder = new VanadisRISCVDecoder(output, icacheReader); 
 }
 
 void VanadisCore::copyData(const char* src, char* dest, const size_t len) {
 	for(size_t i = 0; i < len; ++i) {
 		dest[i] = src[i];
 	}
-	
-	for(size_t i = 0; i < 5; ++i) {
-		printf("%c|%c ", src[i], dest[i]);
+
+	for(size_t i = 0; i < len; ++i) {
+		printf("%" PRIu8 "|%" PRIu8 "/%" PRIx8 "|%" PRIx8 " ", src[i], dest[i],
+			src[i], dest[i]);
 	}
-	
+
 	printf("\n");
-} 
+}
 
 void VanadisCore::init(unsigned int phase) {
 
@@ -117,17 +127,16 @@ void VanadisCore::init(unsigned int phase) {
 		if( "" != exePath ){
 			// Read in a populate our memory
 			FILE* readExe = fopen(exePath.c_str(), "r");
-		
+
 			if(NULL == readExe) {
 				output->fatal(CALL_INFO, -1, "Error: unable to read: \'%s\' for loading into memory.\n",
 					exePath.c_str());
 			}
-		
+
 			// Seek at end of the file, lets see how large the executable is
 			fseek(readExe, 0, SEEK_END);
-		
 			long exeLength = ftell(readExe);
-		
+
 			if(exeLength == 0) {
 				output->fatal(CALL_INFO, -1, "Error: executable (%s) is zero length.\n",
 					exePath.c_str());
@@ -137,12 +146,16 @@ void VanadisCore::init(unsigned int phase) {
 				output->verbose(CALL_INFO, 1, 0, "Executable length: %" PRIu64 " bytes.\n",
 					static_cast<uint64_t>(exeLength));
 			}
-		
+
 			// Reset file pointer back to zero
-			fseek(readExe, 0, SEEK_SET);
-		
+			rewind(readExe);
+
 			std::vector<uint8_t> exeBinary;
 			exeBinary.reserve(exeLength);
+
+			for(size_t i = 0; i < exeLength; ++i) {
+				exeBinary.push_back(static_cast<uint8_t>(0));
+			}
 
 			size_t objRead = fread( (char*) &exeBinary[0], 1,
 				static_cast<size_t>(exeLength), readExe);
@@ -154,7 +167,17 @@ void VanadisCore::init(unsigned int phase) {
 				output->verbose(CALL_INFO, 1, 0, "Executable binary read successfully from disk, closing file handles.\n");
 			}
 
-			output->verbose(CALL_INFO, 1, 0, "Creating huge memory write for executable...\n");
+			for(size_t i = ip; i <= (ip + 64); i += 4) {
+				uint32_t theInst = 0;
+				copyData((char*) &exeBinary[i], (char*) &theInst, sizeof(theInst));
+
+				output->verbose(CALL_INFO, 1, 0, "Instruction [%10" PRIu64 " (%" PRIx64 ")]: 0x%" PRIx32 " / %" PRIu32 "\n",
+					static_cast<uint64_t>(i),
+					static_cast<uint64_t>(i), theInst, theInst);
+			}
+
+			output->verbose(CALL_INFO, 1, 0, "Creating huge memory write for executable (%" PRIu64 " bytes)\n",
+				static_cast<uint64_t>(exeLength));
 
 			// One single huge  request for the system to put the binary into memory
 			SimpleMem::Request* writeExe = new SimpleMem::Request(SimpleMem::Request::Write,
@@ -185,24 +208,22 @@ VanadisCore::~VanadisCore() {
 bool VanadisCore::tick( SST::Cycle_t cycle ) {
 
 	if(verbose) {
-		output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " Start-Tick: %" PRIu64 ", ip=%" PRIu64 "\n",
+		output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " Start-Tick: %" PRIu64 ", ip=0x%" PRIx64 "\n",
 			coreID, cycle, ip);
 	}
 
-	uint32_t currentIns = 0;
-	const bool fillSuccess = icacheReader->fill(ip, &currentIns, static_cast<uint64_t>(sizeof(currentIns)));
+	VanadisDecodeResponse decodeResp = decoder->decode(ip) ;
 
-	if(fillSuccess) {
-		ip += static_cast<uint64_t>(4);
+//	if( decodeResp == SUCCESS ) {
+//		ip += 4;
+//	}
 
-		if(verbose) {
-			output->verbose(CALL_INFO, 2, 0, "Core: %" PRIu32 " End-Tick: %" PRIu64 ", instruction=%" PRIu32 "\n",
-				coreID, cycle, currentIns);
-		}
-	} else {
-		if(verbose) {
-			output->verbose(CALL_INFO, 2, 0, "Fill failed, will have to wait.\n");
-		}
+	if( decodeResp != ICACHE_FILL_FAILED ) {
+		ip += 4;
+	}
+	
+	if( ip >= 65892 + 128  ) {
+		output->fatal(CALL_INFO, -1, "Stop.\n");
 	}
 
 	return false;

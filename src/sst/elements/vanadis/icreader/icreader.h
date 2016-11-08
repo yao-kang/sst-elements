@@ -9,6 +9,8 @@
 #include <sst/core/subcomponent.h>
 #include <sst/core/interfaces/simpleMem.h>
 
+#include "utils/printutils.hpp"
+
 #include <vector>
 
 using namespace SST::Interfaces;
@@ -27,6 +29,7 @@ public:
 	void initialize(const uint32_t core_id);
 
 	void setSimpleMem(SimpleMem* newMem);
+	void printCurrentBuffer();
 
 protected:
 	void fillFromCurrentBuffer(const uint64_t ip, void* instBuffer, const uint64_t fillLen);

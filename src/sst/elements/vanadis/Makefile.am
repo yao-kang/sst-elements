@@ -12,6 +12,8 @@ libvanadis_la_SOURCES = \
 	icreader/icreader.cc \
 	icreader/icreader.h \
 	libvanadis.cc \
-	elf/elfreader.h
+	elf/elfreader.h \
+	utils/printutils.cpp \
+	utils/printutils.hpp
 
 libvanadis_la_LDFLAGS = -module -avoid-version

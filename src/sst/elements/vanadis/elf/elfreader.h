@@ -7,6 +7,34 @@ namespace Vanadis {
 
 #define VANADIS_ELF_IDENT_SIZE 16
 
+typedef struct {
+	unsigned char ident[VANADIS_ELF_IDENT_SIZE];
+	uint16_t      type;
+	uint16_t      machine;
+	uint32_t      version;
+	uint64_t      entryPoint;
+	uint64_t      prgHeaderOffset;
+	uint64_t      shoff;
+	uint32_t      flags;
+	uint16_t      ehsize;
+	uint16_t      prgHeaderEntrySize;
+	uint16_t      prgHeaderEntries;
+	uint16_t      shentsize;
+	uint16_t      shnum;
+	uint16_t      shstrndx;
+} ELFHeader;
+
+typedef struct {
+	uint32_t   	  type;
+	uint32_t   	  flags;
+	uint64_t      offset;
+	uint64_t      virtAddress;
+	uint64_t      physAddress;
+	uint64_t      filesz;
+	uint64_t      memsz;
+	uint64_t      align;
+} ELFProgramHeader;
+
 enum ELFObjectType {
 	NONE,
 	RELOCATABLE,
@@ -48,20 +76,19 @@ public:
 			return NULL;
 		}
 
-		output->verbose(CALL_INFO, 1, 0, "Reading ELF header...\n");
+		size_t objRead = fread(&def->header, sizeof(header), 1, objFile);
 
-		unsigned char* elfHeader = new unsigned char[VANADIS_ELF_IDENT_SIZE];
-		size_t bytesRead = fread(elfHeader, VANADIS_ELF_IDENT_SIZE, 1, objFile);
-
-		if(bytesRead != 1) {
-			output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF header, did not get 16 bytes of head from a fread.\n");
+		if(objRead != 1) {
+			output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF header from executable.\n");
 			return NULL;
+		} else {
+			output->verbose(CALL_INFO, 1, 0, "ELF Header data was read successfully.\n");
 		}
 
-		if( elfHeader[0] == 0x7F &&
-		    elfHeader[1] == 0x45 &&
-		    elfHeader[2] == 0x4c &&
-		    elfHeader[3] == 0x46 ) {
+		if( def->header.ident[0] == 0x7F &&
+			def->header.ident[1] == 0x45 &&
+		    def->header.ident[2] == 0x4c &&
+		    def->header.ident[3] == 0x46 	) {
 
 			output->verbose(CALL_INFO, 1, 0, "ELF header recognized successfully\n");
 			// Passes ELF magic number check!
@@ -70,67 +97,47 @@ public:
 			return NULL;
 		}
 
-		if( elfHeader[4] == 0x01 ) {
+		
+		if( def->header.ident[4] == 0x01 ) {
 			def->objClass = BIT_32;
-		} else if (elfHeader[4] == 0x02) {
+		} else if (def->header.ident[4] == 0x02) {
 			def->objClass = BIT_64;
 		} else {
 			output->verbose(CALL_INFO, 1, 0, "Error: unknown ELF object class (not 32-bit or 64-bit).\n");
 			return NULL;
 		}
 
-		if( elfHeader[5] == 0x01 ) {
+		if( def->header.ident[5] == 0x01 ) {
 			def->objEndian = ENDIAN_LITTLE;
-		} else if( elfHeader[5] == 0x02 ) {
+		} else if( def->header.ident[5] == 0x02 ) {
 			def->objEndian = ENDIAN_BIG;
 		} else {
 			output->verbose(CALL_INFO, 1, 0, "Error: unknown ELF endian type (not LSB or MSB).\n");
 			return NULL;
 		}
 		
-		/*
-		    uint16_t      e_type;
-               uint16_t      e_machine;
-               uint32_t      e_version;
-               ElfN_Addr     e_entry;
-               ElfN_Off      e_phoff;
-               ElfN_Off      e_shoff;
-               uint32_t      e_flags;
-               uint16_t      e_ehsize;
-               uint16_t      e_phentsize;
-               uint16_t      e_phnum;
-               uint16_t      e_shentsize;
-               uint16_t      e_shnum;
-               uint16_t      e_shstrndx;
-        */
-        
-        bytesRead = fread(&def->objType, sizeof(def->objType), 1, objFile);
-        
-        if(bytesRead != 1) {
-        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF object type, did not get uint16_t from read\n");
-        	return NULL;
-        }
-        
-        bytesRead = fread(&def->objMachineType, sizeof(def->objMachineType), 1, objFile);
-        
-        if(bytesRead != 1) {
-        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF object machine type, did not get uint16_t from read\n");
-        	return NULL;
-        }
-        
-        bytesRead = fread(&def->objHeaderVersion, sizeof(def->objHeaderVersion), 1, objFile);
-        
-        if(bytesRead != 1) {
-        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read ELF object version, did not get a uint32_t from read\n");
-        	return NULL;
-        }
-        
-        bytesRead = fread(&def->objEntryAddress, sizeof(def->objEntryAddress), 1, objFile);
-        
-        if(bytesRead != 1) {
-        	output->verbose(CALL_INFO, 1, 0, "Error: unable to read the ELF start address for the binary, expected a uint64_t\n");
-        	return NULL;
-        }
+		const uint64_t prgHeaderOffset = def->getProgramHeaderOffset();
+		const uint64_t prgHeaderSize   = static_cast<uint64_t>(def->getProgramHeaderEntrySize());
+		const uint16_t prgHeaderCount  = def->getProgramHeaderEntryCount();
+		
+		if( sizeof(ELFProgramHeader) != prgHeaderSize ) {
+			output->fatal(CALL_INFO, -1, "Error: Program Header Size: %" PRIu64 " != Structure Size: %" PRIu64 "\n",
+				prgHeaderSize, static_cast<uint64_t>(sizeof(ELFProgramHeader)));
+		}
+		
+		def->programHeaders = (ELFProgramHeader*) malloc( prgHeaderSize * prgHeaderCount );
+		
+		fseek(objFile, prgHeaderOffset, SEEK_SET);
+		
+		const size_t headerObj = fread(def->programHeaders, prgHeaderSize, prgHeaderCount, objFile);
+		
+		if( headerObj != prgHeaderCount ) {
+			output->fatal(CALL_INFO, -1, "Error: reading program header failed, wanted to read: %" PRIu16 " headers, but read: %" PRIu64 "\n",
+				prgHeaderCount, headerObj);
+		} else {
+			output->verbose(CALL_INFO, 1, 0, "Successfully read %" PRIu16 " program headers from file.\n",
+				prgHeaderCount);
+		}
 
 		fclose(objFile);
 
@@ -140,22 +147,26 @@ public:
 //	ELFObjectType getObjectType() const { return objType; }
 //	ELFObjectMachineType getObjectMachineType() const { return objMachineType; }
 	
-	uint64_t getEntryPoint() const { return objEntryAddress; }
-
-	std::string getObjectPath() const { return objPath; }
-	ELFObjectClass getELFClass() const { return objClass; }
+	uint64_t 			getEntryPoint() const { return header.entryPoint; }
+	uint64_t			getProgramHeaderOffset() const { return header.prgHeaderOffset; }
+	uint16_t			getProgramHeaderEntryCount() const { return header.prgHeaderEntries; }
+	uint16_t			getProgramHeaderEntrySize() const { return header.prgHeaderEntrySize; }
+	
+	std::string 		getObjectPath() const { return objPath; }
+	ELFObjectClass 		getELFClass() const { return objClass; }
 	ELFObjectEndianness getELFEndian() const { return objEndian; }
 
 protected:
 	std::string objPath;
+	
+	ELFHeader header;
+	ELFProgramHeader* programHeaders;
 
 	ELFObjectClass objClass;
 	ELFObjectEndianness objEndian;
 
-	uint16_t objType;
 	uint16_t objMachineType;
 	uint32_t objHeaderVersion;
-	uint64_t objEntryAddress;
 
 };
 

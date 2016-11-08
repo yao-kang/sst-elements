@@ -10,6 +10,7 @@
 #include <sst/core/params.h>
 
 #include "icreader/icreader.h"
+#include "decode/riscvdecode.h"
 #include "elf/elfreader.h"
 
 namespace SST {
@@ -29,6 +30,7 @@ protected:
 
 	bool tick( SST::Cycle_t );
 
+	VanadisRISCVDecoder* decoder;
 	InstCacheReader* icacheReader;
 	SimpleMem* icacheMem;
 	Clock::HandlerBase* clockHandler;

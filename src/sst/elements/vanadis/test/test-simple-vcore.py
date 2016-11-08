@@ -9,7 +9,8 @@ vcore.addParams( {
 	"coreid"  : 0,
 	"clock"   : "1.0GHz",
 	"icachereader.verbose" : 16,
-	"exe"     : "/Users/sdhammo/Documents/RISCV/test-apps/stream-riscv"
+	"exe"     : "/Users/sdhammo/Documents/RISCV/test-apps/stream-riscv",
+	"startip" : 65892
 })
 
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")
