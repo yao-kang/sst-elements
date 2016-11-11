@@ -173,8 +173,11 @@ class MemBackendConvertor : public SubComponent {
     PendingRequests         m_pendingRequests;
     uint32_t                m_frontendRequestWidth;
 
-    MemEvent*  m_flushEvent;
-    std::deque<MemEvent*> m_waiting;
+    TimeConverter*          m_clockTC;
+    Clock::HandlerBase*     m_handler;
+
+    MemEvent*               m_flushEvent;
+    std::deque<MemEvent*>   m_waiting;
 
     Statistic<uint64_t>* stat_GetSLatency;
     Statistic<uint64_t>* stat_GetSExLatency;

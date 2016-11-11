@@ -50,6 +50,10 @@ MemBackendConvertor::MemBackendConvertor(Component *comp, Params& params ) :
         m_backendRequestWidth = m_frontendRequestWidth;
     }
 
+    m_handler = new Clock::Handler<MemBackendConvertor>(this, &MemBackendConvertor::clock);
+    m_clockTC = registerClock( getClockFreq(), m_handler );
+    unregisterClock( m_clockTC, m_handler);
+
     stat_GetSReqReceived    = registerStatistic<uint64_t>("requests_received_GetS");
     stat_GetSExReqReceived  = registerStatistic<uint64_t>("requests_received_GetSEx");
     stat_GetXReqReceived    = registerStatistic<uint64_t>("requests_received_GetX");
@@ -79,6 +83,10 @@ void MemBackendConvertor::handleMemEvent(  MemEvent* ev ) {
     } else {
         m_waiting.push_back( ev );
     } 
+
+    if ( 1 ==  m_pendingRequests.size() ) {
+        reregisterClock( m_clockTC, m_handler);
+    }
 }
 
 bool MemBackendConvertor::clock(Cycle_t cycle) {
@@ -113,7 +121,7 @@ bool MemBackendConvertor::clock(Cycle_t cycle) {
 
     m_backend->clock();
 
-    return false;
+    return m_pendingRequests.empty(); 
 }
 
 MemEvent* MemBackendConvertor::doResponse( ReqId reqId ) {

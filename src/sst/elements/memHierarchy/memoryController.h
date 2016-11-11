@@ -81,7 +81,11 @@ private:
     }
 
     void handleEvent( SST::Event* );
-    bool clock( SST::Cycle_t );
+
+    TimeConverter*          m_clockTC;
+    Clock::HandlerBase*     m_handler;
+
+    bool frontendClock( SST::Cycle_t );
     void performRequest( MemEvent* );
     void performResponse( MemEvent* );
     void processInitEvent( MemEvent* );
@@ -94,6 +98,7 @@ private:
     SST::Link*  cacheLink_;         // Link to the rest of memHierarchy 
     MemNIC*     networkLink_;       // Link to the rest of memHierarchy if we're communicating over a network
 
+    std::deque<MemEvent*>       respQ_;
     std::vector<CacheListener*> listeners_;
 
 

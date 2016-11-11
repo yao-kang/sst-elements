@@ -154,8 +154,11 @@ MemController::MemController(ComponentId_t id, Params &params) : Component(id), 
         }
     }
 
-    /* Clock Handler */
-    registerClock(memBackendConvertor_->getClockFreq(), new Clock::Handler<MemController>(this, &MemController::clock));
+    std::string frontendClock = params.find<std::string>("frontendClock","200Mhz");
+
+    m_handler = new Clock::Handler<MemController>(this, &MemController::frontendClock);
+    m_clockTC = registerClock( frontendClock, m_handler );
+    unregisterClock( m_clockTC, m_handler);
     registerTimeBase("1 ns", true);
 }
 
@@ -215,13 +218,22 @@ void MemController::handleEvent(SST::Event* event) {
     }
 }
 
-bool MemController::clock(Cycle_t cycle) {
+bool MemController::frontendClock(Cycle_t cycle) {
 
     if (networkLink_) networkLink_->clock();
 
-    memBackendConvertor_->clock( cycle );
+    if ( ! respQ_.empty() ) {
+        MemEvent* ev = respQ_.front();
+        respQ_.pop_front();
+        performResponse( ev );
 
-    return false;
+        if ( networkLink_ ) {
+            networkLink_->send( ev );
+        } else {
+            cacheLink_->send( ev );
+        }
+    }
+    return respQ_.empty();
 }
 
 void MemController::handleMemResponse( MemEvent* ev ) {
@@ -231,12 +243,10 @@ void MemController::handleMemResponse( MemEvent* ev ) {
     Debug(_L10_,"Event info: Addr: 0x%" PRIx64 ", dst = %s, src = %s, rqstr = %s, size = %d, prefetch = %d, vAddr = 0x%" PRIx64 ", instPtr = %" PRIx64 "\n",
         ev->getBaseAddr(), ev->getDst().c_str(), ev->getSrc().c_str(), ev->getRqstr().c_str(), ev->getSize(), ev->isPrefetch(), ev->getVirtualAddress(), ev->getInstructionPointer());
 
-    performResponse( ev );
+    respQ_.push_back(ev);
 
-    if ( networkLink_ ) {
-        networkLink_->send( ev );
-    } else {
-        cacheLink_->send( ev );
+    if ( 1 == respQ_.size() ) {
+        reregisterClock( m_clockTC, m_handler);
     }
 }
     
@@ -326,7 +336,7 @@ void MemController::processInitEvent( MemEvent* me ) {
     /* Push data to memory */
     if (GetX == me->getCmd()) {
         Addr addr = me->getAddr();
-        Debug(_L10_,"Memory init %s - Received GetX for %" PRIx64 " size %" PRIu64 "\n", getName().c_str(), me->getAddr(),me->getSize());
+        Debug(_L10_,"Memory init %s - Received GetX for %" PRIx64 " size %" PRIu32 "\n", getName().c_str(), me->getAddr(),me->getSize());
         if ( isRequestAddressValid(addr) && backing_ ) {
             for ( size_t i = 0 ; i < me->getSize() ; i++) {
                 backing_->set( addr + i,  me->getPayload()[i] );
