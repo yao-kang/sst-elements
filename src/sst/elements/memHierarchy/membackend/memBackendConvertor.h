@@ -132,7 +132,7 @@ class MemBackendConvertor : public SubComponent {
         return decideDeclock();
     }
 
-    void doClockStat( ) {
+    void doClockStat() {
         totalCycles->addData(1);        
     }
 

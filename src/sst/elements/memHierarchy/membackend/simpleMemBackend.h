@@ -28,7 +28,6 @@ public:
     SimpleMemory(Component *comp, Params &params);
     bool issueRequest(ReqId, Addr, bool, unsigned );
     virtual int32_t getMaxReqPerCycle() { return 1; }
-    bool useDynamicClock() { return true; }
     
 public:
     class MemCtrlEvent : public SST::Event {

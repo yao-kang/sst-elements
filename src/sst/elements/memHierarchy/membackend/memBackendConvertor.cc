@@ -89,7 +89,7 @@ void MemBackendConvertor::handleMemEvent(  MemEvent* ev ) {
     } 
 }
 
-bool MemBackendConvertor::clock(Cycle_t cycle ) {
+bool MemBackendConvertor::clock( Cycle_t cycle ) {
 
     doClockStat();
 
