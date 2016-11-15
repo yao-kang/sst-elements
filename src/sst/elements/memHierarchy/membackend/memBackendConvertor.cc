@@ -9,7 +9,7 @@
 // See the file CONTRIBUTORS.TXT in the top level directory
 // the distribution for more information.
 //
-// This file is part of the SST software package. For license
+// This file is part of the SST software package. For license 
 // information, see the LICENSE file in the top level directory of the
 // distribution.
 
@@ -52,7 +52,11 @@ MemBackendConvertor::MemBackendConvertor(Component *comp, Params& params ) :
 
     m_handler = new Clock::Handler<MemBackendConvertor>(this, &MemBackendConvertor::clock);
     m_clockTC = registerClock( getClockFreq(), m_handler );
-    unregisterClock( m_clockTC, m_handler);
+    m_usingDynamicClock = static_cast<SimpleMemBackend*>(m_backend)->useDynamicClock();
+
+    if ( m_usingDynamicClock ) {
+        unregisterClock( m_clockTC, m_handler);
+    }
 
     stat_GetSReqReceived    = registerStatistic<uint64_t>("requests_received_GetS");
     stat_GetSExReqReceived  = registerStatistic<uint64_t>("requests_received_GetSEx");
@@ -83,13 +87,9 @@ void MemBackendConvertor::handleMemEvent(  MemEvent* ev ) {
     } else {
         m_waiting.push_back( ev );
     } 
-
-    if ( 1 ==  m_pendingRequests.size() ) {
-        reregisterClock( m_clockTC, m_handler);
-    }
 }
 
-bool MemBackendConvertor::clock(Cycle_t cycle) {
+bool MemBackendConvertor::clock(Cycle_t cycle ) {
 
     doClockStat();
 
@@ -121,7 +121,7 @@ bool MemBackendConvertor::clock(Cycle_t cycle) {
 
     m_backend->clock();
 
-    return m_pendingRequests.empty(); 
+    return decideDeclock();
 }
 
 MemEvent* MemBackendConvertor::doResponse( ReqId reqId ) {

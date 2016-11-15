@@ -112,11 +112,24 @@ class MemBackendConvertor : public SubComponent {
         if ( FlushLine == ev->getCmd() || FlushLineInv == ev->getCmd() ) {
             return ev; 
         }
+
+        if ( decideReclock() ) {
+            reregisterClock( m_clockTC, m_handler);
+        } 
+
         uint32_t id = genReqId();
         MemReq* req = new MemReq( ev, id );
         m_requestQueue.push_back( req );
         m_pendingRequests[id] = req;
         return NULL;
+    }
+
+    bool decideDeclock() {
+        return m_usingDynamicClock && m_requestQueue.empty();
+    }
+
+    bool decideReclock() {
+        return decideDeclock();
     }
 
     void doClockStat( ) {
@@ -175,6 +188,7 @@ class MemBackendConvertor : public SubComponent {
 
     TimeConverter*          m_clockTC;
     Clock::HandlerBase*     m_handler;
+    bool                    m_usingDynamicClock;
 
     MemEvent*               m_flushEvent;
     std::deque<MemEvent*>   m_waiting;

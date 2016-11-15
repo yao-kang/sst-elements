@@ -84,6 +84,7 @@ public:
     virtual uint32_t getRequestWidth() { return m_reqWidth; }
     virtual int32_t getMaxReqPerCycle() { return m_maxReqPerCycle; } 
     virtual const std::string& getClockFreq() { return m_clockFreq; } 
+    virtual bool useDynamicClock() { return false; } 
 protected:
     Output*         output;
     std::string     m_clockFreq;
