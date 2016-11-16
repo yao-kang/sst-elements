@@ -125,7 +125,7 @@ class MemBackendConvertor : public SubComponent {
     }
 
     bool decideDeclock() {
-        return m_usingDynamicClock && m_requestQueue.empty();
+        return m_usingDynamicClock && m_pendingRequests.empty() && m_requestQueue.empty();
     }
 
     bool decideReclock() {

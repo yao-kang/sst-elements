@@ -81,7 +81,6 @@ void TimingDRAM::clock()
     for ( unsigned i = 0; i < m_channels.size(); i++ ) {
         m_channels[i].clock(m_cycle);
     }
-    ++m_cycle;
 }
 
 //==================================================================================

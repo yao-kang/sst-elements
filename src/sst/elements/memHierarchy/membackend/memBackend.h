@@ -79,6 +79,7 @@ public:
 
     virtual void setup() {}
     virtual void finish() {}
+    virtual void setClockCycle( Cycle_t ) {} 
     virtual void clock() {} 
     virtual size_t getMemSize() { return m_memSize; }
     virtual uint32_t getRequestWidth() { return m_reqWidth; }

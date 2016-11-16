@@ -250,7 +250,7 @@ class TimingDRAM : public SimpleMemBackend {
             return true;
         }
 
-        void clock(SimTime_t );
+        void clock(SimTime_t);
 
       private:
         Cmd* popCmd( SimTime_t cycle, SimTime_t dataBusAvailCycle );
@@ -281,7 +281,9 @@ public:
         getConvertor()->handleMemResponse( id );
     }
     virtual void clock();
+    virtual void setClockCycle(Cycle_t cycle ) { m_cycle = cycle; }
     virtual void finish() {}
+    virtual bool useDynamicClock() { return true; }
 
 private:
 

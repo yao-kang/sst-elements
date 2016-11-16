@@ -93,6 +93,8 @@ bool MemBackendConvertor::clock( Cycle_t cycle ) {
 
     doClockStat();
 
+    m_backend->setClockCycle(cycle);
+
     int reqsThisCycle = 0;
     while ( !m_requestQueue.empty()) {
         if ( reqsThisCycle == m_backend->getMaxReqPerCycle() ) {
