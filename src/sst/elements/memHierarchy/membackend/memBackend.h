@@ -38,7 +38,7 @@ public:
     typedef MemBackendConvertor::ReqId ReqId;
     MemBackend();
 
-    MemBackend(Component *comp, Params &params) : SubComponent(comp)
+    MemBackend(Component *comp, Params &params) : SubComponent(comp), ctrl(NULL), m_useDynamicClock(false)
     {
     	output = new SST::Output("@t:MemoryBackend[@p:@l]: ", 
                 params.find<uint32_t>("debug_level", 0),
@@ -80,13 +80,20 @@ public:
 
     virtual void setup() {}
     virtual void finish() {}
+    virtual void setClockCycle( Cycle_t ) {} 
     virtual void clock() {} 
     virtual size_t getMemSize() { return m_memSize; }
     virtual uint32_t getRequestWidth() { return m_reqWidth; }
     virtual int32_t getMaxReqPerCycle() { return m_maxReqPerCycle; } 
     virtual const std::string& getClockFreq() { return m_clockFreq; } 
-protected:
+    virtual bool useDynamicClock() { return m_useDynamicClock; } 
+  protected:
     Output*         output;
+
+    MemBackendConvertor *ctrl;
+    bool            m_useDynamicClock;
+
+  private:
     std::string     m_clockFreq;
     int32_t         m_maxReqPerCycle;
     size_t          m_memSize;

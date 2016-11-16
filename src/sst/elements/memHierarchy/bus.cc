@@ -106,7 +106,7 @@ void Bus::sendSingleEvent(SST::Event* ev) {
     if (DEBUG_ALL || DEBUG_ADDR == event->getBaseAddr()) {
         dbg_.debug(_L3_,"\n\n");
         dbg_.debug(_L3_,"----------------------------------------------------------------------------------------\n");    //raise(SIGINT);
-        dbg_.debug(_L3_,"Incoming Event. Name: %s, Cmd: %s, Addr: %" PRIx64 ", BsAddr: %" PRIx64 ", Src: %s, Dst: %s, LinkID: %ld \n",
+        dbg_.debug(_L3_,"Incoming Event. Name: %s, Cmd: %s, Addr: %" PRIx64 ", BsAddr: %" PRIx64 ", Src: %s, Dst: %s, LinkID: %d\n",
                    this->getName().c_str(), CommandString[event->getCmd()], event->getAddr(), event->getBaseAddr(), event->getSrc().c_str(), event->getDst().c_str(), event->getDeliveryLink()->getId());
     }
 #endif

@@ -206,7 +206,7 @@ class TimingDRAM : public SimpleMemBackend {
         void pushTrans( Transaction* trans ) {
             unsigned bank = m_mapper->getBank( trans->addr);
             
-            m_output->verbosePrefix(prefix(),CALL_INFO, 2, DBG_MASK,"bank=%d addr=%#lx\n",
+            m_output->verbosePrefix(prefix(),CALL_INFO, 2, DBG_MASK,"bank=%d addr=%" PRIx64 "\n",
                 bank,trans->addr);
 
             m_banks[bank].pushTrans( trans );
@@ -240,7 +240,7 @@ class TimingDRAM : public SimpleMemBackend {
 
             unsigned rank = m_mapper->getRank( addr);
 
-            m_output->verbosePrefix(prefix(),CALL_INFO, 3, DBG_MASK,"reqId=%lu rank=%d addr=%#lx\n", id, rank, addr );
+            m_output->verbosePrefix(prefix(),CALL_INFO, 3, DBG_MASK,"reqId=%" PRIx64 " rank=%d addr=%" PRIx64 "\n", id, rank, addr );
 
             Transaction* trans = new Transaction( createTime, id, addr, isWrite, numBytes, m_mapper->getBank(addr),
                                                 m_mapper->getRow(addr) );
@@ -250,7 +250,7 @@ class TimingDRAM : public SimpleMemBackend {
             return true;
         }
 
-        void clock(SimTime_t );
+        void clock(SimTime_t);
 
       private:
         Cmd* popCmd( SimTime_t cycle, SimTime_t dataBusAvailCycle );
@@ -281,7 +281,9 @@ public:
         handleMemResponse( id );
     }
     virtual void clock();
+    virtual void setClockCycle(Cycle_t cycle ) { m_cycle = cycle; }
     virtual void finish() {}
+    virtual bool useDynamicClock() { return true; }
 
 private:
 
