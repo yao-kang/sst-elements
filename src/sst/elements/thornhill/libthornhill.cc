@@ -23,6 +23,7 @@
 #include "sst/core/subcomponent.h"
 
 #include "singleThread.h"
+#include "multiThread.h"
 #include "memoryHeapLink.h"
 #include "memoryHeap.h"
 
@@ -40,11 +41,20 @@ load_SingleThread( Component* comp, Params& params ) {
 }
 
 static SubComponent*
+load_MultiThread( Component* comp, Params& params ) {
+    return new MultiThread(comp, params);
+}
+
+static SubComponent*
 load_MemoryHeapLink( Component* comp, Params& params ) {
     return new MemoryHeapLink(comp, params);
 }
 
 static const ElementInfoParam singleThread_params[] = {
+    {   NULL,   NULL,   NULL    }
+};
+
+static const ElementInfoParam multiThread_params[] = {
     {   NULL,   NULL,   NULL    }
 };
 
@@ -82,7 +92,14 @@ static const ElementInfoSubComponent subcomponents[] = {
 		NULL, // Statistics
     	"SST::Thornhill::SingleThread"
     },
-
+    { 	"MultiThread",
+    	"One worker thread",
+    	NULL,
+    	load_MultiThread,
+    	multiThread_params,
+		NULL, // Statistics
+    	"SST::Thornhill::MultiThread"
+    },
     { 	"MemoryHeapLink",
     	"Link to Memory Heap",
     	NULL,

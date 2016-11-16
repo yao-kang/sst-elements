@@ -14,10 +14,12 @@ libthornhill_la_SOURCES = \
 	memoryHeap.h\
 	memoryHeap.cc\
 	memoryHeapLink.h\
-	singleThread.h\
 	memoryHeapEvent.h\
 	memoryHeapLink.h\
+	singleThread.h\
 	singleThread.cc\
+	multiThread.h\
+	multiThread.cc\
 	types.h
 
 libthornhill_la_LDFLAGS = -module -avoid-version
