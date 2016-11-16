@@ -80,14 +80,7 @@ public:
         start_b += (count / numThreads) * thread * width;
         start_c += (count / numThreads) * thread * width;
 
-        if ( thread != numThreads  - 1 ) {
-            count /= numThreads;
-        } else {
-            count %= numThreads;
-            if ( 0 == count ) {
-                count /= numThreads;
-            }
-        }
+        count = calcCount( numThreads, thread, count );
 
         insertParam<>( newParams, params, "start_a", start_a);
         insertParam<>( newParams, params, "start_b", start_b);

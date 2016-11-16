@@ -45,6 +45,14 @@ protected:
         tmp << value;
         newParams.insert( key, tmp.str() );
     }
+
+    uint32_t calcCount( unsigned numThreads, unsigned thread, unsigned count ) {
+        if ( thread == numThreads - 1 ) {
+            return count % numThreads ? count % numThreads : count / numThreads;
+        } else {
+            return count /= numThreads;
+        }
+    }
 };
 
 }

@@ -121,14 +121,7 @@ public:
         read_start += (count / numThreads) * thread * width;
         write_start += (count / numThreads) * thread * width;
 
-        if ( thread != numThreads  - 1 ) {
-            count /= numThreads;
-        } else {
-            count %= numThreads;
-            if ( 0 == count ) {
-                count /= numThreads;
-            }
-        }
+        count = calcCount( numThreads, thread, count );
 
         insertParam<>( newParams, params, "read_start_address", read_start);
         insertParam<>( newParams, params, "write_start_address", write_start);
