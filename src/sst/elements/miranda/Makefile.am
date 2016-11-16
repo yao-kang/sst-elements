@@ -29,7 +29,8 @@ libmiranda_la_SOURCES = \
 	generators/gupsgen.cc \
 	generators/nullgen.h \
 	generators/spmvgen.h \
-	generators/copygen.h
+	generators/copygen.h \
+	generators/generatorSplit.h \
 
 EXTRA_DIST = \
 	tests/randomgen.py \

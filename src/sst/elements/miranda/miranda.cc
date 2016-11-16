@@ -45,6 +45,10 @@ static SubComponent* load_CopyGenerator(Component* owner, Params& params) {
 	return new CopyGenerator(owner, params);
 }
 
+static Module* load_CopyGeneratorSplit(Params &params) {
+    return new CopyGeneratorSplit(params);
+}
+
 static SubComponent* load_RevSingleStreamGenerator(Component* owner, Params& params) {
 	return new ReverseSingleStreamGenerator(owner, params);
 }
@@ -55,6 +59,10 @@ static SubComponent* load_RandomGenerator(Component* owner, Params& params) {
 
 static SubComponent* load_STREAMGenerator(Component* owner, Params& params) {
 	return new STREAMBenchGenerator(owner, params);
+}
+
+static Module* load_STREAMGeneratorSplit(Params &params) {
+    return new STREAMBenchGeneratorSplit(params);
 }
 
 static SubComponent* load_InOrderSTREAMGenerator(Component* owner, Params& params) {
@@ -327,6 +335,26 @@ static const ElementInfoComponent components[] = {
 	{ NULL, NULL, NULL, NULL, NULL, NULL, 0 }
 };
 
+static const ElementInfoModule modules[] = {
+    { "CopyGeneratorSplit",
+      "Copy generator split to multi thread  ",
+      NULL,
+      load_CopyGeneratorSplit,
+      NULL,
+      NULL, // params
+     "SST::Miranda::RequestGenerator"
+    },
+    { "STREAMBenchGeneratorSplit",
+      "STREAM generator split to multi thread  ",
+      NULL,
+      load_STREAMGeneratorSplit,
+      NULL,
+      NULL, // params
+     "SST::Miranda::RequestGenerator"
+    },
+    { NULL, NULL, NULL, NULL, NULL, NULL}
+};
+
 extern "C" {
     ElementLibraryInfo miranda_eli = {
         "miranda",
@@ -334,7 +362,7 @@ extern "C" {
         components,
         NULL, // events
         NULL, // introspectors
-	NULL, // modules
+	modules, // modules
 	subcomponents,
         NULL, // partitioners
         NULL, // python module generators

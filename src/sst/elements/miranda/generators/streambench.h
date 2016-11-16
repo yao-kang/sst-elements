@@ -18,6 +18,7 @@
 #define _H_SST_MIRANDA_STREAM_BENCH_GEN
 
 #include <sst/elements/miranda/mirandaGenerator.h>
+#include <sst/elements/miranda/generators/generatorSplit.h>
 #include <sst/core/output.h>
 
 #include <queue>
@@ -47,6 +48,54 @@ private:
 
 	Output*  out;
 
+};
+
+class STREAMBenchGeneratorSplit : public GeneratorSplit {
+public: 
+    STREAMBenchGeneratorSplit( Params& ) {}
+
+    std::pair<std::string, SST::Params> split( size_t numThreads, int thread, std::string name, SST::Params params )
+    {
+        SST::Params newParams;
+
+        copyParam( newParams, params, "operandwidth" );
+        copyParam( newParams, params, "verbose" );
+        copyParam( newParams, params, "generatorParams.verbose" );
+        copyParam( newParams, params, "n_per_call" );
+
+        bool found;
+        int width =  params.find<int>( "operandwidth" , found );
+        assert ( found );
+
+        int count =  params.find<int>( "n" , found );
+        assert ( found );
+
+        size_t start_a  =  params.find<size_t>( "start_a" , found );
+        assert ( found );
+
+        size_t start_b  =  params.find<size_t>( "start_b" , start_a + (count * width) );
+        size_t start_c  =  params.find<size_t>( "start_c" , start_b + (count * width) );
+
+        start_a += (count / numThreads) * thread * width;
+        start_b += (count / numThreads) * thread * width;
+        start_c += (count / numThreads) * thread * width;
+
+        if ( thread != numThreads  - 1 ) {
+            count /= numThreads;
+        } else {
+            count %= numThreads;
+            if ( 0 == count ) {
+                count /= numThreads;
+            }
+        }
+
+        insertParam<>( newParams, params, "start_a", start_a);
+        insertParam<>( newParams, params, "start_b", start_b);
+        insertParam<>( newParams, params, "start_c", start_c);
+        insertParam<>( newParams, params, "n", count);
+
+        return std::make_pair( name, newParams );
+    }
 };
 
 }

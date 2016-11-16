@@ -17,7 +17,9 @@
 #ifndef _H_SST_MIRANDA_COPY_BENCH_GEN
 #define _H_SST_MIRANDA_COPY_BENCH_GEN
 
+#include <sst/core/rng/sstrng.h>
 #include <sst/elements/miranda/mirandaGenerator.h>
+#include <sst/elements/miranda/generators/generatorSplit.h>
 #include <sst/core/output.h>
 
 #include <queue>
@@ -90,6 +92,52 @@ private:
 	Output*  out;
 
 };
+
+class CopyGeneratorSplit : public GeneratorSplit {
+public:
+    CopyGeneratorSplit(Params& params ) {}
+
+    std::pair<std::string, SST::Params> split( size_t numThreads, int thread, std::string name, SST::Params params ) 
+    {
+
+        SST::Params newParams;
+
+        copyParam( newParams, params, "operandwidth" );
+        copyParam( newParams, params, "verbose" );
+        copyParam( newParams, params, "generatorParams.verbose" );
+        copyParam( newParams, params, "n_per_call" );
+
+        bool found;
+        int width =  params.find<int>( "operandwidth" , found );
+        assert ( found );
+
+        int count =  params.find<int>( "request_count" , found );
+        assert ( found );
+
+        size_t read_start  =  params.find<size_t>( "read_start_address" , found );
+        assert ( found );
+        size_t write_start  =  params.find<size_t>( "write_start_address", read_start + (width * count) );
+
+        read_start += (count / numThreads) * thread * width;
+        write_start += (count / numThreads) * thread * width;
+
+        if ( thread != numThreads  - 1 ) {
+            count /= numThreads;
+        } else {
+            count %= numThreads;
+            if ( 0 == count ) {
+                count /= numThreads;
+            }
+        }
+
+        insertParam<>( newParams, params, "read_start_address", read_start);
+        insertParam<>( newParams, params, "write_start_address", write_start);
+        insertParam<>( newParams, params, "request_count", count);
+
+        return std::make_pair( name, newParams );
+    }
+};
+
 
 }
 }
