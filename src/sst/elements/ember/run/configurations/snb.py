@@ -100,6 +100,10 @@ def _configureMemCtrl( prefix, id, dc_params, mem_params, start_addr, end_addr, 
     #print 'create', name
     mem = sst.Component(name, "memHierarchy.MemController")
     mem.addParams(mem_params)
+    mem.addParams({
+        "backend.id": id,
+        "backendConverter.id": id,
+    })
 
     name = prefix + "dc_" + id 
     #print 'create' , name
