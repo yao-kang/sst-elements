@@ -22,6 +22,8 @@ enum VanadisDecodeResponse {
 
 //                                                 ***     *******
 #define VANADIS_INST_IRSSB_TYPE 0b00000000000000000111000001111111
+// MATH MASKS                     *******          ***     *******
+#define VANADIS_INST_MATH_TYPE  0b11111110000000000111000001111111
 
 #define VANADIS_INST_LUI        0b00000000000000000000000000110111
 #define VANADIS_INST_AUIPC      0b00000000000000000000000000010111
@@ -31,10 +33,11 @@ enum VanadisDecodeResponse {
 #define VANADIS_LOAD_FAMILY     0b00000000000000000000000000000011
 #define VANADIS_STORE_FAMILY    0b00000000000000000000000000100011
 #define VANADIS_IMM_MATH_FAMILY 0b00000000000000000000000000010011
+#define VANADIS_MATH_FAMILY     0b00000000000000000000000000110011
 #define VANADIS_FENCE_FAMILY    0b00000000000000000000000000001111
 #define VANADIS_BRANCH_FAMILY   0b00000000000000000000000001100011
 
-//                                                 ***     *******
+// LOAD MASKS                                      ***     *******
 #define VANADIS_INST_LB         0b00000000000000000000000000000011
 #define VANADIS_INST_LH			0b00000000000000000001000000000011
 #define VANADIS_INST_LW			0b00000000000000000010000000000011
@@ -42,10 +45,44 @@ enum VanadisDecodeResponse {
 #define VANADIS_INST_LHU		0b00000000000000000101000000000011
 #define VANADIS_INST_LD         0b00000000000000000011000000000011
 
-//                                                 ***     *******
+// STORE MASKS                                     ***     *******
 #define VANADIS_INST_SB         0b00000000000000000000000000100011
 #define VANADIS_INST_SH			0b00000000000000000001000000100011
 #define VANADIS_INST_SW			0b00000000000000000010000000100011
+#define VANADIS_INST_SD			0b00000000000000000011000000100011
+
+// BRANCH MASKS                                    ***     *******
+#define VANADIS_INST_BEQ	    0b00000000000000000000000001100011
+#define VANADIS_INST_BNE	    0b00000000000000000001000001100011
+#define VANADIS_INST_BLT	    0b00000000000000000100000001100011
+#define VANADIS_INST_BGE	    0b00000000000000000101000001100011
+#define VANADIS_INST_BLTU	    0b00000000000000000110000001100011
+#define VANADIS_INST_BGEU	    0b00000000000000000111000001100011
+
+// MATH-IMM MASKS                                  ***     *******
+#define VANADIS_INST_ADDI	    0b00000000000000000000000000010011
+#define VANADIS_INST_SLTI	    0b00000000000000000010000000010011
+#define VANADIS_INST_SLTIU      0b00000000000000000011000000010011
+#define VANADIS_INST_XORI       0b00000000000000000100000000010011
+#define VANADIS_INST_ORI        0b00000000000000000110000000010011
+#define VANADIS_INST_ANDI       0b00000000000000000111000000010011
+
+// MATH-IMM MASKS                 *******          ***     *******
+#define VANADIS_INST_SLLI       0b00000000000000000001000000010011
+#define VANADIS_INST_SRLI       0b00000000000000000101000000010011
+#define VANADIS_INST_SRAI       0b01000000000000000001000000010011
+
+// MATH MASKS                     *******          ***     *******
+#define VANADIS_INST_ADD        0b00000000000000000000000000110011
+#define VANADIS_INST_SUB        0b01000000000000000000000000110011
+#define VANADIS_INST_SLL        0b00000000000000000001000000110011
+#define VANADIS_INST_SLT        0b00000000000000000010000000110011
+#define VANADIS_INST_SLTU       0b00000000000000000011000000110011
+#define VANADIS_INST_XOR        0b00000000000000000100000000110011
+#define VANADIS_INST_SRL        0b00000000000000000101000000110011
+#define VANADIS_INST_SRA        0b01000000000000000101000000110011
+#define VANADIS_INST_OR         0b00000000000000000110000000110011
+#define VANADIS_INST_AND        0b00000000000000001110000000110011
 
 class VanadisRISCVDecoder {
 
@@ -79,6 +116,10 @@ public:
 					return decodeLoadFamily(ip, nextInst);
 				case VANADIS_STORE_FAMILY:
 					return decodeStoreFamily(ip, nextInst);
+				case VANADIS_MATH_FAMILY:
+					return decodeMathFamily(ip, nextInst);
+				case VANADIS_BRANCH_FAMILY:
+					return decodeBranchFamily(ip, nextInst);
 				case VANADIS_IMM_MATH_FAMILY:
 					break;
 				case VANADIS_INST_LUI:
@@ -103,8 +144,94 @@ public:
 			return ICACHE_FILL_FAILED;
 		}
 	}
-
+	
 protected:
+	VanadisDecodeResponse decodeMathFamily(const uint64_t& ip, const uint64_t& inst) {
+		const uint32_t opType = inst & VANADIS_INST_MATH_TYPE;
+		
+		output->verbose(CALL_INFO, 1, 0, "Decode: opType: %" PRIu32 "\n", opType);
+		
+		uint32_t rs1 = 0;
+		uint32_t rs2 = 0;
+		uint32_t rd  = 0;
+		
+		decodeRType(inst, rd, rs1, rs2);
+		
+		switch(opType) {
+		case VANADIS_INST_ADD:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " ADD  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_SUB:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SUB  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_SLL:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SLL  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_SLT:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SLT  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_SLTU:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SLTU rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_XOR:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " XOR  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_SRL:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SRL  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_SRA:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SRA  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_OR:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " OR   rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		case VANADIS_INST_AND:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " AND  rd=%" PRIu32 ", rs1=%" PRIu32 ", rs2=%" PRIu32 "\n", ip, rd, rs1, rs2);
+			break;
+		default:
+			break;
+		}
+		
+	}
+	
+	VanadisDecodeResponse decodeBranchFamily(const uint64_t& ip, const uint64_t& inst) {
+		const uint32_t branchType = inst & VANADIS_INST_IRSSB_TYPE;
+		
+		output->verbose(CALL_INFO, 1, 0, "Decode: branchType: %" PRIu32 "\n", branchType);
+		
+		uint32_t rs1 = 0;
+		uint32_t rs2 = 0;
+
+		uint64_t imm = 0;
+		
+		decodeSBType(inst, rd, rs1, imm);
+		
+		switch(loadType) {
+		case VANADIS_INST_BEQ:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " BEQ  rd=%" PRIu32 ", rs1=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
+			break;
+		case VANADIS_INST_BNE:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " BNE  rd=%" PRIu32 ", rs1=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
+			break;
+		case VANADIS_INST_BLT:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " BLT  rd=%" PRIu32 ", rs1=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
+			break;
+		case VANADIS_INST_BGE:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " BGE  rd=%" PRIu32 ", rs1=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
+			break;
+		case VANADIS_INST_BLTU:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " BLTU rd=%" PRIu32 ", rs1=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
+			break;
+		case VANADIS_INST_BGEU:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " BGEU rd=%" PRIu32 ", rs1=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
+			break;
+		default:
+			return UNKNOWN_INSTRUCTION;
+		}
+		
+		return SUCCESS;
+	}
+
 	VanadisDecodeResponse decodeLoadFamily(const uint64_t& ip, const uint64_t& inst) {
 		const uint32_t loadType = inst & VANADIS_INST_IRSSB_TYPE;
 		
@@ -163,6 +290,9 @@ protected:
 			break;
 		case VANADIS_INST_SW:
 			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SW  rs1=%" PRIu32 ", rs2=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
+			break;
+		case VANADIS_INST_SD:
+			output->verbose(CALL_INFO, 1, 0, "Decode: IP=0x%" PRIx64 " SD  rs1=%" PRIu32 ", rs2=%" PRIu32 ", imm=%" PRIu64 "\n", ip, rs1, rs2, imm);
 			break;
 		default:
 			return UNKNOWN_INSTRUCTION;
