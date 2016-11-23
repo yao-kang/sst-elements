@@ -221,8 +221,7 @@ bool InstCacheReader::fill(const uint64_t ip, void* instBuffer,
 	const uint64_t fillLen) {
 
 	if(verbose) {
-		output->verbose(CALL_INFO, 8, 0, "Fill: IP=%" PRIu64 ", Length=%" PRIu64 ", CurBufferIP=%" PRIu64 ", NextBufferIPD=%" PRIu64 ", BufferLen=%" PRIu64 "\n",
-			ip, fillLen, currentBufferIP, nextBufferIP, bufferLength);
+		output->verbose(CALL_INFO, 8, 0, "Fill: IP=%" PRIu64 ", Length=%" PRIu64 ", CurBufferIP=%" PRIu64 ", NextBufferIPD=%" PRIu64 ", BufferLen=%" PRIu64 "\n", ip, fillLen, currentBufferIP, nextBufferIP, bufferLength);
 	}
 
 	if( (ip >= currentBufferIP) ) {

@@ -226,13 +226,15 @@ bool VanadisCore::tick( SST::Cycle_t cycle ) {
 //		ip += 4;
 //	}
 
-	if( decodeResp != ICACHE_FILL_FAILED ) {
+	if( decodeResp == SUCCESS ) {
 		ip += 4;
-	}
+    } else if (decodeResp == UNKNOWN_INSTRUCTION ) {
+        output->fatal(CALL_INFO, -1, "Unknown instruction at: %" PRIx64 "\n", ip);
+    }
 	
-	if( ip >= 65892 + 128  ) {
+/*	if( ip >= 65892 + 128  ) {
 		output->fatal(CALL_INFO, -1, "Stop.\n");
-	}
+	}*/
 
 	return false;
 
