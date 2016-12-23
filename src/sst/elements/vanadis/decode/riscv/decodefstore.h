@@ -15,7 +15,8 @@ namespace Vanadis {
 #define VANADIS_FPSTORE_FAMILY    0b00000000000000000000000000100111
 
 // LOAD MASKS                                        ***     *******
-#define VANADIS_INST_FSTORE       0b00000000000000000011000000100111
+#define VANADIS_INST_FSD          0b00000000000000000011000000100111
+#define VANADIS_INST_FSW          0b00000000000000000010000000100111
 
 class VanadisFPDecodeStore : public VanadisDecodeBlock {
 
@@ -47,13 +48,19 @@ public:
 
 		switch(VANADIS_INST_IRSSB_TYPE & inst) {
 
-		case VANADIS_INST_FSTORE:
-			output->verbose(CALL_INFO, 1, 0, "Decode:   FST   %5" PRIu32 " %5" PRIu32 " 0x%" PRIx64 "\n", rs1, rs2, imm);
+		case VANADIS_INST_FSD:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   FSD   %5" PRIu32 " %5" PRIu32 " 0x%" PRIx64 "\n", rs1, rs2, imm);
 			decodeResp = SUCCESS;
 			break;
 
+		case VANADIS_INST_FSW:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   FSW   %5" PRIu32 " %5" PRIu32 " 0x%" PRIx64 "\n", rs1, rs2, imm);
+			decodeResp = SUCCESS;
+			break;
+
+
 		default:
-			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIu64 "\n", ip);
+			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIx64 "\n", ip);
 			break;
 
 		}

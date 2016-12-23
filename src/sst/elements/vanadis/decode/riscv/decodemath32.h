@@ -36,6 +36,7 @@ namespace Vanadis {
 #define VANADIS_INST_MULHSU       0b00000010000000000010000000110011
 #define VANADIS_INST_MULHU        0b00000010000000000011000000110011
 #define VANADIS_INST_DIV          0b00000010000000000100000000110011
+#define VANADIS_INST_DIVU         0b00000010000000000101000000110011
 #define VANADIS_INST_REM          0b00000010000000000110000000110011
 #define VANADIS_INST_REMU         0b00000010000000000111000000110011
 
@@ -141,6 +142,11 @@ public:
 
 		case VANADIS_INST_DIV:
 			output->verbose(CALL_INFO, 1, 0, "Decode:   DIV %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_DIVU:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   DIVU %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
 			decodeResp = SUCCESS;
 			break;
 

@@ -20,6 +20,7 @@ namespace Vanadis {
 #define VANADIS_INST_LB           0b00000000000000000000000000000011
 #define VANADIS_INST_LH			  0b00000000000000000001000000000011
 #define VANADIS_INST_LW			  0b00000000000000000010000000000011
+#define VANADIS_INST_LWU		  0b00000000000000000110000000000011
 #define VANADIS_INST_LBU		  0b00000000000000000100000000000011
 #define VANADIS_INST_LHU		  0b00000000000000000101000000000011
 #define VANADIS_INST_LD           0b00000000000000000011000000000011
@@ -69,6 +70,11 @@ public:
 			decodeResp = SUCCESS;
 			break;
 
+		case VANADIS_INST_LWU:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   LWU  %5" PRIu32 " %5" PRIu32 " 0x%" PRIx64 "\n", rd, rs1, imm);
+			decodeResp = SUCCESS;
+			break;
+
 		case VANADIS_INST_LBU:
 			output->verbose(CALL_INFO, 1, 0, "Decode:   LBU  %5" PRIu32 " %5" PRIu32 " 0x%" PRIx64 "\n", rd, rs1, imm);
 			decodeResp = SUCCESS;
@@ -85,7 +91,7 @@ public:
 			break;
 
 		default:
-			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIu64 "\n", ip);
+			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIx64 "\n", ip);
 			break;
 
 		}

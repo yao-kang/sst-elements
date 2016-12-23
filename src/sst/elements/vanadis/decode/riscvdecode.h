@@ -12,10 +12,11 @@
 #include "riscv/decodebranch.h"
 #include "riscv/decodemathiw.h"
 #include "riscv/decodemath64.h"
-#include "riscv/decodefmath64.h"
+#include "riscv/decodefpmath.h"
 #include "riscv/decodefload.h"
 #include "riscv/decodefstore.h"
 #include "riscv/decodefmath64fma.h"
+#include "riscv/decodesystem.h"
 
 #include "icreader/icreader.h"
 #include "utils/printutils.hpp"
@@ -42,10 +43,11 @@ public:
 			decodePCHandler.setOutput(out);
 			decodeBranch.setOutput(out);
 			decodeMath64.setOutput(out);
-			decodeMathF64.setOutput(out);
+			decodeMathFP.setOutput(out);
 			decodeFPLoad.setOutput(out);
 			decodeFPStore.setOutput(out);
 			decodeFP64FMA.setOutput(out);
+			decodeSystem.setOutput(out);
 
 	}
 	~VanadisRISCVDecoder() {}
@@ -99,8 +101,8 @@ public:
 					decodeResp = decodeMathIW.decode(ip, nextInst);
 					break;
 
-				case VANADIS_F64MATH_FAMILY:
-					decodeResp = decodeMathF64.decode(ip, nextInst);
+				case VANADIS_FPMATH_FAMILY:
+					decodeResp = decodeMathFP.decode(ip, nextInst);
 					break;
 
 				case VANADIS_FPLOAD_FAMILY:
@@ -113,6 +115,10 @@ public:
 
 				case VANADIS_FP64FMA_FAMILY:
 					decodeResp = decodeFP64FMA.decode(ip, nextInst);
+					break;
+
+				case VANADIS_SYSTEM_FAMILY:
+					decodeResp = decodeSystem.decode(ip, nextInst);
 					break;
 
 				default:
@@ -162,10 +168,11 @@ protected:
 		VanadisDecodeBranch  decodeBranch;
 		VanadisDecodeMathIW decodeMathIW;
 		VanadisDecodeMath64 decodeMath64;
-		VanadisDecodeFPMath64 decodeMathF64;
+		VanadisDecodeFPMath decodeMathFP;
 		VanadisFPDecodeLoad decodeFPLoad;
 		VanadisFPDecodeStore decodeFPStore;
 		VanadisFP64FMADecodeLoad decodeFP64FMA;
+		VanadisSystemDecodeStore decodeSystem;
 
 	/*
 	VanadisDecodeResponse decodeComplexInst(const uint64_t& ip, const uint64_t& inst) {

@@ -72,7 +72,7 @@ public:
 			break;
 
 		default:
-			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIu64 "\n", ip);
+			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIx64 "\n", ip);
 			break;
 
 		}

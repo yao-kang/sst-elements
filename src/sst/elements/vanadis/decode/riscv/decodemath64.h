@@ -25,6 +25,12 @@ namespace Vanadis {
 #define VANADIS_INST_SRLW         0b00000000000000000101000000111011
 #define VANADIS_INST_SRAW         0b01000000000000000101000000111011
 
+#define VANADIS_INST_MULW         0b00000010000000000000000000111011
+#define VANADIS_INST_DIVW         0b00000010000000000100000000111011
+#define VANADIS_INST_DIVUW        0b00000010000000000101000000111011
+#define VANADIS_INST_REMW         0b00000010000000000110000000111011
+#define VANADIS_INST_REMUW        0b00000010000000000111000000111011
+
 class VanadisDecodeMath64 : public VanadisDecodeBlock {
 
 public:
@@ -80,8 +86,33 @@ public:
 			decodeResp = SUCCESS;
 			break;
 
+		case VANADIS_INST_MULW:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   MULW %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_DIVW:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   DIVW %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_DIVUW:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   DIVUW %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_REMW:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   REMW %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_REMUW:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   REMUW %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
 		default:
-			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIu64 "\n", ip);
+			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIx64 "\n", ip);
 			break;
 
 		}

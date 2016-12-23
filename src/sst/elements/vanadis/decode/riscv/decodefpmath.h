@@ -9,7 +9,7 @@ namespace SST {
 namespace Vanadis {
 
 // FAMILY                                            ***     *******
-#define VANADIS_F64MATH_FAMILY    0b00000000000000000000000001010011
+#define VANADIS_FPMATH_FAMILY     0b00000000000000000000000001010011
 
 // MATH MASKS                       *******          ***     *******
 #define VANADIS_INST_FMATH_MASK   0b11111110000000000000000001111111
@@ -22,12 +22,24 @@ namespace Vanadis {
 #define VANADIS_INST_FMULD        0b00010010000000000000000001010011
 #define VANADIS_INST_FDIVD        0b00011010000000000000000001010011
 
+#define VANADIS_INST_FADDS        0b00000000000000000000000001010011
+#define VANADIS_INST_FSUBS        0b00001000000000000000000001010011
+#define VANADIS_INST_FMULS        0b00010000000000000000000001010011
+#define VANADIS_INST_FDIVS        0b00011000000000000000000001010011
+
 #define VANADIS_INST_FSQRTD       0b01011010000000000011000001010011
 #define VANADIS_INST_FSGNJD       0b00100010000000000000000001010011
 #define VANADIS_INST_FSGNJND      0b00100010000000000001000001010011
 #define VANADIS_INST_FSGNJXD      0b00100010000000000010000001010011
 #define VANADIS_INST_FMIND        0b00101010000000000000000001010011
 #define VANADIS_INST_FMAXD        0b00101010000000000001000001010011
+
+#define VANADIS_INST_FSQRTS       0b01011000000000000011000001010011
+#define VANADIS_INST_FSGNJS       0b00100000000000000000000001010011
+#define VANADIS_INST_FSGNJNS      0b00100000000000000001000001010011
+#define VANADIS_INST_FSGNJXS      0b00100000000000000010000001010011
+#define VANADIS_INST_FMINS        0b00101000000000000000000001010011
+#define VANADIS_INST_FMAXS        0b00101000000000000001000001010011
 
 /// FP CONVERT                      ************             *******
 #define VANADIS_INST_FCVTSD       0b01000000000100000000000001010011
@@ -40,33 +52,44 @@ namespace Vanadis {
 #define VANADIS_INST_FCVTLUD      0b11000010001100000000000001010011
 #define VANADIS_INST_FCVTDL       0b11010010001000000000000001010011
 #define VANADIS_INST_FCVTDLU      0b11010010001100000000000001010011
+#define VANADIS_INST_FCVTWS       0b11000000000000000000000001010011
+#define VANADIS_INST_FCVTWUS      0b11000000000100000000000001010011
+#define VANADIS_INST_FCVTSW       0b11010000000000000000000001010011
+#define VANADIS_INST_FCVTSWU      0b11010000000100000000000001010011
 
 #define VANADIS_INST_FMVDX        0b11100010000000000000000001010011
 #define VANADIS_INST_FMVXD        0b11110010000000000000000001010011
+#define VANADIS_INST_FMVSX        0b11100000000000000000000001010011
+#define VANADIS_INST_FMVXS        0b11110000000000000000000001010011
 
 // FP COMPARE                       *******          ***     *******
 #define VANADIS_INST_FEQD         0b10100010000000000010000001010011
 #define VANADIS_INST_FLTD         0b10100010000000000001000001010011
 #define VANADIS_INST_FLED         0b10100010000000000000000001010011
 
+#define VANADIS_INST_FEQS         0b10100000000000000010000001010011
+#define VANADIS_INST_FLTS         0b10100000000000000001000001010011
+#define VANADIS_INST_FLES         0b10100000000000000000000001010011
+
 // FP CLASS                         ************     ***     *******
 #define VANADIS_INST_FCLASSD      0b11100010000000000001000001010011
+#define VANADIS_INST_FCLASSS      0b11100000000000000001000001010011
 
-class VanadisDecodeFPMath64 : public VanadisDecodeBlock {
+class VanadisDecodeFPMath : public VanadisDecodeBlock {
 
 public:
-	VanadisDecodeFPMath64() {
+	VanadisDecodeFPMath() {
 
 	}
 
-	~VanadisDecodeFPMath64() {}
+	~VanadisDecodeFPMath() {}
 
 	std::string getBlockName() {
-		return "FPMath64Decoder";
+		return "FPMathDecoder";
 	}
 
 	uint32_t getInstructionFamily() {
-		return VANADIS_MATH_FAMILY;
+		return VANADIS_FPMATH_FAMILY;
 	}
 
 	VanadisDecodeResponse decode(const uint64_t ip, const uint32_t inst) {
@@ -93,6 +116,16 @@ public:
 			decodeResp = SUCCESS;
 			break;
 
+		case VANADIS_INST_FADDS:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   FADDS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_FSUBS:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   FSUBS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+			decodeResp = SUCCESS;
+			break;
+
 		case VANADIS_INST_FMULD:
 			output->verbose(CALL_INFO, 1, 0, "Decode:   FMULD   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
 			decodeResp = SUCCESS;
@@ -100,6 +133,16 @@ public:
 
 		case VANADIS_INST_FDIVD:
 			output->verbose(CALL_INFO, 1, 0, "Decode:   FDIVD   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_FMULS:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   FMULS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_FDIVS:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   FDIVS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
 			decodeResp = SUCCESS;
 			break;
 
@@ -132,7 +175,7 @@ public:
 				break;
 
 			case VANADIS_INST_FEQD:
-				output->verbose(CALL_INFO, 1, 0, "Decode:   FEDQ   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FEQD   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
 				decodeResp = SUCCESS;
 				break;
 
@@ -143,6 +186,46 @@ public:
 
 			case VANADIS_INST_FLED:
 				output->verbose(CALL_INFO, 1, 0, "Decode:   FLED  %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FSGNJS:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FSGNJS  %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FSGNJNS:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FSGNJNS %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FSGNJXS:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FSGNJXS %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FMINS:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FMINS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FMAXS:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FMAXS  %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FEQS:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FEQS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FLTS:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FLTS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
+				decodeResp = SUCCESS;
+				break;
+
+			case VANADIS_INST_FLES:
+				output->verbose(CALL_INFO, 1, 0, "Decode:   FLES  %5" PRIu32 " %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2, rs3);
 				decodeResp = SUCCESS;
 				break;
 
@@ -214,6 +297,41 @@ public:
 
 				case VANADIS_INST_FCLASSD:
 					output->verbose(CALL_INFO, 1, 0, "Decode:   FCLASSD %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
+					decodeResp = SUCCESS;
+					break;
+
+				case VANADIS_INST_FCVTWS:
+					output->verbose(CALL_INFO, 1, 0, "Decode:   FCVTWS  %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
+					decodeResp = SUCCESS;
+					break;
+
+				case VANADIS_INST_FCVTWUS:
+					output->verbose(CALL_INFO, 1, 0, "Decode:   FCVTWUS %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
+					decodeResp = SUCCESS;
+					break;
+
+				case VANADIS_INST_FCVTSW:
+					output->verbose(CALL_INFO, 1, 0, "Decode:   FCVTSW  %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
+					decodeResp = SUCCESS;
+					break;
+
+				case VANADIS_INST_FCVTSWU:
+					output->verbose(CALL_INFO, 1, 0, "Decode:   FCVTSWU %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
+					decodeResp = SUCCESS;
+					break;
+
+				case VANADIS_INST_FMVSX:
+					output->verbose(CALL_INFO, 1, 0, "Decode:   FMVSX   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
+					decodeResp = SUCCESS;
+					break;
+
+				case VANADIS_INST_FMVXS:
+					output->verbose(CALL_INFO, 1, 0, "Decode:   FMVXS   %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
+					decodeResp = SUCCESS;
+					break;
+
+				case VANADIS_INST_FCLASSS:
+					output->verbose(CALL_INFO, 1, 0, "Decode:   FCLASSS %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, roundMode);
 					decodeResp = SUCCESS;
 					break;
 
