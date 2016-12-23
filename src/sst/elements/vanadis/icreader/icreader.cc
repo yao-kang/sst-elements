@@ -117,11 +117,11 @@ void InstCacheReader::handleCacheResponse(SimpleMem::Request* resp) {
 			offset, static_cast<uint64_t>(resp->size), nextBufferIP, bufferLength);
 	}
 
-	for(int i = 0; i < resp->size; i++) {
+	/*for(int i = 0; i < resp->size; i++) {
 		printf("[%d]=0x%" PRIx8 "", i, (uint8_t) resp->data[i]);
-	}
+	}*/
 
-	printf("\n");
+	//printf("\n");
 
 	char* dataVecPtr = (char*) &(resp->data[0]);
 	for(size_t i = 0; i < resp->size; ++i) {

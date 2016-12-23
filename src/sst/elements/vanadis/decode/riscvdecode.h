@@ -3,115 +3,29 @@
 #define _H_SST_VANADIS_RISCV_DECODE
 
 #include <sst/core/output.h>
+
+#include "riscv/decodeload.h"
+#include "riscv/decodestore.h"
+#include "riscv/decodemath32.h"
+#include "riscv/decodemathi.h"
+#include "riscv/decodepc.h"
+#include "riscv/decodebranch.h"
+#include "riscv/decodemathiw.h"
+#include "riscv/decodemath64.h"
+#include "riscv/decodefmath64.h"
+#include "riscv/decodefload.h"
+#include "riscv/decodefstore.h"
+#include "riscv/decodefmath64fma.h"
+
 #include "icreader/icreader.h"
 #include "utils/printutils.hpp"
 
 namespace SST {
 namespace Vanadis {
 
-enum VanadisDecodeResponse {
-	SUCCESS,
-	UNKNOWN_REGISTER,
-	ICACHE_FILL_FAILED,
-	UNKNOWN_INSTRUCTION
-};
-
 //                                                   ***     *******
 #define VANADIS_32B_INST_MASK     0b00000000000000000000000001111111
 #define VANADIS_32BENCODE_MASK    0b00000000000000000000000000000011
-
-//                                                 *  **     *******
-#define VANADIS_INST_IRSSB_TYPE   0b00000000000000000111000001111111
-// MATH MASKS                       *******          ***     *******
-#define VANADIS_INST_MATH_TYPE    0b11111110000000000111000001111111
-
-#define VANADIS_INST_LUI          0b00000000000000000000000000110111
-#define VANADIS_INST_AUIPC        0b00000000000000000000000000010111
-#define VANADIS_INST_JAL          0b00000000000000000000000001101111
-#define VANADIS_INST_JALR         0b00000000000000000000000001100111
-
-#define VANADIS_LOAD_FAMILY       0b00000000000000000000000000000011
-#define VANADIS_STORE_FAMILY      0b00000000000000000000000000100011
-#define VANADIS_LDST_FP_FAMILY    0b00000000000000000000000000000111
-#define VANADIS_FP_OP_FAMILY      0b00000000000000000000000001010011
-#define VANADIS_FP_SPEC_FAMILY    0b00000000000000000000000001010011
-#define VANADIS_IMM_MATH_FAMILY   0b00000000000000000000000000010011
-#define VANADIS_IMMW_MATH_FAMILY  0b00000000000000000000000000011011
-    
-#define VANADIS_MATH_FAMILY       0b00000000000000000000000000110011
-#define VANADIS_MATH64I_FAMILY    0b00000000000000000000000000111011
-#define VANADIS_FENCE_FAMILY      0b00000000000000000000000000001111
-#define VANADIS_BRANCH_FAMILY     0b00000000000000000000000001100011
-
-// LOAD MASKS                                        ***     *******
-#define VANADIS_INST_LB           0b00000000000000000000000000000011
-#define VANADIS_INST_LH			  0b00000000000000000001000000000011
-#define VANADIS_INST_LW			  0b00000000000000000010000000000011
-#define VANADIS_INST_LBU		  0b00000000000000000100000000000011
-#define VANADIS_INST_LHU		  0b00000000000000000101000000000011
-#define VANADIS_INST_LD           0b00000000000000000011000000000011
-    
-// STORE MASKS                                       ***     *******
-#define VANADIS_INST_SB           0b00000000000000000000000000100011
-#define VANADIS_INST_SH			  0b00000000000000000001000000100011
-#define VANADIS_INST_SW			  0b00000000000000000010000000100011
-#define VANADIS_INST_SD			  0b00000000000000000011000000100011
-    
-// LOAD/STORE MASKS FP.S                             ***     *******
-#define VANADIS_INST_FSW          0b00000000000000000010000000100111
-#define VANADIS_INST_FLW          0b00000000000000000010000000000111
-
-// FUSED-FP.S                            **                  *******
-#define VANADIS_INST_FMADDS       0b00000000000000000000000001000011
-#define VANADIS_INST_FMADDS       0b00000000000000000000000001000111
-
-// FUSED-NEGATED-FP.S                    **                  *******
-#define VANADIS_INST_FNMSUBS      0b00000000000000000000000001001011
-#define VANADIS_INST_FNMADDS      0b00000000000000000000000001001111
-    
-// BRANCH MASKS                                      ***     *******
-#define VANADIS_INST_BEQ	      0b00000000000000000000000001100011
-#define VANADIS_INST_BNE	      0b00000000000000000001000001100011
-#define VANADIS_INST_BLT	      0b00000000000000000100000001100011
-#define VANADIS_INST_BGE	      0b00000000000000000101000001100011
-#define VANADIS_INST_BLTU	      0b00000000000000000110000001100011
-#define VANADIS_INST_BGEU	      0b00000000000000000111000001100011
-
-// MATH-IMM MASKS                                    ***     *******
-#define VANADIS_INST_ADDI	      0b00000000000000000000000000010011
-#define VANADIS_INST_SLTI	      0b00000000000000000010000000010011
-#define VANADIS_INST_SLTIU        0b00000000000000000011000000010011
-#define VANADIS_INST_XORI         0b00000000000000000100000000010011
-#define VANADIS_INST_ORI          0b00000000000000000110000000010011
-#define VANADIS_INST_ANDI         0b00000000000000000111000000010011
-
-// MATH-IMM MASKS                   ******           ***     *******
-#define VANADIS_IMM_SHIFT_MASK    0b11111100000000000001000000010011
-#define VANADIS_INST_SLLI         0b00000000000000000001000000010011
-#define VANADIS_INST_SRLI         0b00000000000000000101000000010011
-#define VANADIS_INST_SRAI         0b01000000000000000001000000010011
-
-// MATH MASKS                       *******          ***     *******
-#define VANADIS_INST_ADD          0b00000000000000000000000000110011
-#define VANADIS_INST_SUB          0b01000000000000000000000000110011
-#define VANADIS_INST_SLL          0b00000000000000000001000000110011
-#define VANADIS_INST_SLT          0b00000000000000000010000000110011
-#define VANADIS_INST_SLTU         0b00000000000000000011000000110011
-#define VANADIS_INST_XOR          0b00000000000000000100000000110011
-#define VANADIS_INST_SRL          0b00000000000000000101000000110011
-#define VANADIS_INST_SRA          0b01000000000000000101000000110011
-#define VANADIS_INST_OR           0b00000000000000000110000000110011
-#define VANADIS_INST_AND          0b00000000000000000111000000110011
-    
-// MATH MASKS 64I                   *******          ***     *******
-#define VANADIS_INST_ADDW         0b00000000000000000000000000111011
-#define VANADIS_INST_SUBW         0b01000000000000000000000000111011
-#define VANADIS_INST_SLLW         0b00000000000000000001000000111011
-#define VANADIS_INST_SRLW         0b00000000000000000101000000111011
-#define VANADIS_INST_SRAW         0b01000000000000000101000000111011
-    
-// MATH-W MASKS                     *******          ***     *******
-#define VANADIS_INST_ADDIW        0b00000000000000000000000000011011
 
 class VanadisRISCVDecoder {
 
@@ -119,6 +33,20 @@ public:
 	VanadisRISCVDecoder(SST::Output* out, InstCacheReader* icache) {
 			output = out;
 			icacheReader = icache;
+
+			decodeLoad.setOutput(out);
+			decodeStore.setOutput(out);
+			decodeMath32.setOutput(out);
+			decodeMathI.setOutput(out);
+			decodeMathIW.setOutput(out);
+			decodePCHandler.setOutput(out);
+			decodeBranch.setOutput(out);
+			decodeMath64.setOutput(out);
+			decodeMathF64.setOutput(out);
+			decodeFPLoad.setOutput(out);
+			decodeFPStore.setOutput(out);
+			decodeFP64FMA.setOutput(out);
+
 	}
 	~VanadisRISCVDecoder() {}
 
@@ -139,28 +67,64 @@ public:
 				const uint32_t operation = nextInst & VANADIS_32B_INST_MASK;
 				printInstruction(ip, operation);
 				
+				VanadisDecodeResponse decodeResp = UNKNOWN_INSTRUCTION;
+
 				switch(operation) {
 				
 				case VANADIS_LOAD_FAMILY:
-					return decodeLoadFamily(ip, nextInst);
+					decodeResp = decodeLoad.decode(ip, nextInst);
+					break;
+
 				case VANADIS_STORE_FAMILY:
-					return decodeStoreFamily(ip, nextInst);
+					decodeResp = decodeStore.decode(ip, nextInst);
+					break;
+
 				case VANADIS_MATH_FAMILY:
-					return decodeMathFamily(ip, nextInst);
-                case VANADIS_MATH64I_FAMILY:
-                    return decodeMath64Family(ip, nextInst);
-                case VANADIS_IMM_MATH_FAMILY:
-                    return decodeImmMathFamily(ip, nextInst);
+					decodeResp = decodeMath32.decode(ip, nextInst);
+					break;
+
+				case VANADIS_MATH64_FAMILY:
+					decodeResp = decodeMath64.decode(ip, nextInst);
+					break;
+
+				case VANADIS_IMM_MATH_FAMILY:
+					decodeResp = decodeMathI.decode(ip, nextInst);
+					break;
+
 				case VANADIS_BRANCH_FAMILY:
-					return decodeBranchFamily(ip, nextInst);
-                case VANADIS_IMMW_MATH_FAMILY:
-                     break;
-                
-                default:
-                    // When all else fails, we should check that this isn't
-                    // something complex to decode.
-                    return decodeComplexInst(ip, nextInst);
-                    break;
+					decodeResp = decodeBranch.decode(ip, nextInst);
+					break;
+
+				case VANADIS_INST_ADDIW:
+					decodeResp = decodeMathIW.decode(ip, nextInst);
+					break;
+
+				case VANADIS_F64MATH_FAMILY:
+					decodeResp = decodeMathF64.decode(ip, nextInst);
+					break;
+
+				case VANADIS_FPLOAD_FAMILY:
+					decodeResp = decodeFPLoad.decode(ip, nextInst);
+					break;
+
+				case VANADIS_FPSTORE_FAMILY:
+					decodeResp = decodeFPStore.decode(ip, nextInst);
+					break;
+
+				case VANADIS_FP64FMA_FAMILY:
+					decodeResp = decodeFP64FMA.decode(ip, nextInst);
+					break;
+
+				default:
+					decodeResp = decodePCHandler.decode(ip, nextInst);
+					break;
+
+				}
+
+				if( UNKNOWN_INSTRUCTION == decodeResp ) {
+					// Do we want to add custom instructions here?
+					// TODO: custom instructions can go here
+					output->fatal(CALL_INFO, -1, "Error: Instruction code failed: 0x%" PRIx64 "\n", ip);
 				}
 			} else {
 				output->verbose(CALL_INFO, 2, 0, "Decode Check - 32b Format Failed, Not Supported. Mark as UNKNOWN_INSTRUCTION (IP=0x%" PRIx64 ").\n", ip);
@@ -176,7 +140,35 @@ public:
 	}
 	
 protected:
-    VanadisDecodeResponse decodeComplexInst(const uint64_t& ip, const uint64_t& inst) {
+
+		void printInstruction(const uint64_t ip, const uint32_t inst) {
+			char* instString = (char*) malloc( sizeof(char) * 33 );
+			instString[32] = '\0';
+
+			binaryStringize32(inst, instString);
+
+			output->verbose(CALL_INFO, 2, 0, "PRE-DECODE INST: ip=%15" PRIu64 " | 0x%010" PRIx64 " : 0x%010" PRIx32 " | %s\n",
+				ip, ip, inst, instString);
+		}
+
+		InstCacheReader* icacheReader;
+		SST::Output* output;
+
+		VanadisDecodeLoad    decodeLoad;
+		VanadisDecodeStore   decodeStore;
+		VanadisDecodeMath32  decodeMath32;
+		VanadisDecodeMathI   decodeMathI;
+		VanadisDecodePCHandler decodePCHandler;
+		VanadisDecodeBranch  decodeBranch;
+		VanadisDecodeMathIW decodeMathIW;
+		VanadisDecodeMath64 decodeMath64;
+		VanadisDecodeFPMath64 decodeMathF64;
+		VanadisFPDecodeLoad decodeFPLoad;
+		VanadisFPDecodeStore decodeFPStore;
+		VanadisFP64FMADecodeLoad decodeFP64FMA;
+
+	/*
+	VanadisDecodeResponse decodeComplexInst(const uint64_t& ip, const uint64_t& inst) {
         uint32_t rd;
         uint32_t rs1;
         uint64_t imm;
@@ -606,20 +598,9 @@ protected:
 		if(immMSBTemp) {
 			imm += fullBits;
 		}
-	}
+	}*/
 
-	void printInstruction(const uint64_t ip, const uint32_t inst) {
-		char* instString = (char*) malloc( sizeof(char) * 33 );
-		instString[32] = '\0';
-		
-		binaryStringize32(inst, instString);
-		
-		output->verbose(CALL_INFO, 2, 0, "PRE-DECODE INST: ip=%15" PRIu64 " | 0x%010" PRIx64 " : 0x%010" PRIx32 " | %s\n",
-			ip, ip, inst, instString);
-	}
 
-	InstCacheReader* icacheReader;
-	SST::Output* output;
 
 };
 

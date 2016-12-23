@@ -31,6 +31,14 @@ namespace Vanadis {
 #define VANADIS_INST_OR           0b00000000000000000110000000110011
 #define VANADIS_INST_AND          0b00000000000000000111000000110011
 
+#define VANADIS_INST_MUL          0b00000010000000000000000000110011
+#define VANADIS_INST_MULH         0b00000010000000000001000000110011
+#define VANADIS_INST_MULHSU       0b00000010000000000010000000110011
+#define VANADIS_INST_MULHU        0b00000010000000000011000000110011
+#define VANADIS_INST_DIV          0b00000010000000000100000000110011
+#define VANADIS_INST_REM          0b00000010000000000110000000110011
+#define VANADIS_INST_REMU         0b00000010000000000111000000110011
+
 class VanadisDecodeMath32 : public VanadisDecodeBlock {
 
 public:
@@ -111,8 +119,43 @@ public:
 			decodeResp = SUCCESS;
 			break;
 
+		case VANADIS_INST_MUL:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   MUL  %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_MULH:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   MULH %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_MULHSU:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   MULHSU %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_MULHU:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   MULHU %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_DIV:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   DIV %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_REM:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   REM %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
+		case VANADIS_INST_REMU:
+			output->verbose(CALL_INFO, 1, 0, "Decode:   REMU %5" PRIu32 " %5" PRIu32 " %5" PRIu32 "\n", rd, rs1, rs2);
+			decodeResp = SUCCESS;
+			break;
+
 		default:
-			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIu64 "\n", ip);
+			output->fatal(CALL_INFO, -1, "Decode Failure: IP=0x%" PRIx64 "\n", ip);
 			break;
 
 		}

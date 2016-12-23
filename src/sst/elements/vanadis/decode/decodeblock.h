@@ -156,6 +156,85 @@ protected:
 		rs2 = (inst & rs2_mask) >> 20;
 	}
 
+	void decodeRType(const uint32_t& inst, uint32_t& rd, uint32_t& rs1, uint32_t& rs2, uint32_t roundMode) {
+		//                                              ***#####*******
+		const uint32_t rd_mask     = 0b00000000000000000000111110000000;
+		//                                         #####***#####*******
+		const uint32_t rs1_mask    = 0b00000000000011111000000000000000;
+		//                                    *****#####***#####*******
+		const uint32_t rs2_mask    = 0b00000001111100000000000000000000;
+		//
+		const uint32_t rm_mask     = 0b00000000000000000111000000000000;
+
+		rd  = (inst & rd_mask)  >> 7;
+		rs1 = (inst & rs1_mask) >> 15;
+		rs2 = (inst & rs2_mask) >> 20;
+		roundMode = (inst & rm_mask) >> 12;
+	}
+
+	void decodeR4Type(const uint32_t& inst, uint32_t& rd, uint32_t& rs1, uint32_t& rs2, uint32_t& rs3) {
+		//                                              ***#####*******
+		const uint32_t rd_mask     = 0b00000000000000000000111110000000;
+		//                                         #####***#####*******
+		const uint32_t rs1_mask    = 0b00000000000011111000000000000000;
+		//                                    *****#####***#####*******
+		const uint32_t rs2_mask    = 0b00000001111100000000000000000000;
+		//                             *****##*****#####***#####*******
+		const uint32_t rs3_mask    = 0b11111000000000000000000000000000;
+
+		rd  = (inst & rd_mask)  >> 7;
+		rs1 = (inst & rs1_mask) >> 15;
+		rs2 = (inst & rs2_mask) >> 20;
+		rs3 = (inst & rs3_mask) >> 27;
+	}
+
+	void decodeR4Type(const uint32_t& inst, uint32_t& rd, uint32_t& rs1, uint32_t& rs2, uint32_t& rs3, uint32_t roundMode) {
+		//                                              ***#####*******
+		const uint32_t rd_mask     = 0b00000000000000000000111110000000;
+		//                                         #####***#####*******
+		const uint32_t rs1_mask    = 0b00000000000011111000000000000000;
+		//                                    *****#####***#####*******
+		const uint32_t rs2_mask    = 0b00000001111100000000000000000000;
+		//                             *****##*****#####***#####*******
+		const uint32_t rs3_mask    = 0b11111000000000000000000000000000;
+		//
+		const uint32_t rm_mask     = 0b00000000000000000111000000000000;
+
+		rd  = (inst & rd_mask)  >> 7;
+		rs1 = (inst & rs1_mask) >> 15;
+		rs2 = (inst & rs2_mask) >> 20;
+		rs3 = (inst & rs3_mask) >> 27;
+		roundMode = (inst & rm_mask) >> 12;
+	}
+
+	void decodeIType(const uint32_t& inst, uint32_t& rd, uint32_t& rs1, uint64_t& imm, uint32_t roundMode) {
+			//                                              ***#####*******
+			const uint32_t rd_mask     = 0b00000000000000000000111110000000;
+			//                                         #####***#####*******
+			const uint32_t rs1_mask    = 0b00000000000011111000000000000000;
+			//                             ????????????#####***#####*******
+			const uint32_t imm_mask    = 0b11111111111100000000000000000000;
+			const uint32_t immMSB_mask = 0b10000000000000000000000000000000;
+			//                                                 ????????????
+			const uint64_t fullBits    = 0b1111111111111111111111111111111111111111111111111111000000000000;
+			//
+			const uint32_t rm_mask     = 0b00000000000000000111000000000000;
+
+			rd  = (inst & rd_mask)  >> 7;
+			rs1 = (inst & rs1_mask) >> 15;
+			roundMode = (inst & rm_mask) >> 12;
+
+			const uint32_t immTemp    = (inst & imm_mask);
+			const uint32_t immMSBTemp = (inst & immMSB_mask);
+
+			imm = static_cast<uint64_t>(immTemp);
+
+			// Do we need to sign extend the immediate or not?
+			if(immMSBTemp) {
+				imm += fullBits;
+			}
+	}
+
 	void decodeIType(const uint32_t& inst, uint32_t& rd, uint32_t& rs1, uint64_t& imm) {
 		//                                              ***#####*******
 		const uint32_t rd_mask     = 0b00000000000000000000111110000000;
