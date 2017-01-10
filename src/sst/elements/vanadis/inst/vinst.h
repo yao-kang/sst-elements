@@ -67,6 +67,8 @@ class VanadisInstruction {
 		return id;
 	}
 
+	virtual void execute() = 0;
+
 	virtual std::string toString() = 0;
 	virtual std::string toMnemonic() = 0;
 
