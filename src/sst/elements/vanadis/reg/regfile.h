@@ -23,6 +23,20 @@ public:
 		return physRegCount;
 	}
 
+				template<typename T>
+        void setReg(uint32_t reg, T val) {
+            if( sizeof(T) > registerWidth ) {
+							// Error?
+						}
+        }
+
+				template<typename T>
+        T getReg(uint32_t reg) {
+            if( sizeof(T) > registerWidth ) {
+							// Error?
+						}
+        }
+
 protected:
 	int registerWidth;
 	int physRegCount;

@@ -144,6 +144,18 @@ public:
 	}
 
 protected:
+        std::string generateRegisterString() {
+            char* buff = (char*) malloc( sizeof(char) * 256 );
+            
+            sprintf(buff, "%" PRIu32 ", %" PRIu32 ", %" PRIu32 " (mapped to: %" PRIu32 ", %" PRIu32 ", %" PRIu32 ")",
+                    isaRegRd, isaRegR1, isaRegR2, archRegRd, archRegR1, archRegR2);
+            
+            std::string buffStr(buff);
+            free(buff);
+            
+            return buffStr;
+        }
+    
 	const uint32_t isaRegRd;
 	const uint32_t isaRegR1;
 	const uint32_t isaRegR2;

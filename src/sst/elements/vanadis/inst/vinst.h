@@ -26,14 +26,16 @@ enum VanadisInstructionError {
 class VanadisInstruction {
 
 	VanadisInstruction(SST::Output* output, const uint32_t uniqID, const uint64_t iAddr) :
-		id(uniqID), addr(iAddr) {
+		id(uniqID), addr(iAddr), intRF(NULL), fpRF(NULL) {
 
 		instErr = NONE;
 		cyclesSpentExecuting = 0;
 	}
 
-	VanadisInstruction(SST::Output* output, const uint32_t uniqID, const uint64_t iAddr, const uint32_t executeCycles) :
-			id(uniqID), addr(iAddr), cyclesSpentExecuting(executeCycles) {
+	VanadisInstruction(SST::Output* output, const uint32_t uniqID, const uint64_t iAddr, const uint32_t executeCycles,
+                        VanadisRegisterFile* intRegFile, VanadisRegisterFile* fpRegFile) :
+			id(uniqID), addr(iAddr), cyclesSpentExecuting(executeCycles),
+                        intRF(intRegFile), fpRF(fpRegFile) {
 
 		instErr = NONE;
 	}
@@ -99,6 +101,8 @@ protected:
 	VanadisInstructionFamily family;
 	uint32_t cyclesSpentExecuting;
 	uint64_t addr;
+        VanadisRegisterFile* intRF;
+        VanadisRegisterFile* fpRF;
 };
 
 }
