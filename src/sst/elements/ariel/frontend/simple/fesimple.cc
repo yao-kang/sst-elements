@@ -13,14 +13,16 @@
 // information, see the LICENSE file in the top level directory of the
 // distribution.
 
-//#include <malloc.h>
+//#include <sst_config.h>
+#include <sst_element_config.h>
+
 #include <execinfo.h>
-#include <assert.h>
-#include <stdlib.h>
-#include <stdio.h>
+#include <cassert>
+#include <cstdlib>
+#include <cstdio>
 #include "pin.H"
 #include <time.h>
-#include <string.h>
+#include <cstring>
 #include <sstream>
 #include <fcntl.h>
 #include <unistd.h>
@@ -31,7 +33,15 @@
 #include <ctime>
 #include <bitset>
 #include <set>
-#include <sst_config.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
+
+#ifndef PINTOOL_VERSION_2
+
+int shm_open(const char *name, int oflag, mode_t mode);
+int shm_unlink(const char *name);
+
+#endif
 
 #ifdef HAVE_LIBZ
 

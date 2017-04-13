@@ -66,6 +66,7 @@ nobase_sst_HEADERS = \
 libexec_PROGRAMS =
 
 if SST_COMPILE_OSX
+if HAVE_PIN2
 
 all-local: frontend/simple/fesimple.cc
 	$(CXX) -O3 -shared \
@@ -97,7 +98,10 @@ install-exec-hook:
 	$(MKDIR_P) $(libexecdir)
 	$(INSTALL) fesimple.dylib $(libexecdir)/fesimple.dylib
 
+endif
 else
+
+if HAVE_PIN2
 
 all-local:
 	$(CXX) -shared -Wl,--hash-style=sysv -Wl,-Bsymbolic \
@@ -123,7 +127,48 @@ all-local:
 	-L$(PINTOOL_DIR)/extras/xed-intel64/lib \
 	-o fesimple.so $(top_srcdir)/src/sst/elements/ariel/frontend/simple/fesimple.cc \
 	-ldl -lpin -lxed -lpindwarf -ldl -lpthread -lrt $(LIBZ_LDFLAGS) $(LIBZ_LIB)
+else
 
+all-local:
+	$(CXX) -shared -Wl,--hash-style=sysv -Wl,-Bsymbolic \
+	-fPIC -O3 \
+	-fabi-version=2 \
+	-fomit-frame-pointer \
+	-fpermissive \
+	$(CXXFLAGS) \
+	$(CPPFLAGS) \
+	$(BOOST_CPPFLAGS) \
+	$(LIBZ_CPPFLAGS) \
+	-DTARGET_IA32E -DHOST_IA32E -fPIC -DTARGET_LINUX \
+	-DPIN_CRT=1 -D__PIN__=1 \
+	-I./ \
+	-I$(PINTOOL_DIR)/ \
+	-I$(PINTOOL_DIR)/source/include/pin \
+	-I$(PINTOOL_DIR)/source/include/pin/gen \
+	-I$(PINTOOL_DIR)/extras/stlport/include \
+	-I$(PINTOOL_DIR)/extras/libstdc++/include \
+	-I$(PINTOOL_DIR)/extras/crt/include \
+	-I$(PINTOOL_DIR)/extras/crt/include/arch-x86_64 \
+	-I$(PINTOOL_DIR)/extras/crt/include/kernel/uapi \
+	-I$(PINTOOL_DIR)/extras/crt/include/kernel/uapi/asm-x86 \
+	-I$(PINTOOL_DIR)/extras/components/include \
+	-I$(PINTOOL_DIR)/extras/xed-intel64/include \
+	-I$(PINTOOL_DIR)/extras/xed-intel64/include/xed \
+	-I$(PINTOOL_DIR)/source/tools/InstLib \
+	-I$(top_srcdir)/src/sst \
+	-I$(top_srcdir)/src/sst/elements/ariel \
+	-I$(top_srcdir)/src \
+	-Wl,--version-script=$(PINTOOL_DIR)/source/include/pin/pintool.ver \
+	-L$(PINTOOL_DIR)/intel64/runtime/pincrt \
+	-L$(PINTOOL_DIR)/intel64/lib \
+	-L$(PINTOOL_DIR)/intel64/lib-ext \
+	-L$(PINTOOL_DIR)/extras/xed-intel64/lib \
+	-L$(PINTOOL_DIR)/intel64/runtime/glibc \
+	-o fesimple.so $(top_srcdir)/src/sst/elements/ariel/frontend/simple/fesimple.cc \
+	-ldl -lpin -lxed -lpin3dwarf -lrt $(LIBZ_LDFLAGS) $(LIBZ_LIB) \
+	-lstlport-dynamic -lm-dynamic -lc-dynamic -lunwind-dynamic
+
+endif
 
 install-exec-hook:
 	$(MKDIR_P) $(libexecdir)

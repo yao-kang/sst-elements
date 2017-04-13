@@ -29,6 +29,13 @@ AC_DEFUN([SST_CHECK_PINTOOL],
   AS_IF([test "x$PINTOOL_RUNTIME" = "x"], [AC_PATH_PROG([PINTOOL_RUNTIME], [pin], [], [$PINTOOL_PATH])])
   AS_IF([test "x$PINTOOL_RUNTIME" = "x"], [sst_check_pintool_happy="no"])
 
+  AC_MSG_CHECKING([PIN Version])
+  PIN_VERSION=`$PINTOOL_RUNTIME -version | head -n 1`
+  AC_MSG_RESULT([$PIN_VERSION])
+
+  AM_CONDITIONAL([HAVE_PIN2], [test "x$PIN_VERSION" = "xPin 2.14"])
+  AS_IF([test "x$PIN_VERSION" = "xPin 2.14"], [AC_SUBST([PINTOOL_VERSION_2])] )
+  
   CPPFLAGS="$CPPFLAGS_saved"
   LDFLAGS="$LDFLAGS_saved"
   PATH="$PATH_saved"
