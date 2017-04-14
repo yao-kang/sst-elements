@@ -135,6 +135,7 @@ all-local:
 	-fabi-version=2 \
 	-fomit-frame-pointer \
 	-fpermissive \
+	-fno-stack-protector -fno-exceptions -funwind-tables -fasynchronous-unwind-tables -fno-rtti \
 	$(CXXFLAGS) \
 	$(CPPFLAGS) \
 	$(BOOST_CPPFLAGS) \
@@ -164,9 +165,12 @@ all-local:
 	-L$(PINTOOL_DIR)/intel64/lib-ext \
 	-L$(PINTOOL_DIR)/extras/xed-intel64/lib \
 	-L$(PINTOOL_DIR)/intel64/runtime/glibc \
+	$(PINTOOL_DIR)/intel64/runtime/pincrt/crtendS.o \
 	-o fesimple.so $(top_srcdir)/src/sst/elements/ariel/frontend/simple/fesimple.cc \
-	-ldl -lpin -lxed -lpin3dwarf -lrt $(LIBZ_LDFLAGS) $(LIBZ_LIB) \
-	-lstlport-dynamic -lm-dynamic -lc-dynamic -lunwind-dynamic
+	-lpin -lxed -lpin3dwarf $(LIBZ_LDFLAGS) \
+	-nostdlib \
+	-lstlport-dynamic -lm-dynamic -lc-dynamic -lunwind-dynamic -ldl-dynamic \
+	-Wl,-Bstatic $(LIBZ_LIB) -Wl,-Bdynamic
 
 endif
 

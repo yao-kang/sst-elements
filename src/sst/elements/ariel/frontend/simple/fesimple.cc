@@ -16,20 +16,20 @@
 //#include <sst_config.h>
 #include <sst_element_config.h>
 
-#include <execinfo.h>
-#include <cassert>
+//#include <execinfo.h>
+//#include <cassert>
 #include <cstdlib>
 #include <cstdio>
 #include "pin.H"
 #include <time.h>
 #include <cstring>
-#include <sstream>
-#include <fcntl.h>
+//#include <sstream>
+//#include <fcntl.h>
 #include <unistd.h>
 #include <iostream>
-#include <fstream>
+//#include <fstream>
 #include <map>
-#include <stack>
+//#include <stack>
 #include <ctime>
 #include <bitset>
 #include <set>
@@ -38,8 +38,8 @@
 
 #ifndef PINTOOL_VERSION_2
 
-int shm_open(const char *name, int oflag, mode_t mode);
-int shm_unlink(const char *name);
+extern "C" int shm_open(const char *name, int oflag, mode_t mode);
+extern "C" int shm_unlink(const char *name);
 
 #endif
 
@@ -641,8 +641,8 @@ void* ariel_mlm_malloc(size_t size, int level) {
     if(0 == size) {
         fprintf(stderr, "YOU REQUESTED ZERO BYTES\n");
         void *bt_entries[64];
-        int entry_returned = backtrace(bt_entries, 64);
-	backtrace_symbols(bt_entries, entry_returned);
+//        int entry_returned = backtrace(bt_entries, 64);
+//	backtrace_symbols(bt_entries, entry_returned);
         exit(-8);
     }
 
@@ -947,19 +947,22 @@ int main(int argc, char *argv[])
         
         // Shadow stack - open per-thread backtrace file
         if (KeepMallocStackTrace.Value() == 1) {
-            stringstream fn;
-            fn << "backtrace_" << i << ".txt";
-            string filename(fn.str());
+	    char* fn_name = (char*) malloc( sizeof(char) * 2048);
+
 #ifdef HAVE_LIBZ
-            filename += ".gz";
-            btfiles.push_back(gzopen(filename.c_str(), "w"));
+	    sprintf(fn_name, "backtrace_%d.txt.gz", i);
+            btfiles.push_back(gzopen(fn_name, "w"));
 #else
-            btfiles.push_back(fopen(filename.c_str(), "w"));
+	    sprintf(fn_name, "backtrace_%d.txt", i);
+            btfiles.push_back(fopen(fn_name, "w"));
 #endif
+
             if (btfiles.back() == NULL) {
-                fprintf(stderr, "ARIEL ERROR: could not create and/or open backtrace file: %s\n", filename.c_str());
+                fprintf(stderr, "ARIEL ERROR: could not create and/or open backtrace file: %s\n", fn_name);
                 return 73;  // EX_CANTCREATE
             }
+
+	    free(fn_name);
         }
     }
 
