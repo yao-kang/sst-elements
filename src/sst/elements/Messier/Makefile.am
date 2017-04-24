@@ -7,6 +7,7 @@ compdir = $(pkglibdir)
 comp_LTLIBRARIES = libMessier.la 
 
 libMessier_la_SOURCES = \
+	Cache.h \
 	libMessier.cpp \
 	memReqEvent.h \
 	Messier.cc \

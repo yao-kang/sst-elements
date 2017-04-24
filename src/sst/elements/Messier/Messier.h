@@ -52,7 +52,7 @@ namespace SST {
 		class Messier : public SST::Component {
 			public:
 
-				Messier(SST::ComponentId_t id, SST::Params& params); 
+				Messier( SST::ComponentId_t id, SST::Params& params); 
 				void setup()  { };
 				void finish() {DIMM->finish();};
 				void handleEvent(SST::Event* event) {};
@@ -68,8 +68,9 @@ namespace SST {
 
 				int create_pinchild(char* prog_binary, char** arg_list){return 0;}
 
-
 				SST::Link * m_memChan; 
+
+				SST::Link * event_link; // Note that this is a self-link for events
 
 				NVM_PARAMS * nvm_params;
 				NVM_DIMM * DIMM;

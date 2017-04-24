@@ -35,10 +35,11 @@ class NVM_Request
 	public:
 		NVM_Request() {}
 		NVM_Request(long long id, bool R, int size, long long int Add) { req_ID = id; Read = R; Size = size; Address = Add;}
-		long long req_ID;
+		long long int req_ID;
 		bool Read;
 		int Size;
 		long long int Address;
+		int meta_data;
 
 };
 
