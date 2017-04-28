@@ -694,7 +694,7 @@ bool NVM_DIMM::submit_request_opt()
 
 
 						// If this comes here due to write cancellation: do the right business
-						if(params->write_cancel && !corresp_bank->read() && !WB->flush() && (corresp_bank->getBusyUntil() - cycles < (100-4*WB->getSize())*1.0*params->tCL_W/100.0 ))							
+						if(params->write_cancel &&  (corresp_bank->getBusyUntil() >= cycles) && !corresp_bank->read() && !WB->flush() && (corresp_bank->getBusyUntil() - cycles < (100-4*WB->getSize())*1.0*params->tCL_W/100.0 ))							
 						{
 						// Write cancellation business
 						corresp_bank->setLocked(false, cycles);
@@ -873,7 +873,7 @@ void NVM_DIMM::handleEvent( SST::Event* e )
 					bank_hist[WhichBank(temp->Address)]--;
 					delete NVM_EVENT_MAP[temp->req_ID];
 					NVM_EVENT_MAP.erase(req->req_ID);
-					delete temp;
+			//		delete temp;
 					delete e;
 
 				}
@@ -881,6 +881,7 @@ void NVM_DIMM::handleEvent( SST::Event* e )
 			(getBank(req->Address))->setLocked(false, cycles);
 			ready_trans.erase(req);
 			outstanding.remove(req);
+			delete req;
 
 		}
 		//	else
