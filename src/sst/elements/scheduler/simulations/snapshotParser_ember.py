@@ -165,6 +165,13 @@ def generate_scheduler_inputs (InfoPair, TimeObject, JobObjects, options):
     emberRunningFile   = options.emberRunningFile
     motifLogprefix     = "motif-"
 
+    output_folder = os.getenv('SIMOUTPUT')
+    if output_folder == None:
+        options.output_folder = "./"
+    else:
+        options.output_folder = output_folder
+
+
     ecFile = open(emberCompletedFile, 'a')
     erFile = open(emberRunningFile, 'w')
 
@@ -191,7 +198,7 @@ def generate_scheduler_inputs (InfoPair, TimeObject, JobObjects, options):
             runningJobsList.append(Job.jobNum)
 
             # Read motifLogs to get the current motif number from ember
-            motifLog = motifLogprefix + str(Job.jobNum) + ".log"
+            motifLog = options.output_folder + motifLogprefix + str(Job.jobNum) + ".log"
             #print motifLog
             mFile    = open(motifLog, 'r')
             emberMotifNum = -1

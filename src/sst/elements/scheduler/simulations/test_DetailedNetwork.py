@@ -8,10 +8,10 @@ sst.setProgramOption("run-mode", "both")
 scheduler = sst.Component("myScheduler",             "scheduler.schedComponent")
 scheduler.addParams({
       "traceName" : "test_DetailedNetwork.sim",
-      "machine" : "mesh[6,4,3]",
-      "coresPerNode" : "4",
+      "machine" : "dragonfly[4,7,2,2,all_to_all,absolute]",
+      "coresPerNode" : "2",
       "scheduler" : "easy",
-      "allocator" : "bestfit",
+      "allocator" : "simple",
       "timeperdistance" : ".001865[.1569,0.0129]",
       "dMatrixFile" : "none",
       "detailedNetworkSim" : "ON",

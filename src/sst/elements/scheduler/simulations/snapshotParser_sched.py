@@ -2,7 +2,7 @@
 '''
 Date        : 07/17/2015  
 Created by  : Fulya Kaplan
-Description : This sub-python script parses the snapshot xml file that is dumped by the scheduler. It then creates a runscript for ember simulation and runs the script. Created specifically for detailed simulation of network congestion together with scheduling & application task mapping algorithms.
+Description : This sub-python script parses the snapshot xml file that is dumped by the scheduler. It then creates a runscript for ember simulation and runs the script. Created specifically for detailed simulation of network congestion together with scheduling & application task mapping algorithms. Updated January 2017: All intermediate files and output files can be redirected to an output folder. This was multiple experiments can be launched at the same time without intefering with each other. Experimental settings such as link bandwidth ratio, link arrangement, or routing algorithm can be fed as parameters to the script.
 '''
 
 import os, sys
@@ -12,6 +12,7 @@ import xml.dom.minidom
 from optparse import OptionParser
 import math
 import numpy as np
+import random
 
 
 class Time:
@@ -108,12 +109,16 @@ def parse_xml (options):
                 temp[1].append(int(tasks[i]))
             NodeList.append(temp)
         #print NodeList
+        if options.shuffle == True:
+            random.shuffle(NodeList)
 
         # Find number of cores per node
         numCores = len(NodeList[0][1])
 
         # Sort NodeList to match the desired mapping in ember
-        sortedNodeList = sort_NID(NodeList, numCores)
+        #Fulya Jan 2016: Commented out sorting. We had it as a practical way of task mapping in ember, we do not need it any more.
+        #sortedNodeList = sort_NID(NodeList, numCores)
+        sortedNodeList = NodeList
 
         tempJobObject = Job()
         tempJobObject.set(jobNum, sortedNodeList, motifFile, startingMotif)
@@ -135,19 +140,24 @@ def sort_NID (nodeList, numCores):
     return (sorted_nodeList)
 
 # Generates necessary files for ember to run
-def generate_ember_files (TimeObject, JobObjects):
+def generate_ember_files (TimeObject, JobObjects, options):
 
-    loadfile    = generate_loadfile (TimeObject, JobObjects)
-    #mapfile     = generate_mapfile (JobObjects)
-    mapfile = "mapFile.txt"
-    execcommand = generate_ember_script (TimeObject, JobObjects, loadfile, mapfile)
+    output_folder = os.getenv('SIMOUTPUT')
+    if output_folder == None:
+        options.output_folder = "./"
+    else:
+        options.output_folder = output_folder
+
+    loadfile    = generate_loadfile (TimeObject, JobObjects, options)
+    mapfile     = generate_mapfile (JobObjects, options)
+    execcommand = generate_ember_script (TimeObject, JobObjects, loadfile, mapfile, options)
 
     return (execcommand)
 
 # Generates a loadfile for ember
-def generate_loadfile (TimeObject, JobObjects):
+def generate_loadfile (TimeObject, JobObjects, options):
 
-    loadfile  = "loadfile"
+    loadfile  = options.output_folder + "loadfile"
     # Open loadfile to write 
     ldfile = open(loadfile, "w")
 
@@ -191,9 +201,9 @@ def generate_loadfile (TimeObject, JobObjects):
 
     return (loadfile)
 
-def generate_mapfile (JobObjects):
+def generate_mapfile (JobObjects, options):
 
-    mapfile = "mapFile.txt"
+    mapfile = options.output_folder + "mapFile.txt"
     # Open mapfile to write 
     mpfile = open(mapfile, "w")
 
@@ -224,10 +234,21 @@ def generate_mapfile (JobObjects):
     return (mapfile)
 
 # Generates a script for ember to run
-def generate_ember_script (TimeObject, JobObjects, loadfile, mapfile):
+def generate_ember_script (TimeObject, JobObjects, loadfile, mapfile, options):
     
     emberLoad = "emberLoad.py"
-    currDir   = os.getcwd()
+    #currDir   = os.getcwd()
+
+    if options.alpha == None:
+        global_bw = "1"
+        netBW = "1"
+    else:
+        global_bw = options.alpha
+        if float(options.alpha) < 1:
+            netBW = "1"
+        else:
+            netBW = options.alpha
+    print netBW
 
     # If nextArrivalTime is zero, it means there are no other jobs left to arrive in the future. Do not use stop-at option.
     if TimeObject.nextArrivalTime == 0:
@@ -238,12 +259,22 @@ def generate_ember_script (TimeObject, JobObjects, loadfile, mapfile):
         StopAtTime  = str(StopAtTime_) + "us"
         execcommand = "sst --stop-at " + StopAtTime
     # Generate commandline string to execute
-    #execcommand += " --model-options=\"--topo=torus --shape=5x4x4 --numCores=4 --netFlitSize=8B --netPktSize=1024B --netBW=4GB/s --emberVerbose=0 --printStats=1"
-    execcommand += " --model-options=\"--topo=dragonfly --shape=7:2:2:4 --numCores=4 --netFlitSize=8B --netPktSize=1024B --netBW=4GB/s --emberVerbose=0 --printStats=1"
-    execcommand += " --embermotifLog=" + currDir + "/motif"
-    #execcommand += " --rankmapper=ember.CustomMap"
+    #execcommand += " --model-options=\"--topo=torus --shape=2x2x2 --numCores=1 --netFlitSize=8B --netPktSize=1024B --emberVerbose=0 --debug=0"
+    execcommand += " --model-options=\"--topo=dragonfly2 --shape=2:4:1:9 --routingAlg=%s --link_arrangement=%s --numCores=2 --netFlitSize=8B --netPktSize=1024B --emberVerbose=0 --debug=0" %(options.routing, options.link_arrangement)
+    #execcommand += " --model-options=\"--topo=dragonfly2 --shape=2:5:1:11 --routingAlg=%s --link_arrangement=%s --numCores=2 --netFlitSize=8B --netPktSize=1024B --emberVerbose=0 --debug=0" %(options.routing, options.link_arrangement)
+    #execcommand += " --model-options=\"--topo=dragonfly2 --shape=2:8:1:17 --routingAlg=%s --link_arrangement=%s --numCores=2 --netFlitSize=8B --netPktSize=1024B --emberVerbose=0 --debug=0" %(options.routing, options.link_arrangement)
+    execcommand += " --host_bw=1GB/s --group_bw=1GB/s --global_bw=%sGB/s --netBW=%sGB/s" %(global_bw, netBW)
+    execcommand += " --embermotifLog=" + options.output_folder + "motif"
+    if options.rankmapper == "custom":
+        execcommand += " --rankmapper=ember.CustomMap"
+    else:
+        execcommand += " --rankmapper=ember.LinearMap"        
+    execcommand += " --mapFile=" + mapfile
+    execcommand += " --networkStatOut=" + options.output_folder + "networkStats.csv"
     execcommand += " --loadFile=" + loadfile + "\""
     execcommand += " " + emberLoad + "\n"
+
+    print execcommand
 
     return (execcommand)
 
@@ -256,10 +287,16 @@ def main():
 
     parser = OptionParser(usage="usage: %prog [options]")
     parser.add_option("--xml",  action='store', dest="xmlFile", help="Name of the xml file that holds the current scheduler snapshot.") 
+    parser.add_option("--alpha",  action='store', dest="alpha", help="Alpha = Global_link_BW / Local_link_BW.") 
+    parser.add_option("--link_arrangement",  action='store', dest="link_arrangement", help="Global link arrangement for dragonfly.") 
+    parser.add_option("--routing",  action='store', dest="routing", help="Routing algorithm.") 
+    parser.add_option("--rankmapper",  action='store', dest="rankmapper", help="Custom or linear mapping.") 
+    parser.add_option("--shuffle",  action='store_true', dest="shuffle", help="Random shuffling of the node list order.") 
+
     (options, args) = parser.parse_args()
     
     TimeObject, JobObjects = parse_xml (options = options)
-    execcommand = generate_ember_files (TimeObject, JobObjects)
+    execcommand = generate_ember_files (TimeObject, JobObjects, options)
     run_ember (execcommand)
 
 if __name__ == '__main__':
