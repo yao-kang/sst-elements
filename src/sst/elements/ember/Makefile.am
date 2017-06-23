@@ -7,6 +7,25 @@ AM_CPPFLAGS = \
 compdir = $(pkglibdir)
 comp_LTLIBRARIES = libember.la
 
+if SST_ELEMENTS_HAVE_MPI
+
+siriusdir = $(pkglibdir)
+sirius_LTLIBRARIES = libsirius.la
+
+libsirius_la_CXX = $(MPICXX)
+
+libsirius_la_SOURCES = \
+	sirius/libsirius/libsirius.cc
+
+libsirius_la_CXXFLAGS = \
+	-fPIC $(MPI_CPPFLAGS)
+
+libsirius_la_CPPFLAGS = \
+	-I$(top_srcdir)/src/sst/elements/ember/sirius/include \
+	-DSIRIUS_BACKTRACE
+
+endif
+
 libember_la_SOURCES = \
 	embergen.h \
 	embergen.cc	\
@@ -164,3 +183,4 @@ libember_la_SOURCES += \
 	embermpicxtgen.h \
 	embermpicxtgen.cc
 endif
+

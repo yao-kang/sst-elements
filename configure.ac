@@ -131,6 +131,18 @@ fi
 printf "%38s : %s\n" "Linker Options" "$LDFLAGS"
 printf "%38s : %s\n" "Boost Library Preprocessor" "$BOOST_CPPFLAGS"
 printf "%38s : %s\n" "Boost Library Linker Options" "$BOOST_LDFLAGS"
+
+printf "\n"
+
+if test "$sst_core_have_mpi" = "1" ; then
+  printf "%38s : %s\n" "Core uses MPI?" "Yes"
+  printf "%38s : %s\n" "MPICC" "$SST_MPICC"
+  printf "%38s : %s\n" "MPICXX" "$SST_MPICXX"
+  printf "%38s : %s\n" "MPI_CPPFLAGS" "$SST_MPI_CPPFLAGS"
+else
+  printf "%38s : %s\n" "Core uses MPI?" "No (Result=$sst_core_have_mpi)"
+fi
+
 echo ""
 echo "-------------------------------------------------------"
 echo "Configuration Information (Found Dependencies):"
