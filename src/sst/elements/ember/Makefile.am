@@ -12,15 +12,13 @@ if SST_ELEMENTS_HAVE_MPI
 siriusdir = $(pkglibdir)
 sirius_LTLIBRARIES = libsirius.la
 
-libsirius_la_CXX = $(MPICXX)
+libsirius_la_CXX = $(SST_MPICXX)
 
 libsirius_la_SOURCES = \
 	sirius/libsirius/libsirius.cc
 
-libsirius_la_CXXFLAGS = \
-	-fPIC $(MPI_CPPFLAGS)
-
 libsirius_la_CPPFLAGS = \
+	$(SST_MPI_CPPFLAGS) \
 	-I$(top_srcdir)/src/sst/elements/ember/sirius/include \
 	-DSIRIUS_BACKTRACE
 
