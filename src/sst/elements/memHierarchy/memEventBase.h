@@ -42,6 +42,7 @@ public:
     static const uint32_t F_LLSC            = 0x00000100;
     static const uint32_t F_SUCCESS         = 0x00001000;
     static const uint32_t F_NORESPONSE      = 0x00010000;
+    static const uint32_t F_TRACK           = 0x00100000;
 
 
     /** Creates a new MemEventBase */

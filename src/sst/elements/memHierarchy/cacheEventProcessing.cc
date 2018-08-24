@@ -44,6 +44,7 @@ using namespace SST::MemHierarchy;
 
 
 void Cache::profileEvent(MemEvent* event, Command cmd, bool replay, bool canStall) {
+    bool track = event->getFlags() & MemEvent::F_TRACK;
     if (!replay) {
         switch (cmd) {
             case Command::GetS:
@@ -104,9 +105,11 @@ void Cache::profileEvent(MemEvent* event, Command cmd, bool replay, bool canStal
             if (!replay) {                // New event
                 if (cacheHit == 0) {
                     statCacheHits->addData(1);
+                    if(track) statCacheTrackedHits->addData(1);
                     statGetSHitOnArrival->addData(1);
                 } else {
                     statCacheMisses->addData(1);
+                    if(track) statCacheTrackedMisses->addData(1);
                     statGetSMissOnArrival->addData(1);
                     if (cacheHit == 1 || cacheHit == 2) {
                         missTypeList_.insert(std::pair<MemEvent*,int>(event, 0));
@@ -117,9 +120,11 @@ void Cache::profileEvent(MemEvent* event, Command cmd, bool replay, bool canStal
             } else if (wasBlocked) {        // Blocked event, now unblocked
                 if (cacheHit == 0) {
                     statCacheHits->addData(1);
+                    if(track) statCacheTrackedHits->addData(1);
                     statGetSHitAfterBlocked->addData(1);
                 } else {
                     statCacheMisses->addData(1);
+                    if(track) statCacheTrackedMisses->addData(1);
                     statGetSMissAfterBlocked->addData(1);
                     if (cacheHit == 1 || cacheHit == 2) {
                         missTypeList_.insert(std::pair<MemEvent*,int>(event, 0));
@@ -133,9 +138,11 @@ void Cache::profileEvent(MemEvent* event, Command cmd, bool replay, bool canStal
             if (!replay) {                // New event
                 if (cacheHit == 0) {
                     statCacheHits->addData(1);
+                    if(track) statCacheTrackedHits->addData(1);
                     statGetXHitOnArrival->addData(1);
                 } else {
                     statCacheMisses->addData(1);
+                    if(track) statCacheTrackedMisses->addData(1);
                     statGetXMissOnArrival->addData(1);
                     if (cacheHit == 1) {
                         missTypeList_.insert(std::pair<MemEvent*,int>(event, 2));
@@ -148,9 +155,11 @@ void Cache::profileEvent(MemEvent* event, Command cmd, bool replay, bool canStal
             } else if (wasBlocked) {        // Blocked event, now unblocked
                 if (cacheHit == 0) {
                     statCacheHits->addData(1);
+                    if(track) statCacheTrackedHits->addData(1);
                     statGetXHitAfterBlocked->addData(1);
                 } else {
                     statCacheMisses->addData(1);
+                    if(track) statCacheTrackedMisses->addData(1);
                     statGetXMissAfterBlocked->addData(1);
                     if (cacheHit == 1) {
                         missTypeList_.insert(std::pair<MemEvent*,int>(event, 2));
@@ -166,9 +175,11 @@ void Cache::profileEvent(MemEvent* event, Command cmd, bool replay, bool canStal
             if (!replay) {                // New event
                 if (cacheHit == 0) {
                     statCacheHits->addData(1);
+                    if(track) statCacheTrackedHits->addData(1);
                     statGetSXHitOnArrival->addData(1);
                 } else {
                     statCacheMisses->addData(1);
+                    if(track) statCacheTrackedMisses->addData(1);
                     statGetSXMissOnArrival->addData(1);
                     if (cacheHit == 1) {
                         missTypeList_.insert(std::pair<MemEvent*,int>(event, 5));
@@ -181,9 +192,11 @@ void Cache::profileEvent(MemEvent* event, Command cmd, bool replay, bool canStal
             } else if (wasBlocked) {        // Blocked event, now unblocked
                 if (cacheHit == 0) {
                     statCacheHits->addData(1);
+                    if(track) statCacheTrackedHits->addData(1);
                     statGetSXMissAfterBlocked->addData(1);
                 } else {
                     statCacheMisses->addData(1);
+                    if(track) statCacheTrackedMisses->addData(1);
                     statGetSXMissAfterBlocked->addData(1);
                     if (cacheHit == 1) {
                         missTypeList_.insert(std::pair<MemEvent*,int>(event, 5));

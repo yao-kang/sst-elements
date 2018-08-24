@@ -153,6 +153,10 @@ MemEventBase* MemHierarchyInterface::createMemEvent(SimpleMem::Request *req) con
         me->setFlag(MemEvent::F_LLSC);
     }
 
+    if(req->flags & (1<<7)){
+        me->setFlag(MemEvent::F_TRACK);
+    }
+
     me->setVirtualAddress(req->getVirtualAddress());
     me->setInstructionPointer(req->getInstructionPointer());
 

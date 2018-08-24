@@ -121,6 +121,9 @@ public:
             /* Cache hits and misses */
             {"CacheHits",               "Total number of cache hits", "count", 1},
             {"CacheMisses",             "Total number of cache misses", "count", 1},
+            {"CacheTrackedHits",               "Total number of Track cache hits", "count", 1},
+            {"CacheTrackedMisses",             "Total number of Track cache misses", "count", 1},
+
             {"GetSHit_Arrival",         "GetS was handled at arrival and was a cache hit", "count", 1},
             {"GetSHit_Blocked",         "GetS was blocked in MSHR at arrival and later was a cache hit", "count", 1},
             {"GetXHit_Arrival",         "GetX was handled at arrival and was a cache hit", "count", 1},
@@ -394,6 +397,7 @@ private:
      */
     // Cache hits
     Statistic<uint64_t>* statCacheHits;
+    Statistic<uint64_t>* statCacheTrackedHits;
     Statistic<uint64_t>* statGetSHitOnArrival;
     Statistic<uint64_t>* statGetXHitOnArrival;
     Statistic<uint64_t>* statGetSXHitOnArrival;
@@ -402,6 +406,7 @@ private:
     Statistic<uint64_t>* statGetSXHitAfterBlocked;
     // Cache misses
     Statistic<uint64_t>* statCacheMisses;
+    Statistic<uint64_t>* statCacheTrackedMisses;
     Statistic<uint64_t>* statGetSMissOnArrival;
     Statistic<uint64_t>* statGetXMissOnArrival;
     Statistic<uint64_t>* statGetSXMissOnArrival;

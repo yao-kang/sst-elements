@@ -636,13 +636,15 @@ void Cache::registerStatistics() {
     statTotalEventsReplayed         = registerStatistic<uint64_t>("TotalEventsReplayed");
     statNoncacheableEventsReceived  = registerStatistic<uint64_t>("TotalNoncacheableEventsReceived");
     statCacheHits                   = registerStatistic<uint64_t>("CacheHits");
+    statCacheTrackedHits            = registerStatistic<uint64_t>("CacheTrackedHits");
     statGetSHitOnArrival            = registerStatistic<uint64_t>("GetSHit_Arrival");   
     statGetXHitOnArrival            = registerStatistic<uint64_t>("GetXHit_Arrival");
     statGetSXHitOnArrival           = registerStatistic<uint64_t>("GetSXHit_Arrival"); 
     statGetSHitAfterBlocked         = registerStatistic<uint64_t>("GetSHit_Blocked");
     statGetXHitAfterBlocked         = registerStatistic<uint64_t>("GetXHit_Blocked");  
     statGetSXHitAfterBlocked        = registerStatistic<uint64_t>("GetSXHit_Blocked");
-    statCacheMisses                 = registerStatistic<uint64_t>("CacheMisses");
+    statCacheMisses                 = registerStatistic<uint64_t>("CacheMisses");   
+    statCacheTrackedMisses          = registerStatistic<uint64_t>("CacheTrackedMisses");
     statGetSMissOnArrival           = registerStatistic<uint64_t>("GetSMiss_Arrival");
     statGetXMissOnArrival           = registerStatistic<uint64_t>("GetXMiss_Arrival");
     statGetSXMissOnArrival          = registerStatistic<uint64_t>("GetSXMiss_Arrival");
