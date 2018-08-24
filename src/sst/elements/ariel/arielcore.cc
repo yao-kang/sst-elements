@@ -151,6 +151,10 @@ void ArielCore::commitReadEvent(const uint64_t address,
         SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length);
         req->setVirtualAddress(virtAddress);
 
+        if (track) {
+            req->setFlags(1<<7); // made up flag
+        }
+
         pending_transaction_count++;
         pendingTransactions->insert( std::pair<SimpleMem::Request::id_t, SimpleMem::Request*>(req->id, req) );
 
@@ -169,6 +173,10 @@ void ArielCore::commitWriteEvent(const uint64_t address,
     if(length > 0) {
         SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
         req->setVirtualAddress(virtAddress);
+
+        if (track) {
+            req->setFlags(1<<7); // made up flag
+        }
 
         if( writePayloads ) {
             if(verbosity >= 16) {
