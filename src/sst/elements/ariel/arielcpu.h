@@ -85,6 +85,8 @@ class ArielCPU : public SST::Component {
     SST_ELI_DOCUMENT_STATISTICS(
         { "read_requests",        "Statistic counts number of read requests", "requests", 1},   // Name, Desc, Enable Level 
         { "write_requests",       "Statistic counts number of write requests", "requests", 1},
+        { "tracked_read_requests",        "Statistic counts number of tracked read requests", "requests", 1},   // Name, Desc, Enable Level 
+        { "tracked_write_requests",       "Statistic counts number of tracked write requests", "requests", 1},
         { "read_request_sizes",   "Statistic for size of read requests", "bytes", 1},   // Name, Desc, Enable Level 
         { "write_request_sizes",  "Statistic for size of write requests", "bytes", 1},
         { "split_read_requests",  "Statistic counts number of split read requests (requests which come from multiple lines)", "requests", 1},

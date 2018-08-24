@@ -27,7 +27,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
             uint32_t maxQLen, uint64_t cacheLineSz, SST::Component* own,
             ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params) :
             output(out), tunnel(tunnel), perform_checks(perform_address_checks),
-            verbosity(static_cast<uint32_t>(out->getVerboseLevel())) {
+            verbosity(static_cast<uint32_t>(out->getVerboseLevel())), track(0) {
 
     // set both counters for flushes to 0
     output->verbose(CALL_INFO, 2, 0, "Creating core with ID %" PRIu32 ", maximum queue length=%" PRIu32 ", max issue is: %" PRIu32 "\n", thisCoreID, maxQLen, maxIssuePerCyc);
@@ -56,7 +56,9 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     sprintf(subID, "%" PRIu32, thisCoreID);
 
     statReadRequests  = own->registerStatistic<uint64_t>( "read_requests", subID );
+    statTrackedReadRequests  = own->registerStatistic<uint64_t>( "tracked_read_requests", subID );
     statWriteRequests = own->registerStatistic<uint64_t>( "write_requests", subID );
+    statTrackedWriteRequests  = own->registerStatistic<uint64_t>( "tracked_write_requests", subID );
     statReadRequestSizes = own->registerStatistic<uint64_t>( "read_request_sizes", subID );
     statWriteRequestSizes = own->registerStatistic<uint64_t>( "write_request_sizes", subID );
     statSplitReadRequests = own->registerStatistic<uint64_t>( "split_read_requests", subID );
@@ -495,6 +497,11 @@ bool ArielCore::refillQueue() {
                 createFlushEvent(ac.flushline.vaddr);
                 break;
 
+            case ARIEL_TRACK_TOGGLE:
+                track = !track;
+                printf("core %d Tracking: %d\n", coreID, track);
+                break;
+
             case ARIEL_FENCE_INSTRUCTION:
                 createFenceEvent();
                 break;
@@ -615,6 +622,10 @@ void ArielCore::handleReadRequest(ArielReadEvent* rEv) {
 
     statReadRequests->addData(1);
     statReadRequestSizes->addData(readLength);
+
+    if (track) {
+        statTrackedReadRequests->addData(1);
+    }
 }
 
 void ArielCore::handleWriteRequest(ArielWriteEvent* wEv) {
@@ -696,6 +707,10 @@ void ArielCore::handleWriteRequest(ArielWriteEvent* wEv) {
 
     statWriteRequests->addData(1);
     statWriteRequestSizes->addData(writeLength);
+
+    if (track) {
+        statTrackedWriteRequests->addData(1);
+    }
 }
 
 

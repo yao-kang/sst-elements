@@ -159,6 +159,8 @@ class ArielCore {
 
         Statistic<uint64_t>* statReadRequests;
         Statistic<uint64_t>* statWriteRequests;
+        Statistic<uint64_t>* statTrackedReadRequests;
+        Statistic<uint64_t>* statTrackedWriteRequests;
 	Statistic<uint64_t>* statFlushRequests;
 	Statistic<uint64_t>* statFenceRequests;
         Statistic<uint64_t>* statReadRequestSizes;
@@ -180,6 +182,9 @@ class ArielCore {
         Statistic<uint64_t>* statFPSPOps;
 
         uint32_t pending_transaction_count;
+
+        // should we track these reads/writes
+        bool track;
 
 };
 

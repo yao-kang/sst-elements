@@ -586,6 +586,16 @@ void mapped_ariel_enable()
     enable_output = true;
 }
 
+void mapped_ariel_toggle()
+{
+    fprintf(stderr, "ARIEL: FE toggle.\n");
+    THREADID thr = PIN_ThreadId();
+    ArielCommand ac;
+    ac.command = ARIEL_TRACK_TOGGLE;
+    ac.instPtr = (uint64_t) 0;
+    tunnel->writeMessage(thr, ac);
+}
+
 uint64_t mapped_ariel_cycles()
 {
     return tunnel->getCycles();
@@ -989,6 +999,9 @@ VOID InstrumentRoutine(RTN rtn, VOID* args)
             enable_output = false;
         }
         return;
+    } else if (RTN_Name(rtn) == "ariel_track_toggle") {   
+        fprintf(stderr,"Identified routine: ariel_track_toggle, replacing...\n");     
+        RTN_Replace(rtn, (AFUNPTR) mapped_ariel_toggle);
     } else if (RTN_Name(rtn) == "gettimeofday" || RTN_Name(rtn) == "_gettimeofday") {
         fprintf(stderr,"Identified routine: gettimeofday, replacing with Ariel equivalent...\n");
         RTN_Replace(rtn, (AFUNPTR) mapped_gettimeofday);
