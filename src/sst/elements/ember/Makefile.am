@@ -5,6 +5,11 @@ AM_CPPFLAGS = \
 	-I$(top_srcdir)/src \
 	$(OTF2_CPPFLAGS)
 
+if SST_COMPILE_OSX
+else
+    AM_CPPFLAGS += -Wno-packed-bitfield-compat
+endif	
+	
 compdir = $(pkglibdir)
 comp_LTLIBRARIES = libember.la
 
