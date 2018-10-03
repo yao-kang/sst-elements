@@ -588,8 +588,8 @@ void mapped_ariel_enable()
 
 void mapped_ariel_toggle()
 {
-    fprintf(stderr, "ARIEL: FE toggle.\n");
     THREADID thr = PIN_ThreadId();
+    //fprintf(stderr, "ARIEL: FE toggle thr %d.\n", thr);
     ArielCommand ac;
     ac.command = ARIEL_TRACK_TOGGLE;
     ac.instPtr = (uint64_t) 0;

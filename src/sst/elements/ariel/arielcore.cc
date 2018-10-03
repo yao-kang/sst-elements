@@ -507,7 +507,6 @@ bool ArielCore::refillQueue() {
 
             case ARIEL_TRACK_TOGGLE:
                 track = !track;
-                printf("core %d Tracking: %d\n", coreID, track);
                 break;
 
             case ARIEL_FENCE_INSTRUCTION:
