@@ -695,7 +695,7 @@ void mapped_ariel_pf(void* addr)
     tunnel->writeMessage(thr, ac);
 }
 
-void mapped_toggle()
+void mapped_ariel_toggle()
 {
     THREADID thr = PIN_ThreadId();
     ArielCommand ac;
