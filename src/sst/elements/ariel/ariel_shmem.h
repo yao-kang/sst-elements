@@ -44,6 +44,8 @@ enum ArielShmemCmd_t {
     ARIEL_OUTPUT_STATS = 140,
     ARIEL_FLUSHLINE_INSTRUCTION = 154,
     ARIEL_FENCE_INSTRUCTION = 155,
+    ARIEL_PF = 256,
+    ARIEL_TOGGLE = 257
 };
 
 struct ArielCommand {
