@@ -26,6 +26,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
             Output* out, uint32_t maxIssuePerCyc,
             uint32_t maxQLen, uint64_t cacheLineSz, SST::Component* own,
             ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params) :
+            ignoreOps(0),
             output(out), tunnel(tunnel), perform_checks(perform_address_checks),
             verbosity(static_cast<uint32_t>(out->getVerboseLevel())) {
 
@@ -49,8 +50,11 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     writePayloads = params.find<int>("writepayloadtrace") == 0 ? false : true;
 
     coreQ = new std::queue<ArielEvent*>();
+    PFQ = new std::queue<ArielReadEvent*>();
     pendingTransactions = new std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>();
+    pendingPFTransactions = new std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>();
     pending_transaction_count = 0;
+    pending_pf_transaction_count = 0;
 
     char* subID = (char*) malloc(sizeof(char) * 32);
     sprintf(subID, "%" PRIu32, thisCoreID);
@@ -143,14 +147,19 @@ void ArielCore::printTraceEntry(const bool isRead,
 }
 
 void ArielCore::commitReadEvent(const uint64_t address,
-            const uint64_t virtAddress, const uint32_t length) {
+                                const uint64_t virtAddress, const uint32_t length, bool isPF) {
 
     if(length > 0) {
         SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length);
         req->setVirtualAddress(virtAddress);
 
-        pending_transaction_count++;
-        pendingTransactions->insert( std::pair<SimpleMem::Request::id_t, SimpleMem::Request*>(req->id, req) );
+        if (isPF) {
+            pending_pf_transaction_count++;
+            pendingPFTransactions->insert( std::pair<SimpleMem::Request::id_t, SimpleMem::Request*>(req->id, req) );
+        } else {
+            pending_transaction_count++;
+            pendingTransactions->insert( std::pair<SimpleMem::Request::id_t, SimpleMem::Request*>(req->id, req) );
+        }
 
         if(enableTracing) {
                 printTraceEntry(true, (const uint64_t) req->addrs[0], (const uint32_t) length);
@@ -222,7 +231,7 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " handling a memory event.\n", coreID));
 
     SimpleMem::Request::id_t mev_id = event->id;
-    auto find_entry = pendingTransactions->find(mev_id);
+    auto find_entry = pendingTransactions->find(mev_id); // search main list
 
     if(find_entry != pendingTransactions->end()) {
         ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
@@ -233,7 +242,15 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
         if(isCoreFenced() && pending_transaction_count == 0)
                 unfence();
     } else {
-        output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
+        find_entry = pendingPFTransactions->find(mev_id); // search PF list
+        if (find_entry != pendingTransactions->end()) {
+            ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
+                                                  (uint32_t) pendingTransactions->size()));
+            pendingPFTransactions->erase(find_entry);
+            pending_pf_transaction_count--;
+        } else {
+            output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
+        }
     }
 
     delete event;
@@ -322,6 +339,14 @@ void ArielCore::createNoOpEvent() {
     coreQ->push(ev);
 
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a No Op event on core %" PRIu32 "\n", coreID));
+}
+
+void ArielCore::createPFEvent(uint64_t address) {
+    ArielReadEvent* ev = new ArielReadEvent(address, 8);
+    PFQ->push(ev);
+
+    ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a PF event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, 8));
+
 }
 
 void ArielCore::createReadEvent(uint64_t address, uint32_t length) {
@@ -465,12 +490,16 @@ bool ArielCore::refillQueue() {
 
                         switch(ac.command) {
                             case ARIEL_PERFORM_READ:
+                                if (!ignoreOps) {
                                     createReadEvent(ac.inst.addr, ac.inst.size);
-                                    break;
+                                }
+                                break;
 
                             case ARIEL_PERFORM_WRITE:
+                                if (!ignoreOps) {
                                     createWriteEvent(ac.inst.addr, ac.inst.size, &ac.inst.payload[0]);
-                                    break;
+                                }
+                                break;
 
                             case ARIEL_END_INSTRUCTION:
                                     break;
@@ -488,7 +517,9 @@ bool ArielCore::refillQueue() {
                 break;
 
             case ARIEL_NOOP:
-                createNoOpEvent();
+                if (!ignoreOps) {
+                    createNoOpEvent();
+                }
                 break;
 
             case ARIEL_FLUSHLINE_INSTRUCTION:
@@ -514,6 +545,16 @@ bool ArielCore::refillQueue() {
 
             case ARIEL_SWITCH_POOL:
                 createSwitchPoolEvent(ac.switchPool.pool);
+                break;
+                
+            case ARIEL_TOGGLE:
+                createNoOpEvent(); // to account for the actual call
+                printf("toggle: %d\n", ignoreOps);
+                ignoreOps = !ignoreOps;
+                break;
+
+            case ARIEL_PF:
+                createPFEvent(ac.instPtr);
                 break;
 
             case ARIEL_PERFORM_EXIT:
@@ -912,12 +953,31 @@ bool ArielCore::processNextEvent() {
 // Just to mark the starting of the simulation
 bool started=false;
 
+void ArielCore::advancePF() {
+    for(uint32_t i = 0; !PFQ->empty() && (i < maxIssuePerCycle); ++i) {
+        ArielReadEvent* ev = PFQ->front();
+        if(pending_pf_transaction_count < maxPendingTransactions) {
+            const uint64_t readAddress = ev->getAddress();
+            const uint64_t readLength  = (uint64_t) ev->getLength();
+            const uint64_t physAddr = memmgr->translateAddress(readAddress);
+            commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
+            PFQ->pop();
+            delete ev;
+        } else {
+            break;
+        }
+    }
+}
+
 void ArielCore::tick() {
     // todo: if the core is fenced, increment the current cycle counter
 
     if(!isHalted) {
         ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Ticking core id %" PRIu32 "\n", coreID));
         updateCycle = false;
+
+        //advance the PF
+        advancePF();
 
         if(!isStalled) {
                 for(uint32_t i = 0; i < maxIssuePerCycle; ++i) {

@@ -63,7 +63,7 @@ namespace ArielComponent {
 
 
 class ArielCore {
-
+        bool ignoreOps;
     public:
         ArielCore(ArielTunnel *tunnel, SimpleMem *coreToCacheLink,
             uint32_t thisCoreID, uint32_t maxPendTans,
@@ -76,12 +76,14 @@ class ArielCore {
         bool isCoreStalled() const;
         bool isCoreFenced() const;
         bool hasDrainCompleted() const;
+        void advancePF();
         void tick();
         void halt();
         void stall();
         void fence();
         void unfence();
         void finishCore();
+        void createPFEvent(uint64_t addr);
         void createReadEvent(uint64_t addr, uint32_t size);
         void createWriteEvent(uint64_t addr, uint32_t size, const uint8_t* payload);
         void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
@@ -111,7 +113,7 @@ class ArielCore {
         void setOpal() { opal_enabled = true; }
         void setOpalLink(Link * opallink);
 
-        void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
+        void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, bool isPF=0);
         void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, const uint8_t* payload);
         void commitFlushEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
 
@@ -130,6 +132,7 @@ class ArielCore {
         uint32_t maxPendingTransactions;
         Output* output;
         std::queue<ArielEvent*>* coreQ;
+        std::queue<ArielReadEvent*>* PFQ;
         bool isStalled;
         bool isHalted;
         bool isFenced;
@@ -138,6 +141,7 @@ class ArielCore {
         Link* OpalLink;
         ArielTunnel *tunnel;
         std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingTransactions;
+        std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingPFTransactions;
         uint32_t maxIssuePerCycle;
         uint32_t maxQLength;
         uint64_t cacheLineSize;
@@ -180,6 +184,7 @@ class ArielCore {
         Statistic<uint64_t>* statFPSPOps;
 
         uint32_t pending_transaction_count;
+        uint32_t pending_pf_transaction_count;
 
 };
 
