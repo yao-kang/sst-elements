@@ -59,6 +59,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     char* subID = (char*) malloc(sizeof(char) * 32);
     sprintf(subID, "%" PRIu32, thisCoreID);
 
+    statPFRequests  = own->registerStatistic<uint64_t>( "pf_requests", subID );
     statReadRequests  = own->registerStatistic<uint64_t>( "read_requests", subID );
     statWriteRequests = own->registerStatistic<uint64_t>( "write_requests", subID );
     statReadRequestSizes = own->registerStatistic<uint64_t>( "read_request_sizes", subID );
@@ -965,6 +966,7 @@ void ArielCore::advancePF() {
             commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
             printf("adv PF %p\n", physAddr);
             PFQ->pop();
+            statPFRequests->addData(1);
             delete ev;
         } else {
             break;
