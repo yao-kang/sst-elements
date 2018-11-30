@@ -343,7 +343,6 @@ void ArielCore::createNoOpEvent() {
 }
 
 void ArielCore::createPFEvent(uint64_t address) {
-    printf("createPFE %p\n", address);
     ArielReadEvent* ev = new ArielReadEvent(address, 8);
     PFQ->push(ev);
 
