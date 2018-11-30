@@ -245,7 +245,6 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
     } else {
         find_entry = pendingPFTransactions->find(mev_id); // search PF list
         if (find_entry != pendingTransactions->end()) {
-            printf("matched PF event %p\n", event->addr);
             ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
                                                   (uint32_t) pendingTransactions->size()));
             pendingPFTransactions->erase(find_entry);
@@ -964,7 +963,7 @@ void ArielCore::advancePF() {
             const uint64_t readLength  = (uint64_t) ev->getLength();
             const uint64_t physAddr = memmgr->translateAddress(readAddress);
             commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
-            printf("adv PF %p\n", physAddr);
+            //printf("adv PF %p\n", physAddr);
             PFQ->pop();
             statPFRequests->addData(1);
             delete ev;
