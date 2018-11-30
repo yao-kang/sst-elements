@@ -60,6 +60,8 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     sprintf(subID, "%" PRIu32, thisCoreID);
 
     statPFRequests  = own->registerStatistic<uint64_t>( "pf_requests", subID );
+    statIgnoreRW  = own->registerStatistic<uint64_t>( "ignored_rw_requests", subID );
+    statIgnoreNoop  = own->registerStatistic<uint64_t>( "ignored_noop_requests", subID );
     statReadRequests  = own->registerStatistic<uint64_t>( "read_requests", subID );
     statWriteRequests = own->registerStatistic<uint64_t>( "write_requests", subID );
     statReadRequestSizes = own->registerStatistic<uint64_t>( "read_request_sizes", subID );
@@ -493,12 +495,16 @@ bool ArielCore::refillQueue() {
                             case ARIEL_PERFORM_READ:
                                 if (!ignoreOps) {
                                     createReadEvent(ac.inst.addr, ac.inst.size);
+                                } else {
+                                    statIgnoreRW->addData(1);
                                 }
                                 break;
 
                             case ARIEL_PERFORM_WRITE:
                                 if (!ignoreOps) {
                                     createWriteEvent(ac.inst.addr, ac.inst.size, &ac.inst.payload[0]);
+                                } else {
+                                    statIgnoreRW->addData(1);
                                 }
                                 break;
 
@@ -520,6 +526,8 @@ bool ArielCore::refillQueue() {
             case ARIEL_NOOP:
                 if (!ignoreOps) {
                     createNoOpEvent();
+                } else {
+                    statIgnoreNoop->addData(1);
                 }
                 break;
 
@@ -550,7 +558,6 @@ bool ArielCore::refillQueue() {
                 
             case ARIEL_TOGGLE:
                 createNoOpEvent(); // to account for the actual call
-                printf("toggle: %d\n", ignoreOps);
                 ignoreOps = !ignoreOps;
                 break;
 

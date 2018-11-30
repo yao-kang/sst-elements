@@ -162,6 +162,8 @@ class ArielCore {
         ArielTraceGenerator* traceGen;
 
         Statistic<uint64_t>* statPFRequests;
+        Statistic<uint64_t>* statIgnoreRW;
+        Statistic<uint64_t>* statIgnoreNoop;
         Statistic<uint64_t>* statReadRequests;
         Statistic<uint64_t>* statWriteRequests;
 	Statistic<uint64_t>* statFlushRequests;

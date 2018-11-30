@@ -84,6 +84,8 @@ class ArielCPU : public SST::Component {
     
     SST_ELI_DOCUMENT_STATISTICS(
         { "pf_requests",        "Statistic counts number of PF requests", "requests", 1},   // Name, Desc, Enable Level 
+        { "ignored_rw_requests",        "Statistic counts number of ignored read write", "requests", 1},   // Name, Desc, Enable Level 
+        { "ignored_noop_requests",        "Statistic counts number of ignored noops", "requests", 1},   // Name, Desc, Enable Level 
         { "read_requests",        "Statistic counts number of read requests", "requests", 1},   // Name, Desc, Enable Level 
         { "write_requests",       "Statistic counts number of write requests", "requests", 1},
         { "read_request_sizes",   "Statistic for size of read requests", "bytes", 1},   // Name, Desc, Enable Level 
