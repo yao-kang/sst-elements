@@ -83,6 +83,7 @@ class ArielCPU : public SST::Component {
         {"opal_link_%(corecount)d", "Each core's link to a centralized memory manager (Opal)", {}})
     
     SST_ELI_DOCUMENT_STATISTICS(
+        { "pf_requests",        "Statistic counts number of PF requests", "requests", 1},   // Name, Desc, Enable Level 
         { "read_requests",        "Statistic counts number of read requests", "requests", 1},   // Name, Desc, Enable Level 
         { "write_requests",       "Statistic counts number of write requests", "requests", 1},
         { "read_request_sizes",   "Statistic for size of read requests", "bytes", 1},   // Name, Desc, Enable Level 
