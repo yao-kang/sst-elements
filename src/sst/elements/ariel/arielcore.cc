@@ -349,7 +349,7 @@ void ArielCore::createPFEvent(uint64_t address) {
     assert(cacheLineSize == 64);
     uint64_t clAddr = (address>>6);
     bool fold = 0;
-    for (int i = 0; i < 4; ++i) {
+    for (int i = 0; i < 8; ++i) {
         if (clAddr == lastPFCache[i]) {
             fold = 1;
             statPFFolds->addData(1);
@@ -362,6 +362,8 @@ void ArielCore::createPFEvent(uint64_t address) {
     if (!fold) {
         ArielReadEvent* ev = new ArielReadEvent(address, 8);
         PFQ->push(ev);
+
+        lastPFCache[(++PFCCount) % 8] = clAddr;
     }
 
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a PF event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, 8));
