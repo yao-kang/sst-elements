@@ -64,6 +64,7 @@ namespace ArielComponent {
 
 class ArielCore {
         bool ignoreOps;
+        uint64_t lastPFCache[4];
     public:
         ArielCore(ArielTunnel *tunnel, SimpleMem *coreToCacheLink,
             uint32_t thisCoreID, uint32_t maxPendTans,
@@ -164,6 +165,7 @@ class ArielCore {
         Statistic<uint64_t>* statPFRequests;
         Statistic<uint64_t>* statIgnoreRW;
         Statistic<uint64_t>* statIgnoreNoop;
+        Statistic<uint64_t>* statPFFolds;
         Statistic<uint64_t>* statReadRequests;
         Statistic<uint64_t>* statWriteRequests;
 	Statistic<uint64_t>* statFlushRequests;

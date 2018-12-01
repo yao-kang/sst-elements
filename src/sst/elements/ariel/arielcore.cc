@@ -62,6 +62,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     statPFRequests  = own->registerStatistic<uint64_t>( "pf_requests", subID );
     statIgnoreRW  = own->registerStatistic<uint64_t>( "ignored_rw_requests", subID );
     statIgnoreNoop  = own->registerStatistic<uint64_t>( "ignored_noop_requests", subID );
+    statPFFolds  = own->registerStatistic<uint64_t>( "pf_folds", subID );
     statReadRequests  = own->registerStatistic<uint64_t>( "read_requests", subID );
     statWriteRequests = own->registerStatistic<uint64_t>( "write_requests", subID );
     statReadRequestSizes = own->registerStatistic<uint64_t>( "read_request_sizes", subID );
@@ -345,8 +346,23 @@ void ArielCore::createNoOpEvent() {
 }
 
 void ArielCore::createPFEvent(uint64_t address) {
-    ArielReadEvent* ev = new ArielReadEvent(address, 8);
-    PFQ->push(ev);
+    assert(cacheLineSize == 64);
+    uint64_t clAddr = (address>>6);
+    bool fold = 0;
+    for (int i = 0; i < 4; ++i) {
+        if (clAddr == lastPFCache[i]) {
+            fold = 1;
+            statPFFolds->addData(1);
+            lastPFCache[i] = clAddr;
+            printf("fold %d\n", i);
+            break;
+        }
+    }
+
+    if (!fold) {
+        ArielReadEvent* ev = new ArielReadEvent(address, 8);
+        PFQ->push(ev);
+    }
 
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a PF event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, 8));
 
