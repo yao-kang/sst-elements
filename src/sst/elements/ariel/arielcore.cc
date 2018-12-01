@@ -354,7 +354,6 @@ void ArielCore::createPFEvent(uint64_t address) {
             fold = 1;
             statPFFolds->addData(1);
             lastPFCache[i] = clAddr;
-            printf("fold %d\n", i);
             break;
         }
     }
