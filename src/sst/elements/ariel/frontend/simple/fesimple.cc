@@ -688,19 +688,23 @@ int mapped_clockgettime(clockid_t clock, struct timespec *tp)
 
 void mapped_ariel_pf(void* addr)
 {
-    THREADID thr = PIN_ThreadId();
-    ArielCommand ac;
-    ac.command = ARIEL_PF;
-    ac.instPtr = (uint64_t) addr; //user the instruction pointer slot to send the address
-    tunnel->writeMessage(thr, ac);
+    if (enable_output) {
+        THREADID thr = PIN_ThreadId();
+        ArielCommand ac;
+        ac.command = ARIEL_PF;
+        ac.instPtr = (uint64_t) addr; //user the instruction pointer slot to send the address
+        tunnel->writeMessage(thr, ac);
+    }
 }
 
 void mapped_ariel_toggle()
 {
-    THREADID thr = PIN_ThreadId();
-    ArielCommand ac;
-    ac.command = ARIEL_TOGGLE;
-    tunnel->writeMessage(thr, ac);
+    if (enable_output) {
+        THREADID thr = PIN_ThreadId();
+        ArielCommand ac;
+        ac.command = ARIEL_TOGGLE;
+        tunnel->writeMessage(thr, ac);
+    }
 }
 
 void mapped_ariel_output_stats()
