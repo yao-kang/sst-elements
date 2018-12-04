@@ -53,6 +53,8 @@ class ArielCPU : public SST::Component {
         {"maxissuepercycle", "Maximum number of requests to issue per cycle, per core", "1"},
         {"maxcorequeue", "Maximum queue depth per core", "64"},
         {"maxtranscore", "Maximum number of pending transactions", "16"},
+        {"pf_maxissuepercycle", "Maximum number of requests to issue per cycle, per core prefetcher", "1"},
+        {"pf_maxtranscore", "Maximum number of pending transactions prefetcher", "16"},
         {"pipetimeout", "Read timeout between Ariel and traced application", "10"},
         {"cachelinesize", "Line size of the attached caching strucutre", "64"},
         {"arieltool", "Path to the Ariel PIN-tool shared library", ""},

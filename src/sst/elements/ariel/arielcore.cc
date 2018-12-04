@@ -25,7 +25,7 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
             uint32_t thisCoreID, uint32_t maxPendTrans,
             Output* out, uint32_t maxIssuePerCyc,
             uint32_t maxQLen, uint64_t cacheLineSz, SST::Component* own,
-            ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params) :
+                     ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params, uint32_t pf_maxPendTrans, uint32_t pf_maxIssuePerCyc) :
             ignoreOps(0),
             output(out), tunnel(tunnel), perform_checks(perform_address_checks),
             verbosity(static_cast<uint32_t>(out->getVerboseLevel())) {
@@ -37,10 +37,12 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     allocLink = 0;
     coreID = thisCoreID;
     maxPendingTransactions = maxPendTrans;
+    pf_maxPendingTransactions = pf_maxPendTrans;
     isHalted = false;
     isStalled = false;
     isFenced = false;
     maxIssuePerCycle = maxIssuePerCyc;
+    pf_maxIssuePerCycle = pf_maxIssuePerCyc;
     maxQLength = maxQLen;
     cacheLineSize = cacheLineSz;
     owner = own;
@@ -979,9 +981,9 @@ bool ArielCore::processNextEvent() {
 bool started=false;
 
 void ArielCore::advancePF() {
-    for(uint32_t i = 0; !PFQ->empty() && (i < maxIssuePerCycle); ++i) {
+    for(uint32_t i = 0; !PFQ->empty() && (i < pf_maxIssuePerCycle); ++i) {
         ArielReadEvent* ev = PFQ->front();
-        if(pending_pf_transaction_count < maxPendingTransactions) {
+        if(pending_pf_transaction_count < pf_maxPendingTransactions) {
             const uint64_t readAddress = ev->getAddress();
             const uint64_t readLength  = (uint64_t) ev->getLength();
             const uint64_t physAddr = memmgr->translateAddress(readAddress);

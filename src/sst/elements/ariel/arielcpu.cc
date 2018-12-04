@@ -152,6 +152,10 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
     uint32_t maxIssuesPerCycle   = (uint32_t) params.find<uint32_t>("maxissuepercycle", 1);
     uint32_t maxCoreQueueLen     = (uint32_t) params.find<uint32_t>("maxcorequeue", 64);
     uint32_t maxPendingTransCore = (uint32_t) params.find<uint32_t>("maxtranscore", 16);
+
+    uint32_t pf_maxIssuesPerCycle   = (uint32_t) params.find<uint32_t>("pf_maxissuepercycle", 1);
+    uint32_t pf_maxPendingTransCore = (uint32_t) params.find<uint32_t>("pf_maxtranscore", 16);
+
     uint64_t cacheLineSize       = (uint64_t) params.find<uint32_t>("cachelinesize", 64);
     int op_e = (uint32_t) params.find<uint32_t>("opal_enabled", 0);
 
@@ -374,7 +378,8 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 
         cpu_cores[i] = new ArielCore(tunnel, NULL, i, maxPendingTransCore, output,
                 maxIssuesPerCycle, maxCoreQueueLen, cacheLineSize, this,
-                memmgr, perform_checks, params);
+                                     memmgr, perform_checks, params, 
+                                     pf_maxPendingTransCore, pf_maxIssuesPerCycle);
         cpu_to_cache_links[i] = dynamic_cast<Interfaces::SimpleMem*>(loadSubComponent("memHierarchy.memInterface", this, params));
         cpu_to_cache_links[i]->initialize(link_buffer, new SimpleMem::Handler<ArielCore>(cpu_cores[i], &ArielCore::handleEvent));
 

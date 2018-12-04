@@ -71,7 +71,9 @@ class ArielCore {
             uint32_t thisCoreID, uint32_t maxPendTans,
             Output* out, uint32_t maxIssuePerCyc, uint32_t maxQLen,
             uint64_t cacheLineSz, SST::Component* owner,
-                ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
+                  ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params,
+                  uint32_t pf_maxPendTans, uint32_t pf_maxIssuePerCyc
+                  );
         ~ArielCore();
 
         bool isCoreHalted() const;
@@ -132,6 +134,7 @@ class ArielCore {
         bool writePayloads;
         uint32_t coreID;
         uint32_t maxPendingTransactions;
+        uint32_t pf_maxPendingTransactions;
         Output* output;
         std::queue<ArielEvent*>* coreQ;
         std::queue<ArielReadEvent*>* PFQ;
@@ -146,6 +149,7 @@ class ArielCore {
         std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingPFTransactions;
         uint32_t maxIssuePerCycle;
         uint32_t maxQLength;
+        uint32_t pf_maxIssuePerCycle;
         uint64_t cacheLineSize;
         SST::Component* owner;
         ArielMemoryManager* memmgr;
