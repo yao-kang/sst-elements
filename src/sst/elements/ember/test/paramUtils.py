@@ -1,12 +1,20 @@
 import sys
 
+Truncate=40
+
+def truncate(value):
+	if Truncate and len(value) > Truncate:
+		return value[0:Truncate] + '...'
+	else:
+		return value
+
 def updateDict( name, params, key, value ):
     if key in params:
         if str(value) != str(params[key]):
-            print "override {} {}={} with {}".format( name, key, params[key], value )
+            print "override {0} {1}={2} with {3}".format( name, key, params[key], truncate(value) )
             params[ key ] = value 
     else:
-        print "set {} {}={}".format( name, key, value )
+        print "set {0} {1}={2}".format( name, key, truncate(value) )
         params[ key ] = value 
 
 def updateParams( params, merlinParams, nicParams, emberParams ):
@@ -20,5 +28,5 @@ def updateParams( params, merlinParams, nicParams, emberParams ):
         elif prefix == 'merlin':
             updateDict( 'merlinParams', merlinParams, suffix, value ) 
         else:
-            sys.exit('ERROR: unknown dictionary {}'.format(prefix))
+            sys.exit('ERROR: unknown dictionary {0}'.format(prefix))
 

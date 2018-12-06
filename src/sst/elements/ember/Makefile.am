@@ -196,6 +196,8 @@ libember_la_SOURCES = \
 	shmem/motifs/emberShmemAtomicInc.h \
 	shmem/motifs/emberShmemFAM_Get.h \
 	shmem/motifs/emberShmemFAM_Get2.h \
+	shmem/motifs/emberShmemFAM_RandGet.h \
+	shmem/motifs/emberShmemFAM_AtomicInc.h \
 	mpi/motifs/emberunstructured.h \
 	mpi/motifs/emberunstructured.cc
 
@@ -216,8 +218,12 @@ EXTRA_DIST = \
 	test/networkConfig.py \
 	test/generateNidListInterval.py \
 	test/generateNidListRange.py \
+	test/generateNidListRandom.py \
+	test/generateNidListGroup.py \
 	test/loadFAM \
+	test/loadFAMvars \
 	test/loadFAM200 \
+	test/loadFAM200rand \
 	test/loadFAM2048 \
 	test/loadFileParse.py \
 	test/loadUtils.py \
@@ -227,7 +233,8 @@ EXTRA_DIST = \
 	test/defaultParams.py \
 	test/chamaOpenIBParams.py \
 	test/chamaPSMParams.py \
-	test/bgqParams.py
+	test/bgqParams.py \
+	test/runFAMloadfile
 
 if USE_EMBER_CONTEXTS
 libember_la_SOURCES += \
