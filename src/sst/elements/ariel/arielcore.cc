@@ -121,9 +121,9 @@ ArielCore::~ArielCore() {
     //delete statNoopCount;
     //delete statInstructionCount;
 
-    if(NULL != cacheLink) {
+    /*if(NULL != cacheLink) {
         delete cacheLink;
-    }
+        }*/
 
     if(enableTracing && traceGen) {
         delete traceGen;
