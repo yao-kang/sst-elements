@@ -32,14 +32,6 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     verbosity(static_cast<uint32_t>(out->getVerboseLevel())),
     useScratch(uScratch) {
 
-    if (useScratch) {
-        printf("XXX USING SCRATCHPAD\n");
-    } else {
-        printf("XXX NOT USING SCRATCHPAD\n");
-        printf("XXX NOT USING SCRATCHPAD\n"); 
-        printf("XXX NOT USING SCRATCHPAD\n");
-    }
-
     // set both counters for flushes to 0
     output->verbose(CALL_INFO, 2, 0, "Creating core with ID %" PRIu32 ", maximum queue length=%" PRIu32 ", max issue is: %" PRIu32 "\n", thisCoreID, maxQLen, maxIssuePerCyc);
     inst_count = 0;
@@ -293,9 +285,9 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
             if (useScratch) {
                 printf("got return from scratch %p %p\n", find_entry->second->addrs[0], find_entry->second->addrs[1]);
                 // record that this CL has arrived in scratchpad
-                arrivedScratchSet.insert(find_entry->second->addrs[0]);
+                arrivedScratchSet.insert(find_entry->second->addrs[1] >> 6);
                 // check that it is in the scratch set
-                assert(scratchSet.find(find_entry->second->addrs[0]) != scratchSet.end());
+                assert(scratchSet.find(find_entry->second->addrs[1]) != scratchSet.end());
             }
         } else {
             output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
