@@ -192,12 +192,16 @@ void ArielCore::commitReadEvent(const uint64_t address,
                 printTraceEntry(true, (const uint64_t) req->addrs[0], (const uint32_t) length);
         }
 
-        // Actually send the event to the cache
+        // Actually send the event to the cache/scratch
         if (isPF && useScratch) {
             // add in the memory address
             req->addAddress(address+scratchCapacity);
             scratchLink->sendRequest(req);
+        } else if (!isPF && useScratch && scrOffset) {
+            // send to scratch
+            scratchLink->sendRequest(req); // should really set offset
         } else {
+            // send to cache
             cacheLink->sendRequest(req);
         }
     }
@@ -407,11 +411,6 @@ void ArielCore::createPFEvent(uint64_t address, int offset) {
         PFQ->push(ev);
 
         lastPFCache[(++PFCCount) % 8] = clAddr;
-    }
-
-    // record for scratchpad
-    if (useScratch){
-        scratchSet.insert(address);
     }
 
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a PF event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, 8));
@@ -917,13 +916,34 @@ bool ArielCore::processNextEvent() {
         case READ_ADDRESS:
                 ARIEL_CORE_VERBOSE(8, output->verbose(CALL_INFO, 8, 0, "Core %" PRIu32 " next event is READ_ADDRESS\n", coreID));
 
-                //  if(pendingTransactions->size() < maxPendingTransactions) {
                 if(pending_transaction_count < maxPendingTransactions) {
-                    ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Found a read event, fewer pending transactions than permitted so will process...\n"));
-                    statInstructionCount->addData(1);
-                    inst_count++;
-                    removeEvent = true;
-                    handleReadRequest(dynamic_cast<ArielReadEvent*>(nextEvent));
+                    ArielReadEvent* rev = dynamic_cast<ArielReadEvent*>(nextEvent);
+                    assert(rev);
+                    const uint64_t readAddress = rev->getAddress();     
+                    const uint64_t physAddr = memmgr->translateAddress(readAddress);
+
+                    if(useScratch && scratchSet.find(physAddr) != scratchSet.end()) {
+                        if(arrivedScratchSet.find(physAddr>>6) 
+                           != arrivedScratchSet.end()) {
+                            printf("addr %p HAS arrived %d\n", physAddr, coreID);
+                            // has arrived, issue to scratch
+                            statInstructionCount->addData(1);
+                            inst_count++;
+                            removeEvent = true;
+                            // note: we assume non-split 8B reads
+                            commitReadEvent(physAddr, readAddress, 8, 0, 1);
+                        } else {
+                            // has not arrived, stall
+                            printf("addr %p has not arrived %d\n", physAddr, coreID);
+                            break;
+                        }
+                    } else {
+                        ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Found a read event, fewer pending transactions than permitted so will process...\n"));
+                        statInstructionCount->addData(1);
+                        inst_count++;
+                        removeEvent = true;
+                        handleReadRequest(rev);
+                    }
                 } else {
                     ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Pending transaction queue is currently full for core %" PRIu32 ", core will stall for new events\n", coreID));
                     break;
@@ -1043,6 +1063,10 @@ void ArielCore::advancePF() {
             printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
             PFQ->pop();
             statPFRequests->addData(1);
+            // record for scratchpad
+            if (useScratch){
+                scratchSet.insert(physAddr);
+            }
             delete ev;
         } else {
             break;
