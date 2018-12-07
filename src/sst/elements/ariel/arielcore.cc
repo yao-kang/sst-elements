@@ -283,7 +283,7 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
             pending_pf_transaction_count--;
 
             if (useScratch) {
-                printf("got return from scratch %p %p\n", find_entry->second->addrs[0], find_entry->second->addrs[1]);
+                printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
                 // record that this CL has arrived in scratchpad
                 arrivedScratchSet.insert(find_entry->second->addrs[1] >> 6);
                 // check that it is in the scratch set
@@ -1040,7 +1040,7 @@ void ArielCore::advancePF() {
             const uint64_t offset  = (uint64_t) ev->getScratchOffset();
             const uint64_t physAddr = memmgr->translateAddress(readAddress);
             commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
-            printf("adv PF %p off:%d\n", physAddr, offset);
+            printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
             PFQ->pop();
             statPFRequests->addData(1);
             delete ev;
