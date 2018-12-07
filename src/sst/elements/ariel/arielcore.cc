@@ -25,10 +25,20 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
             uint32_t thisCoreID, uint32_t maxPendTrans,
             Output* out, uint32_t maxIssuePerCyc,
             uint32_t maxQLen, uint64_t cacheLineSz, SST::Component* own,
-                     ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params, uint32_t pf_maxPendTrans, uint32_t pf_maxIssuePerCyc) :
+                     ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params, uint32_t pf_maxPendTrans, uint32_t pf_maxIssuePerCyc,
+                     bool uScratch) :
             ignoreOps(0),
             output(out), tunnel(tunnel), perform_checks(perform_address_checks),
-            verbosity(static_cast<uint32_t>(out->getVerboseLevel())) {
+    verbosity(static_cast<uint32_t>(out->getVerboseLevel())),
+    useScratch(uScratch) {
+
+    if (useScratch) {
+        printf("XXX USING SCRATCHPAD\n");
+    } else {
+        printf("XXX NOT USING SCRATCHPAD\n");
+        printf("XXX NOT USING SCRATCHPAD\n"); 
+        printf("XXX NOT USING SCRATCHPAD\n");
+    }
 
     // set both counters for flushes to 0
     output->verbose(CALL_INFO, 2, 0, "Creating core with ID %" PRIu32 ", maximum queue length=%" PRIu32 ", max issue is: %" PRIu32 "\n", thisCoreID, maxQLen, maxIssuePerCyc);
@@ -164,10 +174,18 @@ void ArielCore::printTraceEntry(const bool isRead,
 }
 
 void ArielCore::commitReadEvent(const uint64_t address,
-                                const uint64_t virtAddress, const uint32_t length, bool isPF) {
+                                const uint64_t virtAddress, const uint32_t length, bool isPF, uint64_t scrOffset) {
 
     if(length > 0) {
-        SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length);
+        SimpleMem::Request *req;
+        if (isPF && useScratch) {
+            //use the scratchpad address
+            req = new SimpleMem::Request(SimpleMem::Request::Read, scrOffset,
+                                         length);
+        } else {
+            req = new SimpleMem::Request(SimpleMem::Request::Read, address,
+                                         length);
+        }
         req->setVirtualAddress(virtAddress);
 
         if (isPF) {
@@ -183,7 +201,13 @@ void ArielCore::commitReadEvent(const uint64_t address,
         }
 
         // Actually send the event to the cache
-        cacheLink->sendRequest(req);
+        if (isPF && useScratch) {
+            // add in the memory address
+            req->addAddress(address+scratchCapacity);
+            scratchLink->sendRequest(req);
+        } else {
+            cacheLink->sendRequest(req);
+        }
     }
 }
 
@@ -265,6 +289,14 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
                                                   (uint32_t) pendingTransactions->size()));
             pendingPFTransactions->erase(find_entry);
             pending_pf_transaction_count--;
+
+            if (useScratch) {
+                printf("got return from scratch %p %p\n", find_entry->second->addrs[0], find_entry->second->addrs[1]);
+                // record that this CL has arrived in scratchpad
+                arrivedScratchSet.insert(find_entry->second->addrs[0]);
+                // check that it is in the scratch set
+                assert(scratchSet.find(find_entry->second->addrs[0]) != scratchSet.end());
+            }
         } else {
             output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
         }
@@ -358,8 +390,13 @@ void ArielCore::createNoOpEvent() {
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a No Op event on core %" PRIu32 "\n", coreID));
 }
 
-void ArielCore::createPFEvent(uint64_t address) {
-    assert(cacheLineSize == 64);
+void ArielCore::createClearPFEvent() {
+    printf("clearing scratch\n");
+    scratchSet.clear();
+    arrivedScratchSet.clear();
+}
+
+void ArielCore::createPFEvent(uint64_t address, int offset) {
     uint64_t clAddr = (address>>6);
     bool fold = 0;
     for (int i = 0; i < 8; ++i) {
@@ -372,10 +409,17 @@ void ArielCore::createPFEvent(uint64_t address) {
     }
 
     if (!fold) {
-        ArielReadEvent* ev = new ArielReadEvent(address, 8);
+        ArielReadEvent* ev;
+        ev = new ArielReadEvent(address, 8, offset);
+
         PFQ->push(ev);
 
         lastPFCache[(++PFCCount) % 8] = clAddr;
+    }
+
+    // record for scratchpad
+    if (useScratch){
+        scratchSet.insert(address);
     }
 
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a PF event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, 8));
@@ -592,7 +636,11 @@ bool ArielCore::refillQueue() {
                 break;
 
             case ARIEL_PF:
-                createPFEvent(ac.instPtr);
+                createPFEvent(ac.instPtr, ac.inst.addr);
+                break;
+
+            case ARIEL_CLEARPF:
+                createClearPFEvent();
                 break;
 
             case ARIEL_PERFORM_EXIT:
@@ -997,9 +1045,10 @@ void ArielCore::advancePF() {
         if(pending_pf_transaction_count < pf_maxPendingTransactions) {
             const uint64_t readAddress = ev->getAddress();
             const uint64_t readLength  = (uint64_t) ev->getLength();
+            const uint64_t offset  = (uint64_t) ev->getScratchOffset();
             const uint64_t physAddr = memmgr->translateAddress(readAddress);
             commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
-            //printf("adv PF %p\n", physAddr);
+            printf("adv PF %p off:%d\n", physAddr, offset);
             PFQ->pop();
             statPFRequests->addData(1);
             delete ev;

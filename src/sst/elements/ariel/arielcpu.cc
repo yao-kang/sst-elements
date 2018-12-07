@@ -155,6 +155,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
 
     uint32_t pf_maxIssuesPerCycle   = (uint32_t) params.find<uint32_t>("pf_maxissuepercycle", 1);
     uint32_t pf_maxPendingTransCore = (uint32_t) params.find<uint32_t>("pf_maxtranscore", 16);
+    uint32_t pf_useScratch = (uint32_t) params.find<uint32_t>("pf_useScratch", 0);
 
     uint64_t cacheLineSize       = (uint64_t) params.find<uint32_t>("cachelinesize", 64);
     int op_e = (uint32_t) params.find<uint32_t>("opal_enabled", 0);
@@ -404,7 +405,7 @@ ArielCPU::ArielCPU(ComponentId_t id, Params& params) :
         cpu_cores[i] = new ArielCore(tunnel, NULL, i, maxPendingTransCore, output,
                 maxIssuesPerCycle, maxCoreQueueLen, cacheLineSize, this,
                                      memmgr, perform_checks, params, 
-                                     pf_maxPendingTransCore, pf_maxIssuesPerCycle);
+                                     pf_maxPendingTransCore, pf_maxIssuesPerCycle, pf_useScratch);
         
         // Create/initialize interfaces to memory hierarchy
 

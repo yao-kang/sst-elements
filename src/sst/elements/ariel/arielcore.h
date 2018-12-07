@@ -66,14 +66,17 @@ class ArielCore {
         bool ignoreOps;
         uint64_t lastPFCache[8];
         uint PFCCount;
+        bool useScratch;
+    set<uint64_t> scratchSet;
+    set<uint64_t> arrivedScratchSet;
     public:
         ArielCore(ArielTunnel *tunnel, SimpleMem *coreToCacheLink,
             uint32_t thisCoreID, uint32_t maxPendTans,
             Output* out, uint32_t maxIssuePerCyc, uint32_t maxQLen,
             uint64_t cacheLineSz, SST::Component* owner,
                   ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params,
-                  uint32_t pf_maxPendTans, uint32_t pf_maxIssuePerCyc
-                  );
+                  uint32_t pf_maxPendTans, uint32_t pf_maxIssuePerCyc,
+                  bool uScratch);
         ~ArielCore();
 
         bool isCoreHalted() const;
@@ -87,7 +90,8 @@ class ArielCore {
         void fence();
         void unfence();
         void finishCore();
-        void createPFEvent(uint64_t addr);
+        void createClearPFEvent();
+        void createPFEvent(uint64_t addr, int offset);
         void createReadEvent(uint64_t addr, uint32_t size);
         void createWriteEvent(uint64_t addr, uint32_t size, const uint8_t* payload);
         void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
@@ -119,7 +123,7 @@ class ArielCore {
         void setOpal() { opal_enabled = true; }
         void setOpalLink(Link * opallink);
 
-        void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, bool isPF=0);
+        void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, bool isPF=0, uint64_t scratchOffset=0);
         void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, const uint8_t* payload);
         void commitFlushEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
 

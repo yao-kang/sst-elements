@@ -28,7 +28,11 @@ class ArielReadEvent : public ArielEvent {
 
     public:
         ArielReadEvent(uint64_t rAddr, uint32_t length) :
-                readAddress(rAddr), readLength(length) {
+            readAddress(rAddr), readLength(length), sOffset(0) {
+        }
+
+        ArielReadEvent(uint64_t rAddr, uint32_t length, uint64_t off) :
+            readAddress(rAddr), readLength(length), sOffset(off) {
         }
 
         ~ArielReadEvent() {
@@ -46,10 +50,14 @@ class ArielReadEvent : public ArielEvent {
                 return readLength;
         }
 
+        uint32_t getScratchOffset() const {
+                return sOffset;
+        }
+
     private:
         const uint64_t readAddress;
         const uint32_t readLength;
-
+        const uint64_t sOffset;
 };
 
 }
