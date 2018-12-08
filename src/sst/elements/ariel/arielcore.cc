@@ -208,10 +208,15 @@ void ArielCore::commitReadEvent(const uint64_t address,
 }
 
 void ArielCore::commitWriteEvent(const uint64_t address,
-        const uint64_t virtAddress, const uint32_t length, const uint8_t* payload) {
+                                 const uint64_t virtAddress, const uint32_t length, const uint8_t* payload, uint64_t scrOffset) {
 
     if(length > 0) {
-        SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
+        SimpleMem::Request *req;
+        if (useScratch && scrOffset) {
+            req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
+        } else {
+            req = new SimpleMem::Request(SimpleMem::Request::Write, scrOffset, length);
+        }
         req->setVirtualAddress(virtAddress);
 
         if( writePayloads ) {
@@ -240,7 +245,12 @@ void ArielCore::commitWriteEvent(const uint64_t address,
         }
 
         // Actually send the event to the cache
-        cacheLink->sendRequest(req);
+        if (useScratch && scrOffset) {
+            printf("write to scratch %p %d\n", scrOffset, coreID);
+            scratchLink->sendRequest(req);
+        } else {
+            cacheLink->sendRequest(req);
+        }
     }
 }
 
@@ -954,11 +964,22 @@ bool ArielCore::processNextEvent() {
 
                 //  if(pendingTransactions->size() < maxPendingTransactions) {
                 if(pending_transaction_count < maxPendingTransactions) {
+                    ArielWriteEvent* rev = dynamic_cast<ArielWriteEvent*>(nextEvent);
+                    assert(rev);
+                    const uint64_t writeAddress = rev->getAddress();     
+                    const uint64_t physAddr = memmgr->translateAddress(writeAddress);
                     ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Found a write event, fewer pending transactions than permitted so will process...\n"));
                     statInstructionCount->addData(1);
                     inst_count++;
-                            removeEvent = true;
-                    handleWriteRequest(dynamic_cast<ArielWriteEvent*>(nextEvent));
+                    removeEvent = true;
+                    if (useScratch && scratchSet.find(physAddr) 
+                        != scratchSet.end()){ 
+                        // issue to scratch
+                        commitWriteEvent(physAddr, writeAddress, 8, 0, 1);
+                    } else {
+                        // issue to cache
+                        handleWriteRequest(dynamic_cast<ArielWriteEvent*>(nextEvent));
+                    }
                 } else {
                     ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Pending transaction queue is currently full for core %" PRIu32 ", core will stall for new events\n", coreID));
                     break;

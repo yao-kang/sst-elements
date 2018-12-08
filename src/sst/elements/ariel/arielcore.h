@@ -124,7 +124,7 @@ class ArielCore {
         void setOpalLink(Link * opallink);
 
         void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, bool isPF=0, uint64_t scratchOffset=0);
-        void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, const uint8_t* payload);
+        void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, const uint8_t* payload, uint64_t scrOffset=0);
         void commitFlushEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
 
         // Setting the max number of instructions to be simulated
