@@ -934,7 +934,7 @@ bool ArielCore::processNextEvent() {
                             commitReadEvent(physAddr, readAddress, 8, 0, 1);
                         } else {
                             // has not arrived, stall
-                            printf("addr %p has not arrived %d\n", physAddr, coreID);
+                            //printf("addr %p has not arrived %d\n", physAddr, coreID);
                             break;
                         }
                     } else {
