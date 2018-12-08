@@ -214,10 +214,11 @@ void ArielCore::commitWriteEvent(const uint64_t address,
         SimpleMem::Request *req;
         if (useScratch && scrOffset) {
             req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
+            req->setVirtualAddress(1);
         } else {
             req = new SimpleMem::Request(SimpleMem::Request::Write, scrOffset, length);
+            req->setVirtualAddress(virtAddress);
         }
-        req->setVirtualAddress(virtAddress);
 
         if( writePayloads ) {
             if(verbosity >= 16) {
