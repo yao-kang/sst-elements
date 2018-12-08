@@ -213,10 +213,12 @@ void ArielCore::commitWriteEvent(const uint64_t address,
     if(length > 0) {
         SimpleMem::Request *req;
         if (useScratch && scrOffset) {
-            req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
+            // write to scratchpad
+            // note: should really use offset
+            req = new SimpleMem::Request(SimpleMem::Request::Write, scrOffset, length);
             req->setVirtualAddress(1);
         } else {
-            req = new SimpleMem::Request(SimpleMem::Request::Write, scrOffset, length);
+            req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
             req->setVirtualAddress(virtAddress);
         }
 
