@@ -1108,7 +1108,6 @@ void ArielCore::advancePF() {
                     commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
                 }
                 //printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
-                PFQ->pop();
                 statPFRequests->addData(1);
                 statPFScratchOffset->addData(offset);
             } else {
@@ -1120,6 +1119,7 @@ void ArielCore::advancePF() {
                      // not a 'real' event, but just here to be
                      // recorded
             }
+            PFQ->pop();
             delete ev;
         } else {
             break;
