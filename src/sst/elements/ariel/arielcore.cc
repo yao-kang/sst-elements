@@ -428,11 +428,17 @@ void ArielCore::createPFEvent(uint64_t address, int offset) {
 
     if (!fold) {
         ArielReadEvent* ev;
-        ev = new ArielReadEvent(address, 8, offset);
+        ev = new ArielReadEvent(address, 8, offset, fold);
 
         PFQ->push(ev);
 
         lastPFCache[(++PFCCount) % 8] = clAddr;
+    } else if (useScratch) {
+        // fold && using scratchpad, we issue a 'fold' event
+        ArielReadEvent* ev;
+        ev = new ArielReadEvent(address, 8, offset, fold);
+
+        PFQ->push(ev);
     }
 
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a PF event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, 8));
@@ -1090,17 +1096,29 @@ void ArielCore::advancePF() {
         ArielReadEvent* ev = PFQ->front();
         if(pending_pf_transaction_count < pf_maxPendingTransactions) {
             const uint64_t readAddress = ev->getAddress();
-            const uint64_t readLength  = (uint64_t) ev->getLength();
-            const uint64_t offset  = (uint64_t) ev->getScratchOffset();
             const uint64_t physAddr = memmgr->translateAddress(readAddress);
-            commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
-            //printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
-            PFQ->pop();
-            statPFRequests->addData(1);
-            statPFScratchOffset->addData(offset);
-            // record for scratchpad
-            if (useScratch){
+            if (!ev->getFold()) {
+                // real request
+                const uint64_t readLength  = (uint64_t) ev->getLength();
+                const uint64_t offset  = (uint64_t) ev->getScratchOffset();
+                if (useScratch) {
+                    commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true, 
+                                    offset % scratchCapacity);
+                } else {
+                    commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
+                }
+                //printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
+                PFQ->pop();
+                statPFRequests->addData(1);
+                statPFScratchOffset->addData(offset);
+            } else {
+                // 'folded' event - do not issue, but record the event
+                // record for scratchpad 
+                assert(useScratch); // we should only reach this if using scratchpad
                 scratchSet.insert(physAddr);
+                i--; // don't count this against max issue since it is
+                     // not a 'real' event, but just here to be
+                     // recorded
             }
             delete ev;
         } else {

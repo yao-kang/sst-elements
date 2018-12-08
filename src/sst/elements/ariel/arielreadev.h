@@ -28,11 +28,11 @@ class ArielReadEvent : public ArielEvent {
 
     public:
         ArielReadEvent(uint64_t rAddr, uint32_t length) :
-            readAddress(rAddr), readLength(length), sOffset(0) {
+            readAddress(rAddr), readLength(length), sOffset(0), fold(0) {
         }
 
-        ArielReadEvent(uint64_t rAddr, uint32_t length, uint64_t off) :
-            readAddress(rAddr), readLength(length), sOffset(off) {
+       ArielReadEvent(uint64_t rAddr, uint32_t length, uint64_t off, bool doFold) :
+           readAddress(rAddr), readLength(length), sOffset(off), fold(doFold) {
         }
 
         ~ArielReadEvent() {
@@ -54,10 +54,15 @@ class ArielReadEvent : public ArielEvent {
                 return sOffset;
         }
 
+        uint32_t getFold() const {
+                return fold;
+        }
+
     private:
         const uint64_t readAddress;
         const uint32_t readLength;
         const uint64_t sOffset;
+        const bool fold;
 };
 
 }
