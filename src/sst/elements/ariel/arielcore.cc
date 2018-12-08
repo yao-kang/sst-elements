@@ -246,7 +246,7 @@ void ArielCore::commitWriteEvent(const uint64_t address,
 
         // Actually send the event to the cache
         if (useScratch && scrOffset) {
-            printf("write to scratch %p %d\n", scrOffset, coreID);
+            printf("write to scratch %p %p %d\n", scrOffset, address, coreID);
             scratchLink->sendRequest(req);
         } else {
             cacheLink->sendRequest(req);
