@@ -1107,7 +1107,7 @@ void ArielCore::advancePF() {
                 } else {
                     commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
                 }
-                printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
+                //printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
                 if (useScratch) {
                     scratchSet.insert(physAddr);
                 }
