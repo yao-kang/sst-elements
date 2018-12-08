@@ -307,7 +307,7 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
             ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
                                                   (uint32_t) pendingTransactions->size()));
             if (useScratch) {
-                //printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
+                printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
                 // record that this CL has arrived in scratchpad
                 arrivedScratchSet.insert(find_entry->second->addrs[1] >> 6);
                 // check that it is in the scratch set
@@ -953,7 +953,7 @@ bool ArielCore::processNextEvent() {
                     if(useScratch && scratchSet.find(physAddr) != scratchSet.end()) {
                         if(arrivedScratchSet.find(physAddr>>6) 
                            != arrivedScratchSet.end()) {
-                            //printf("addr %p HAS arrived %d\n", physAddr, coreID);
+                            printf("addr %p HAS arrived %d\n", physAddr, coreID);
                             // has arrived, issue to scratch
                             statInstructionCount->addData(1);
                             inst_count++;
@@ -1107,7 +1107,10 @@ void ArielCore::advancePF() {
                 } else {
                     commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
                 }
-                //printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
+                printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
+                if (useScratch) {
+                    scratchSet.insert(physAddr);
+                }
                 statPFRequests->addData(1);
                 statPFScratchOffset->addData(offset);
             } else {
