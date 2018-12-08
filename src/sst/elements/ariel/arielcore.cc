@@ -283,9 +283,6 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
         if (find_entry != pendingTransactions->end()) {
             ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
                                                   (uint32_t) pendingTransactions->size()));
-            pendingPFTransactions->erase(find_entry);
-            pending_pf_transaction_count--;
-
             if (useScratch) {
                 printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
                 // record that this CL has arrived in scratchpad
@@ -293,6 +290,8 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
                 // check that it is in the scratch set
                 assert(scratchSet.find(find_entry->second->addrs[1]) != scratchSet.end());
             }
+            pendingPFTransactions->erase(find_entry);
+            pending_pf_transaction_count--;
         } else {
             output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
         }
