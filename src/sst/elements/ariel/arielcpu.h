@@ -89,6 +89,12 @@ class ArielCPU : public SST::Component {
     
     SST_ELI_DOCUMENT_STATISTICS(
         { "pf_requests",        "Statistic counts number of PF requests", "requests", 1},   // Name, Desc, Enable Level 
+        {"pf_scratch_gets", "number of gets (to scratchpad from memory)","requests",1},
+        {"pf_scratch_reads","number of reads from scratchpad","requests",1},
+        {"pf_scratch_writes","number of writes to scratchpad","requests",1},
+        {"pf_max_offset","maximum offset into scratchpad","number",1},
+        {"pf_scratch_waits","number of times core stalled waiting on scratch read","number",1},
+
         { "ignored_rw_requests",        "Statistic counts number of ignored read write", "requests", 1},   // Name, Desc, Enable Level 
         { "ignored_noop_requests",        "Statistic counts number of ignored noops", "requests", 1},   // Name, Desc, Enable Level 
         { "pf_folds",        "PF requests to a recent cacheline folded", "requests", 1},   // Name, Desc, Enable Level 

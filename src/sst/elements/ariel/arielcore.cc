@@ -64,6 +64,12 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     char* subID = (char*) malloc(sizeof(char) * 32);
     sprintf(subID, "%" PRIu32, thisCoreID);
 
+    statPFScratchGets = own->registerStatistic<uint64_t>( "pf_scratch_gets", subID );
+    statPFScratchReads = own->registerStatistic<uint64_t>( "pf_scratch_reads", subID );
+    statPFScratchWrites = own->registerStatistic<uint64_t>( "pf_scratch_writes", subID );
+    statPFScratchOffset = own->registerStatistic<uint64_t>( "pf_max_offset", subID );
+    statPFScratchWaits = own->registerStatistic<uint64_t>( "pf_scratch_waits", subID );
+
     statPFRequests  = own->registerStatistic<uint64_t>( "pf_requests", subID );
     statIgnoreRW  = own->registerStatistic<uint64_t>( "ignored_rw_requests", subID );
     statIgnoreNoop  = own->registerStatistic<uint64_t>( "ignored_noop_requests", subID );
@@ -194,11 +200,14 @@ void ArielCore::commitReadEvent(const uint64_t address,
 
         // Actually send the event to the cache/scratch
         if (isPF && useScratch) {
+            // scratchpad GET
+            statPFScratchGets->addData(1);
             // add in the memory address
             req->addAddress(address+scratchCapacity);
             scratchLink->sendRequest(req);
         } else if (!isPF && useScratch && scrOffset) {
             // send to scratch
+            statPFScratchReads->addData(1);
             scratchLink->sendRequest(req); // should really set offset
         } else {
             // send to cache
@@ -249,7 +258,8 @@ void ArielCore::commitWriteEvent(const uint64_t address,
 
         // Actually send the event to the cache
         if (useScratch && scrOffset) {
-            printf("write to scratch %p %p %d\n", scrOffset, address, coreID);
+            //printf("write to scratch %p %p %d\n", scrOffset, address, coreID);
+            statPFScratchWrites->addData(1);
             scratchLink->sendRequest(req);
         } else {
             cacheLink->sendRequest(req);
@@ -297,7 +307,7 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
             ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
                                                   (uint32_t) pendingTransactions->size()));
             if (useScratch) {
-                printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
+                //printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
                 // record that this CL has arrived in scratchpad
                 arrivedScratchSet.insert(find_entry->second->addrs[1] >> 6);
                 // check that it is in the scratch set
@@ -399,7 +409,7 @@ void ArielCore::createNoOpEvent() {
 }
 
 void ArielCore::createClearPFEvent() {
-    printf("clearing scratch\n");
+    //printf("clearing scratch\n");
     scratchSet.clear();
     arrivedScratchSet.clear();
 }
@@ -937,7 +947,7 @@ bool ArielCore::processNextEvent() {
                     if(useScratch && scratchSet.find(physAddr) != scratchSet.end()) {
                         if(arrivedScratchSet.find(physAddr>>6) 
                            != arrivedScratchSet.end()) {
-                            printf("addr %p HAS arrived %d\n", physAddr, coreID);
+                            //printf("addr %p HAS arrived %d\n", physAddr, coreID);
                             // has arrived, issue to scratch
                             statInstructionCount->addData(1);
                             inst_count++;
@@ -947,6 +957,7 @@ bool ArielCore::processNextEvent() {
                         } else {
                             // has not arrived, stall
                             //printf("addr %p has not arrived %d\n", physAddr, coreID);
+                            statPFScratchWaits->addData(1);
                             break;
                         }
                     } else {
@@ -1083,9 +1094,10 @@ void ArielCore::advancePF() {
             const uint64_t offset  = (uint64_t) ev->getScratchOffset();
             const uint64_t physAddr = memmgr->translateAddress(readAddress);
             commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
-            printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
+            //printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
             PFQ->pop();
             statPFRequests->addData(1);
+            statPFScratchOffset->addData(offset);
             // record for scratchpad
             if (useScratch){
                 scratchSet.insert(physAddr);

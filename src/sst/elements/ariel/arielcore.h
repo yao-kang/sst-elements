@@ -177,6 +177,12 @@ class ArielCore {
 
         ArielTraceGenerator* traceGen;
 
+    Statistic<uint64_t>* statPFScratchGets;
+    Statistic<uint64_t>* statPFScratchReads;
+    Statistic<uint64_t>* statPFScratchWrites;
+    Statistic<uint64_t>* statPFScratchOffset;
+    Statistic<uint64_t>* statPFScratchWaits;
+
         Statistic<uint64_t>* statPFRequests;
         Statistic<uint64_t>* statIgnoreRW;
         Statistic<uint64_t>* statIgnoreNoop;
