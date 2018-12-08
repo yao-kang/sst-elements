@@ -309,9 +309,9 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
             if (useScratch) {
                 printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
                 // record that this CL has arrived in scratchpad
-                arrivedScratchSet.insert(find_entry->second->addrs[1] >> 6);
+                arrivedScratchSet.insert((find_entry->second->addrs[1]-scratchCapacity) >> 6);
                 // check that it is in the scratch set
-                assert(scratchSet.find(find_entry->second->addrs[1]) != scratchSet.end());
+                assert(scratchSet.find(find_entry->second->addrs[1]-scratchCapacity) != scratchSet.end());
             }
             pendingPFTransactions->erase(find_entry);
             pending_pf_transaction_count--;
