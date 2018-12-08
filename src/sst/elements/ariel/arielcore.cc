@@ -1092,7 +1092,7 @@ bool ArielCore::processNextEvent() {
 bool started=false;
 
 void ArielCore::advancePF() {
-    for(uint32_t i = 0; !PFQ->empty() && (i < pf_maxIssuePerCycle); ++i) {
+    for(int32_t i = 0; !PFQ->empty() && (i < pf_maxIssuePerCycle); ++i) {
         ArielReadEvent* ev = PFQ->front();
         if(pending_pf_transaction_count < pf_maxPendingTransactions) {
             const uint64_t readAddress = ev->getAddress();
