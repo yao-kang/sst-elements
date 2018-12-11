@@ -677,7 +677,7 @@ void Scratchpad::handleScratchGet(MemEventBase * event) {
     // Issue remote read
     ev->setSrcBaseAddr((ev->getSrcAddr() - remoteAddrOffset_) & ~(remoteLineSize_ - 1));
     MemEvent * remoteRead = new MemEvent(this, ev->getSrcAddr() - remoteAddrOffset_, ev->getSrcBaseAddr(), Command::GetS, ev->getSize());
-    remoteRead->setFlag(MemEvent::F_NOALLOC);   /* If we end up searching a cache hierarchy, don't allocate, just return the data */
+    //remoteRead->setFlag(MemEvent::F_NOALLOC);   /* If we end up searching a cache hierarchy, don't allocate, just return the data */ // AFR Removed
     remoteRead->setRqstr(ev->getRqstr());
     remoteRead->setVirtualAddress(ev->getSrcVirtualAddress());
     remoteRead->setInstructionPointer(ev->getInstructionPointer());
