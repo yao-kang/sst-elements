@@ -1,8 +1,12 @@
 
 import sys,getopt,copy,pprint,random,os
+import __main__ as main
 
-sys.path.append( os.getcwd() + '/baseModules' )
-sys.path.append( os.getcwd() + '/nidListModules' )
+path = os.path.dirname(  main.__file__ )
+
+sys.path.append( path )
+sys.path.append( path + '/baseModules' )
+sys.path.append( path + '/nidListModules' )
 
 import sst
 from sst.merlin import *
