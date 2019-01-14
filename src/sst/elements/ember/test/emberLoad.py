@@ -1,6 +1,9 @@
 
 import sys,getopt,copy,pprint,random,os
 
+sys.path.append( os.getcwd() + '/baseModules' )
+sys.path.append( os.getcwd() + '/nidListModules' )
+
 import sst
 from sst.merlin import *
 from loadInfo import *
@@ -68,7 +71,6 @@ motifDefaults = {
 	'spyplotmode': 0,
 	'api': motifAPI, 
 }
-
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], "", ["topo=", "shape=","hostsPerRtr=",
