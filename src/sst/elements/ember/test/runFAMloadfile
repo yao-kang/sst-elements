@@ -7,7 +7,6 @@ time sst -n32 \
 --partitioner=roundrobin \
 --model-options=" \
 --loadFile=$LOADFILE \
---platform=test \
 --topo=fattree \
 --platform=test \
 --shape=$SHAPE \
