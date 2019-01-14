@@ -2,22 +2,25 @@
 debug = 0
 
 netConfig = {
-	"topology":	"torus",
+	"topology":	"dragonfly2",
 	"shape":	"4x4x4x4x2"
-	#shape="2x2x2"
 }
 
 networkParams = {
     "topology" : "merlin." + "torus",
-    "packetSize" : "512B",
-    "link_bw" : "1.77GB/s",
-    "xbar_bw" : "1.77GB/s",
-    "link_lat" : "40ns",
-    "input_latency" : "10ns",
-    "output_latency" : "10ns",
+    "packetSize" : "256B",
+
+    "link_bw" : "10GB/s",
+    "xbar_bw" : "12.5GB/s",
+
+    "link_lat" : "60ns",
+    "input_latency" : "25ns",
+    "output_latency" : "25ns",
+
     "flitSize" : "8B",
-    "input_buf_size" : "14KB",
-    "output_buf_size" : "14KB",
+
+    "input_buf_size" : "4KB",
+    "output_buf_size" : "4KB",
 }
 
 nicParams = {
@@ -29,14 +32,28 @@ nicParams = {
     "output_buf_size" : networkParams['output_buf_size'],
     "rxMatchDelay_ns" : 100,
     "txDelay_ns" : 50,
-    "nic2host_lat" : "150ns",
+    "nic2host_lat" : "0ns",
+    #"sendOrdered" : 1,
+    'shmem.nicCmdLatency' : 1000, 
+    'shmem.hostCmdLatency' : 1000, 
+
+    "simpleMemoryModel.widgetSlots" : 200,
+
+    "simpleMemoryModel.hostNumLoadSlots" : 200,
+    "simpleMemoryModel.hostNumStoreSlots" : 200,
+    "simpleMemoryModel.nicNumLoadSlots" : 200,
+    "simpleMemoryModel.nicNumStoreSlots" : 200,
 }
 
 emberParams = {
     "os.module"    : "firefly.hades",
     "os.name"      : "hermesParams",
     "api.0.module" : "firefly.hadesMP",
-    "verbose" : 0,
+    "api.1.module" : "firefly.hadesSHMEM",
+    "api.2.module" : "firefly.hadesMisc",
+    "verbose" : 10,
+    "firefly.hadesSHMEM.verboseLevel" : 0,
+    "firefly.hadesSHMEM.verboseMask" : -1,
 }
 
 hermesParams = {
