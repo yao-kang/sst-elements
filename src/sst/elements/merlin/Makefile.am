@@ -53,6 +53,7 @@ libmerlin_la_SOURCES = \
 	topology/singlerouter.cc \
 	topology/hyperx.h \
 	topology/hyperx.cc \
+	topology/json.cc \
 	hr_router/hr_router.h \
 	hr_router/hr_router.cc \
 	hr_router/xbar_arb_age.h \
