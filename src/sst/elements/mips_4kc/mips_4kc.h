@@ -67,6 +67,7 @@ struct pipe_stage {
 };
 typedef struct pipe_stage *PIPE_STAGE;
 
+#if 0
 typedef struct lab_use
 {
   instruction *inst;            /* NULL => Data, not code */
@@ -85,11 +86,12 @@ typedef struct lab
   struct lab *next_local;       /* Link in list of local labels */
   label_use *uses;              /* List of instructions that reference */
 } label;                        /* label that has not yet been defined */
+#endif
 
 class MIPS4KC : public SST::Component {
 public:
 /* Element Library Info */
-    SST_ELI_REGISTER_COMPONENT(MIPS4KC, "MIPS4KC", "MIPS4KC", SST_ELI_ELEMENT_VERSION(1,0,0),
+    SST_ELI_REGISTER_COMPONENT(MIPS4KC, "mips_4kc", "MIPS4KC", SST_ELI_ELEMENT_VERSION(1,0,0),
             "MIPS 4KC processor", COMPONENT_CATEGORY_PROCESSOR)
 
     SST_ELI_DOCUMENT_PARAMS(
@@ -116,19 +118,23 @@ protected:
     //void add_breakpoint (mem_addr addr);
     //void delete_breakpoint (mem_addr addr);
     void fatal_error (const char *fmt, ...);
+    int run_error (const char *fmt, ...);
+    void error (const char *fmt, ...);
+    void write_output (FILE*, const char *fmt, ...);
     void initialize_registers (void);
     void initialize_run_stack (int argc, char **argv);
     void initialize_world (int load_trap_handler);
     //void list_breakpoints (void);
-    inst_info *map_int_to_inst_info (inst_info tbl[], int tbl_len, int num);
+    inst_info *map_int_to_inst_info (vector<inst_info> &tbl, int num);
     inst_info *map_string_to_inst_info (inst_info tbl[], int tbl_len, char *id);
     int read_assembly_file (char *name);
     int run_program (mem_addr pc, int steps, int display, int cont_bkpt);
-    mem_addr starting_address (void);
+    //mem_addr starting_address (void);
     char *str_copy (char *str);
     void write_startup_message (void);
     void *xmalloc (int);
     void *zmalloc (int);
+    int read_aout_file (const char *file_name);
 
     mem_addr copy_int_to_stack (int n);
     mem_addr copy_str_to_stack (char *s);
@@ -140,10 +146,10 @@ protected:
     void data_begins_at_point (mem_addr addr);
     void enable_data_alignment (void);
     void end_of_assembly_file (void);
-    void extern_directive (char *name, int size);
+    //void extern_directive (char *name, int size);
     void increment_data_pc (int value);
     void k_data_begins_at_point (mem_addr addr);
-    void lcomm_directive (char *name, int size);
+    //void lcomm_directive (char *name, int size);
     void set_data_alignment (int);
     void set_data_pc (mem_addr addr);
     void set_text_pc (mem_addr addr);
@@ -154,6 +160,44 @@ protected:
     void store_string (char *string, int length, int null_terminate);
     void store_word (int value);
     void user_kernel_data_segment (int to_kernel); 
+    mem_addr next_data_pc;	/* Location for next datum in user process */
+    mem_addr next_k_data_pc;	/* Location for next datum in kernel */    
+    int in_kernel = 0;	/* Non-zero => data goes to kdata, not data */
+    int data_dir = 0;
+    int text_dir = 0;
+    mem_addr next_text_pc; /* Locations for next instruction in user
+                              and kernel text segments */
+    mem_addr next_k_text_pc; /* Locations for next instruction in user
+                                and kernel text segments */
+
+    instruction *break_inst;
+    int program_break;	/* Last address in data segment (edata) */
+    /* tble mapping from opcode to instruction tye */
+    int sorted_name_table = 0;	/* Non-zero => table sorted */
+    /* Map between a SPIM instruction and the binary representation of
+   the instruction. */
+    int sorted_i_opcode_table = 0; /* Non-zero => table sorted */
+    /* Maintain a table mapping from actual opcode to interal opcode.
+       Table must be sorted before first use since its entries are
+       alphabetical on name, not ordered by opcode. */
+    int sorted_a_opcode_table = 0; /* Non-zero => table sorted */
+
+    /* syscall stuff */
+    int do_syscall (void);
+    void handle_exception (void);
+    void initialize_prog_fds (void);
+    void kill_prog_fds (void);
+    void print_syscall_usage (void);
+ void do_sigreturn (mem_addr sigptr);
+ int reverse_fds (int fd);
+ void setup_signal_stack (void);
+ int unixsyscall (void);
+ int prog_sigmask = 0;	/* Copy of sigmask passed to system */
+ mem_addr exception_address[NSIG]; /* trampoline addresses for */
+					 /* each signal handler */
+ struct sigvec sighandler[NSIG]; /* Map to program handlers */
+ int prog_fds[OPEN_MAX];	/* Map from program fds to simulator fds */
+ int fds_initialized = 0;	/* FD map initialized? */
 
     /* Symbol Table */
 #if 0
@@ -227,6 +271,57 @@ protected:
     long initial_k_data_size;
     long initial_k_data_limit;
 
+    /* Instruction processing */
+    //static int compare_pair_value (inst_info *p1, inst_info *p2);
+    /*void i_type_inst_full_word (int opcode, int rt, int rs, imm_expr *expr,
+      int value_known, long int value);*/
+    void inst_cmp (instruction *inst1, instruction *inst2);
+    instruction *make_r_type_inst (int opcode, int rd, int rs, int rt);
+    instruction *mk_i_inst (unsigned long value, int opcode, int rs,
+                            int rt, int offset);
+    instruction *mk_j_inst (unsigned long value, int opcode, int target);
+    instruction *mk_r_inst (unsigned long value, int opcode, int rs,
+                            int rt, int rd, int shamt);
+    int print_imm_expr (char *buf, imm_expr *expr, int base_reg);
+    void sort_name_table (void);
+    imm_expr *addr_expr_imm (addr_expr *expr);
+    int addr_expr_reg (addr_expr *expr);
+    //imm_expr *const_imm_expr (long int value);
+    imm_expr *copy_imm_expr (imm_expr *old_expr);
+    instruction *copy_inst (instruction *inst);
+    mem_addr current_text_pc (void);
+    //long eval_imm_expr (imm_expr *expr);
+    void free_inst (instruction *inst);
+    //void i_type_inst (int opcode, int rt, int rs, imm_expr *expr);
+    //void i_type_inst_free (int opcode, int rt, int rs, imm_expr *expr);
+    void increment_text_pc (int delta);
+    //imm_expr *incr_expr_offset (imm_expr *expr, long int value);
+    instruction *inst_decode (unsigned long int value);
+    void sort_i_opcode_table (void);
+    void sort_a_opcode_table (void);
+    long inst_encode (instruction *inst);
+    int inst_is_breakpoint (mem_addr addr);
+    //void j_type_inst (int opcode, imm_expr *target);
+    void k_text_begins_at_point ();
+    void k_text_begins_at_point (mem_addr addr);
+    //imm_expr *lower_bits_of_expr (imm_expr *old_expr);
+    //addr_expr *make_addr_expr (long int offs, char *sym, int reg_no);
+    //imm_expr *make_imm_expr (int offs, char *sym, int pc_rel);
+    int opcode_is_branch (int opcode);
+    int opcode_is_jump (int opcode);
+    int opcode_is_load_store (int opcode);
+    void print_inst (mem_addr addr);
+    int print_inst_internal (char *buf, int len, instruction *inst, mem_addr addr);
+    void r_cond_type_inst (int opcode, int rs, int rt);
+    void r_sh_type_inst (int opcode, int rd, int rt, int shamt);
+    void r_type_inst (int opcode, int rd, int rs, int rt);
+    instruction *set_breakpoint (mem_addr addr);
+    void store_instruction (instruction *inst);
+    void text_begins_at_point (mem_addr addr);
+    imm_expr *upper_bits_of_expr (imm_expr *old_expr);
+    void user_kernel_text_segment (int to_kernel);
+    int zero_imm (imm_expr *expr);
+
     /* local counters for collecting statistics */
     int mem_stall_count;
     int total_mem_ops;
@@ -235,7 +330,7 @@ protected:
     mult_div_unit MDU;
 
     /* Exported Variables: */
-    int cycle_level, cycle_running, cycle_steps;
+    int cycle_level, cycle_running, cycle_steps, bare_machine;
     int EX_bp_reg, MEM_bp_reg, CP_bp_reg, CP_bp_cc, CP_bp_z;
     reg_word EX_bp_val, MEM_bp_val, CP_bp_val;
     int FP_add_cnt, FP_mul_cnt, FP_div_cnt;
@@ -269,6 +364,57 @@ protected:
     int dcache_modified, icache_modified;
     int line_size;
     int dcache_on, icache_on, tlb_on;
+    long data_size_limit, stack_size_limit, k_data_size_limit;
+    /* Memory-mapped IO routines: */
+    long recv_control, recv_buffer, recv_buffer_filled;
+    long trans_control, trans_buffer, trans_buffer_filled;
+
+    /* CL cache functions */
+    void cache_wt_init (void);
+void stat_init (void);
+void stat_print (void);
+unsigned int bus_service (MEM_SYSTEM mem_system);
+MEM_SYSTEM mem_sys_init (void);
+void print_mem_sys_status (int finished, MEM_SYSTEM mem_system);
+void cache_init (MEM_SYSTEM mem_system, int type);
+int cache_service (MEM_SYSTEM mem_system, mem_addr addr, int type, unsigned int
+		   *req_num);
+int cache_probe (CACHE cache, mem_addr addr, int type);
+void print_cache_stats (char *buf, int type);
+char *print_write_buffer (void);
+void print_cache_data (char *buf, int type);
+ int arbitrate (MEM_SYSTEM mem_system);
+ int service_request(MEM_SYSTEM);
+ void rb_insert (MEM_SYSTEM mem_system, mem_addr addr, unsigned int
+		       *req_num);
+ void ib_insert (MEM_SYSTEM mem_system, mem_addr addr, unsigned int
+		       *req_num);
+ int wb_insert (MEM_SYSTEM mem_system, mem_addr addr, unsigned int
+		      *req_num);
+ int wb_conflict (MEM_SYSTEM mem_system, mem_addr addr);
+ unsigned int wb_promote (MEM_SYSTEM mem_system);
+ void cache_update (CACHE cache, mem_addr addr, int type);
+
+    /* memory functions */
+    void free_instructions (register instruction **inst, int n);
+    mem_word read_memory_mapped_IO (mem_addr addr);
+    void write_memory_mapped_IO (mem_addr addr, mem_word value);
+    mem_word bad_mem_read (mem_addr addr, int mask, mem_word *dest);
+void bad_mem_write (mem_addr addr, mem_word value, int mask);
+instruction *bad_text_read (mem_addr addr);
+void bad_text_write (mem_addr addr, instruction *inst);
+void check_memory_mapped_IO (void);
+void expand_data (long int addl_bytes);
+void expand_k_data (long int addl_bytes);
+void expand_stack (long int addl_bytes);
+void make_memory (long int text_size, long int data_size, long int data_limit,
+	long int stack_size, long int stack_limit, long int k_text_size,
+	long int k_data_size, long int k_data_limit);
+void print_mem (mem_addr addr);
+instruction *cl_bad_text_read (mem_addr addr, int *excpt);
+void cl_bad_text_write (mem_addr addr, instruction *inst, int *excpt);
+mem_word cl_bad_mem_read (mem_addr addr, int mask, mem_word *dest, int *excpt);
+void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
 
     /* Local functions: */
     int cycle_spim (int *steps, int display);

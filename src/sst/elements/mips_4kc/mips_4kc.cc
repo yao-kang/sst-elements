@@ -26,7 +26,7 @@ using namespace SST;
 using namespace SST::MIPS4KCComponent;
 
 MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
-    Component(id)
+    Component(id), break_inst(NULL)
 {
     uint32_t outputLevel = params.find<uint32_t>("verbose", 0);
     out.init("MIPS4KC:@p:@l: ", outputLevel, 0, Output::STDOUT);
@@ -54,6 +54,7 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     console_in = 0;
     mapped_io = 0;
     cycle_level = 1;
+    bare_machine = 1;
     quiet = 1;
     tlb_on = 0;
     icache_on = 0;
@@ -69,9 +70,21 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     initial_k_data_size = K_DATA_SIZE;
     initial_k_data_limit = K_DATA_LIMIT;
 
+    text_seg = 0;
+    data_seg = 0;
+    data_seg_h = 0;
+    data_seg_b = 0;
+    stack_seg = 0;
+    stack_seg_b = 0;
+    k_text_seg = 0;
+    k_data_seg_h = 0;
+    k_data_seg_b = 0;
+    k_data_top = 0;
+
     initialize_world(0);
     cl_initialize_world(1);
-    cl_run_program(program_starting_address, DEFAULT_RUN_STEPS, !quiet);
+    read_aout_file("foo");
+    PC = program_starting_address;
 }
 
 MIPS4KC::MIPS4KC() : Component(-1)
@@ -108,7 +121,7 @@ void MIPS4KC::handleEvent(Interfaces::SimpleMem::Request * req)
 
 bool MIPS4KC::clockTic( Cycle_t )
 {
-
+    cl_run_program (PC, 1, !quiet);
 
     // return false so we keep going
     return false;

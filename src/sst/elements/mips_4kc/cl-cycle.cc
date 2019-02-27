@@ -33,21 +33,13 @@
 #include <math.h>
 #include <stdio.h>
 
-#include "spim.h"
-#include "inst.h"
-#include "reg.h"
-#include "mem.h"
-#include "read-aout.h"
 #include "y.tab.h"
-#include "mips-syscall.h"
 
 #include "cl-mem.h"
 #include "cl-cache.h"
 #include "cl-cycle.h"
 #include "cl-tlb.h"
 #include "cl-except.h"
-
-#include "mips_4kc.h"
 
 using namespace SST;
 using namespace SST::MIPS4KCComponent;
@@ -108,15 +100,15 @@ void MIPS4KC::cl_initialize_world (int run)
 {
   initialize_registers ();
   initialize_run_stack (0, 0);
-  initialize_catch_signals ();
+  //initialize_catch_signals ();
   if (cycle_level) {
     if (run) 
       initialize_prog_fds ();
-    initialize_sighandlers ();
-    initialize_excpt_counts ();
+    //initialize_sighandlers ();
+    //initialize_excpt_counts ();
     cycle_init ();
     mdu_and_fp_init ();
-    tlb_init();
+    //tlb_init();
     cache_init (mem_system, DATA_CACHE);
     cache_init (mem_system, INST_CACHE);
   }

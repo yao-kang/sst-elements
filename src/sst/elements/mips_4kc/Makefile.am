@@ -13,13 +13,19 @@ libmips_4kc_la_SOURCES = \
 	mips_4kc.h \
 	cl-cycle.cc \
 	cl-cycle.h \
+	cl-cache.cc \
 	spim-utils.cc \
 	data.cc \
-	reg.h
+	inst.cc \
+	mem.cc \
+	read-aout.cc \
+	reg.h \
+	mips-syscall.cc 
 
 
 EXTRA_DIST = \
-	README 
+	README \
+	test.py
 
 
 libmips_4kc_la_LDFLAGS = -module -avoid-version
