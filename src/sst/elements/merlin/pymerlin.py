@@ -1064,6 +1064,15 @@ class TopoJSON(Topo):
         self.node_numbering = {}
         self.switch_numbering = {}
         self.links = {}
+        import json
+        self.topo_doc = json.load(open(topo_path))
+        if not rtr_path or rtr_path == topo_path:
+          self.rtr_doc = self.topo_doc
+        else:
+          self.rtr_doc = json.load(open(rtr_path))
+
+        self.buildConnectionConfig()
+        self.buildRoutingTables()
 
     def getName(self):
         return "JSON"
@@ -1118,15 +1127,10 @@ class TopoJSON(Topo):
 
 
     def build(self):
-        self.buildConnectionConfig()
-        self.buildRoutingTables()
         self.buildComponents()
 
     def buildRoutingTables(self):
-        import json
-        fobj = open(self.rtr_path)
-        doc = json.load(fobj)
-        switches_json = doc["switches"]
+        switches_json = self.rtr_doc["switches"]
         for i in xrange(self.num_routers):
           rtr = self.routers[i]
           rtr_json = switches_json[rtr.name]
@@ -1137,11 +1141,7 @@ class TopoJSON(Topo):
             rtr.table[destId] = portId
 
     def buildConnectionConfig(self):
-        import json
-        fobj = open(self.topo_path)
-        doc = json.load(fobj)
-
-        switches = doc["switches"]
+        switches = self.topo_doc["switches"]
         swIdx = 0
         for name in switches:
           self.switch_numbering[name] = swIdx
@@ -1150,7 +1150,7 @@ class TopoJSON(Topo):
 
         self.routers = [None]*self.num_routers
 
-        nodes = doc["nodes"]
+        nodes = self.topo_doc["nodes"]
         nodeIdx = 0
         for name in nodes:
           self.node_numbering[name] = nodeIdx

@@ -32,6 +32,7 @@
 #include "sst/elements/memHierarchy/memLinkBase.h"
 #include "sst/elements/memHierarchy/membackend/backing.h"
 
+#if 0
 namespace SST {
 namespace MemHierarchy {
 
@@ -132,5 +133,5 @@ private:
 
 
 }}
-
+#endif
 #endif /* _COHERENTMEMORYCONTROLLER_H */

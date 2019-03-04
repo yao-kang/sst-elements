@@ -13,7 +13,7 @@
 // information, see the LICENSE file in the top level directory of the
 // distribution.
 
-
+#if 0
 #include <sst_config.h>
 #include <sst/core/element.h>
 #include <sst/core/params.h>
@@ -629,4 +629,5 @@ void CoherentMemController::replayMemEvent(MemEvent * ev) {
             break;
     }
 }
+#endif
 
