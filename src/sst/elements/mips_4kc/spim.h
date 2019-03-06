@@ -200,7 +200,7 @@ typedef struct strint
     strint(const char *n, int v1, int v2) : value1(v1), value2(v2) {
         const char *end = (char*)memchr(n, 0, 100);
         int sz = end ? (size_t)(end - n) : -1;
-        printf("spimX %s sz:%d %d %d\n", n, sz, v1, v2);
+        //printf("spimX %s sz:%d %d %d\n", n, sz, v1, v2);
         name = (char*)malloc(sz+1);
         strncpy(name, n, sz+1);
     }

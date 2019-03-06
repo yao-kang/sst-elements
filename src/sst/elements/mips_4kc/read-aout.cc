@@ -34,7 +34,6 @@ using namespace SST::MIPS4KCComponent;
 #include "inst.h"
 #include "mem.h"
 #include "data.h"
-#include "parser.h"
 #include "read-aout.h"
 #include "sym-tbl.h"*/
 
@@ -54,13 +53,28 @@ int MIPS4KC::read_aout_file (const char *file_name)
     text_dir = 1;
     //text_begins_at_point(0x1000); //(header.text_start);
     //store_instruction(inst_decode (getw (fd)));
-    instruction *add_inst = inst_decode(0x0118820); // ADD r1, r2, r3
+    instruction *add_inst = inst_decode(0x0221820); // ADD r3, r1, r2
     store_instruction(add_inst);
+
+     add_inst = inst_decode(0x0221820); // ADD r3, r1, r2
+    store_instruction(add_inst);
+
+     add_inst = inst_decode(0x0221820); // ADD r3, r1, r2
+    store_instruction(add_inst);
+
+     add_inst = inst_decode(0x0221820); // ADD r3, r1, r2
+    store_instruction(add_inst);
+
+     add_inst = inst_decode(0x0221820); // ADD r3, r1, r2
+    store_instruction(add_inst);
+
+     add_inst = inst_decode(0x0221820); // ADD r3, r1, r2
+    store_instruction(add_inst);
+
     printf("Reading...\n");
     print_inst(TEXT_BOT);
     text_dir = 0;
     program_starting_address = TEXT_BOT; //header.entry;
-
     // load data
     //data_begins_at_point (header.data_start);
     //program_break = header.bss_start + header.bsize;

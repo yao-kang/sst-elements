@@ -26,23 +26,13 @@
 #define _CL_TLB_H
 
 /* Exported Functions */
-#ifdef __STDC__
 void tlb_init (void);
-int tlb_vat (mem_addr addr, unsigned int pid, int l_or_s, mem_addr *paddr);
+//int tlb_vat (mem_addr addr, unsigned int pid, int l_or_s, mem_addr *paddr); moved to mips_4kc
 void tlbp (void);
 void tlbr (void);
 void tlbwi (void);
 void tlbwr (void);
 void tlb_service (unsigned int pid, int l_or_s);
-#else
-void tlb_init ();
-int tlb_vat ();
-void tlbp ();
-void tlbr ();
-void tlbwi ();
-void tlbwr ();
-void tlb_service ();
-#endif
 
 
 

@@ -160,9 +160,10 @@
 
 
 struct mult_div_unit {
-  int count;
-  reg_word hi_val;
-  reg_word lo_val;
+    int count;
+    reg_word hi_val;
+    reg_word lo_val;
+    mult_div_unit() : count(0), hi_val(0), lo_val(0) {;}
 };
 
 

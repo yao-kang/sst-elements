@@ -29,11 +29,11 @@
 /* gdb-style for tracking each signal */
 typedef struct signal_desc
 {
-  char *signame;
+  const char *signame;
   short stats;		/* bit 0 --> pass signal to simulated program
 			 * bit 1 --> print if signal is seen
 			 * bit 2 --> stop if signal is seen */
-  char *desc;		/* short description of signal */
+  const char *desc;		/* short description of signal */
 } signal_desc;
 
 #define DESC(sig)	(siginfo[sig].desc)
@@ -73,35 +73,19 @@ typedef struct spim_proc
 
 typedef struct excpt_desc
 {
-  char *excptname;
+  string excptname;
   int sig;		/* if mappable to signal, what is signal ? */
   int freq;		/* how many times has it occurred */
+    excpt_desc(const char*e, int s, int f) : excptname(e), sig(s), freq(f) {
+        printf("init %s %s %p\n", e, excptname.c_str(), this);
+    }
 } excpt_desc;
 
 
-#define EXCPT_STR(x)	(excpt_handler[x].excptname)
+#define EXCPT_STR(x)	(excpt_handler[x].excptname.c_str())
 #define EXCPT_COUNT(x)	(excpt_handler[x].freq)
 
 
-
-/* Exported Functions: */
-#ifdef __STDC__
-void dosigreturn (mem_addr sigptr);
-void initialize_catch_signals (void);
-void initialize_sighandlers (void);
-void initialize_excpt_counts (void);
-int process_excpt (void);
-void print_except_stats (void);
-void print_signal_status (int sig);
-#else
-void dosigreturn ();
-void initialize_catch_signals ();
-void initialize_sighandlers ();
-void initialize_excpt_counts ();
-int process_excpt ();
-void print_except_stats ();
-void print_signal_status ();
-#endif
 
 
 #define ALL_SIGNALS 100001		/* when passed as first parameter */

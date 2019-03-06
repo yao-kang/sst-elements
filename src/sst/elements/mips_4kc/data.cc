@@ -25,16 +25,7 @@
 #include <sst_config.h>
 #include "mips_4kc.h"
 
-/*#include "spim.h"
-#include "spim-utils.h"
-#include "inst.h"
-#include "mem.h"
-#include "reg.h"
-#include "sym-tbl.h"
-#include "parser.h"
-#include "run.h"
-#include "read-aout.h"
-#include "data.h"*/
+
 
 using namespace SST;
 using namespace SST::MIPS4KCComponent;

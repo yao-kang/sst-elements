@@ -423,8 +423,8 @@ int MIPS4KC::cycle_spim (int *steps, int display)
     /* IF Stage */
     else if (ps_ptr != NULL && (STAGE(ps_ptr) == IF))  {
       CL_READ_MEM_INST(mem_system, ps_ptr->inst, STAGE_PC(ps_ptr),
-		       PADDR(ps_ptr), cmiss, EXCPT(ps_ptr), RNUM(ps_ptr))
-
+		       PADDR(ps_ptr), cmiss, EXCPT(ps_ptr), RNUM(ps_ptr));
+      printf("IF fetch %lx\n", STAGE_PC(ps_ptr));
 #if 0
       /* reinsert a breakpoint (occurs only after break excpt was caught) */
       if (STAGE_PC(ps_ptr) == breakpoint_reinsert) {
@@ -2737,13 +2737,7 @@ void MIPS4KC::process_f_fwb (PIPE_STAGE ps)
 /* Auxiliary functions. */
 PIPE_STAGE head_pool;
 
-#ifdef __STDC__
-static void
-init_stage_pool (void)
-#else
-static void
-init_stage_pool ()
-#endif
+void MIPS4KC::init_stage_pool (void)
 {
   PIPE_STAGE tmp;
   int i;
@@ -2762,13 +2756,7 @@ init_stage_pool ()
 }
 
 
-#ifdef __STDC__
-static PIPE_STAGE
-stage_alloc (void)
-#else
-static PIPE_STAGE
-stage_alloc ()
-#endif
+PIPE_STAGE MIPS4KC::stage_alloc (void)
 {
   PIPE_STAGE tmp;
 
@@ -2777,6 +2765,7 @@ stage_alloc ()
 
   tmp = head_pool;
   head_pool = head_pool->next;
+  tmp->clear();
   tmp->exception = 0;
   tmp->next = NULL;
   return tmp;
@@ -2813,16 +2802,7 @@ void MIPS4KC::pipe_dealloc (int stage, PIPE_STAGE alu[], PIPE_STAGE fpa[])
 
 
 
-
-#ifdef __STDC__
-static void
-long_multiply (reg_word v1, reg_word v2, reg_word *hi, reg_word *lo)
-#else
-static void
-long_multiply (v1, v2, hi, lo)
-     reg_word v1, v2;
-     reg_word *hi, *lo;
-#endif
+void MIPS4KC::long_multiply (reg_word v1, reg_word v2, reg_word *hi, reg_word *lo)
 {
   long a, b, c, d;
   long bd, ad, cb, ac;

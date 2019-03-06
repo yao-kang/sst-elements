@@ -48,22 +48,33 @@ namespace SST {
 namespace MIPS4KCComponent {
 
 struct pipe_stage {
-  instruction *inst;
-  int stage;
-  mem_addr pc;
-  reg_word op1, op2, op3;
-  reg_word value;
-  reg_word value1;
-  double fop1, fop2;
-  double fval;
-  reg_word addr_value;
-  mem_addr paddr;
-  unsigned int req_num;
-  int dslot;
-  int exception;
-  int cyl_count;
-  int count;
-  struct pipe_stage *next;
+    instruction *inst;
+    int stage;
+    mem_addr pc;
+    reg_word op1, op2, op3;
+    reg_word value;
+    reg_word value1;
+    double fop1, fop2;
+    double fval;
+    reg_word addr_value;
+    mem_addr paddr;
+    unsigned int req_num;
+    int dslot;
+    int exception;
+    int cyl_count;
+    int count;
+    struct pipe_stage *next;
+    void clear() {
+        inst = 0;
+        op1 = op2 = op3 = stage = 0;
+        value = value1 = 0;
+        fop1 = fop2 = 0;
+        fval = 0;
+        addr_value = paddr = 0;
+        req_num = dslot = exception = cyl_count = 0;
+        count = 0;
+        next = 0;
+    }
 };
 typedef struct pipe_stage *PIPE_STAGE;
 
@@ -193,33 +204,26 @@ protected:
  void setup_signal_stack (void);
  int unixsyscall (void);
  int prog_sigmask = 0;	/* Copy of sigmask passed to system */
- mem_addr exception_address[NSIG]; /* trampoline addresses for */
+    //mem_addr exception_address[NSIG]; /* trampoline addresses for */
 					 /* each signal handler */
  struct sigvec sighandler[NSIG]; /* Map to program handlers */
  int prog_fds[OPEN_MAX];	/* Map from program fds to simulator fds */
  int fds_initialized = 0;	/* FD map initialized? */
 
-    /* Symbol Table */
-#if 0
-    mem_addr find_symbol_address (const char *symbol);
-    void flush_local_labels (void);
-    void initialize_symbol_table (void);
-    label *label_is_defined (char *name);
-    label *lookup_label (char *name);
-    label *make_label_global (char *name);
-    void print_symbols (void);
-    label *record_label (char *name, mem_addr address);
-    //void record_data_uses_symbol (mem_addr location, label *sym);
-    //void record_inst_uses_symbol (instruction *inst, label *sym);
-    void resolve_a_label (label *sym, instruction *inst);
-    void get_hash (char *name, int *slot_no, label **entry);
-    void resolve_label_uses (label *sym);
-    void resolve_a_label_sub (label *sym, instruction *inst, mem_addr pc);
-    /* Map from name of a label to a label structure. */
-    static const int LABEL_HASH_TABLE_SIZE = 8191;
-    label *label_hash_table [LABEL_HASH_TABLE_SIZE];
-#endif
-
+    /* Exceptions */
+    void dosigreturn (mem_addr sigptr);
+void initialize_catch_signals (void);
+void initialize_sighandlers (void);
+void initialize_excpt_counts (void);
+int process_excpt (void);
+void print_except_stats (void);
+void print_signal_status (int sig);
+ void intercept_signals (int sig, int code, struct sigcontext *scp);
+ mem_addr compute_branch_target (instruction *inst);
+ void psignal (int sig);
+ int issig (void);
+ int psig (void);
+ void sendsig (void);
 
     /* configs */
     FILE* pipe_out;
@@ -230,8 +234,8 @@ protected:
     int mapped_io;		/* Non-zero => activate memory-mapped IO */
 
     /* signal / exception */
-    signal_desc siginfo[NSIG];
-    excpt_desc *excpt_handler;
+    static signal_desc siginfo[NSIG];
+    static excpt_desc excpt_handler[];
     mem_addr breakpoint_reinsert; /* !0 -> reinsert break at this
                                       address in IF because we've just
                                       processed it */
@@ -246,30 +250,30 @@ protected:
     short *data_seg_h;	/* Points to same vector as DATA_SEG */
     BYTE_TYPE *data_seg_b;	/* Ditto */
     mem_addr data_top;
-    mem_addr gp_midpoint;	/* Middle of $gp area */
+    mem_addr gp_midpoint=0;	/* Middle of $gp area */
     /* The stack segment and boundaries. */
-    mem_word *stack_seg;
-    short *stack_seg_h;	/* Points to same vector as STACK_SEG */
-    BYTE_TYPE *stack_seg_b;	/* Ditto */
-    mem_addr stack_bot;
+    mem_word *stack_seg=0;
+    short *stack_seg_h=0;	/* Points to same vector as STACK_SEG */
+    BYTE_TYPE *stack_seg_b=0;	/* Ditto */
+    mem_addr stack_bot=0;
     /* The kernel text segment and boundaries. */
-    instruction **k_text_seg;
-    mem_addr k_text_top;
+    instruction **k_text_seg=0;
+    mem_addr k_text_top=0;
     /* Kernel data segment and boundaries. */
-    mem_word *k_data_seg;
-    short *k_data_seg_h;
-    BYTE_TYPE *k_data_seg_b;
-    mem_addr k_data_top;    
+    mem_word *k_data_seg=0;
+    short *k_data_seg_h=0;
+    BYTE_TYPE *k_data_seg_b=0;
+    mem_addr k_data_top=0;    
 
-    mem_addr program_starting_address;   
-    long initial_text_size;
-    long initial_data_size;   
-    long initial_data_limit;
-    long initial_stack_size;
-    long initial_stack_limit;
-    long initial_k_text_size;
-    long initial_k_data_size;
-    long initial_k_data_limit;
+    mem_addr program_starting_address=0;   
+    long initial_text_size=0;
+    long initial_data_size=0;   
+    long initial_data_limit=0;
+    long initial_stack_size=0;
+    long initial_stack_limit=0;
+    long initial_k_text_size=0;
+    long initial_k_data_size=0;
+    long initial_k_data_limit=0;
 
     /* Instruction processing */
     //static int compare_pair_value (inst_info *p1, inst_info *p2);
@@ -323,51 +327,54 @@ protected:
     int zero_imm (imm_expr *expr);
 
     /* local counters for collecting statistics */
-    int mem_stall_count;
-    int total_mem_ops;
+    int mem_stall_count=0;
+    int total_mem_ops=0;
     
-    int bd_slot;
+    int bd_slot=0;
     mult_div_unit MDU;
 
     /* Exported Variables: */
-    int cycle_level, cycle_running, cycle_steps, bare_machine;
-    int EX_bp_reg, MEM_bp_reg, CP_bp_reg, CP_bp_cc, CP_bp_z;
-    reg_word EX_bp_val, MEM_bp_val, CP_bp_val;
-    int FP_add_cnt, FP_mul_cnt, FP_div_cnt;
-    PIPE_STAGE alu[5], fpa[6];
+    int cycle_level=0, cycle_running=0, cycle_steps=0, bare_machine=0;
+    int EX_bp_reg=0, MEM_bp_reg=0, CP_bp_reg=0, CP_bp_cc=0, CP_bp_z=0;
+    reg_word EX_bp_val=0, MEM_bp_val=0, CP_bp_val=0;
+    int FP_add_cnt=0, FP_mul_cnt=0, FP_div_cnt=0;
+    PIPE_STAGE alu[5]={0,0,0,0,0};
+    PIPE_STAGE fpa[6]={0,0,0,0,0,0};
 
     /* registers */
-    reg_word R[32];
-    reg_word HI, LO;
-    int HI_present, LO_present;
-    mem_addr PC, nPC;
+    reg_word R[32] = {};
+    reg_word HI=0, LO=0;
+    int HI_present=0, LO_present=0;
+    mem_addr PC=0, nPC=0;
 
     /* Floating Point Coprocessor (1) registers :*/
-    double *FPR;		/* Dynamically allocate so overlay */
-    float *FGR;		/* is possible */
-    int *FWR;		/* is possible */
+    double *FPR=0;		/* Dynamically allocate so overlay */
+    float *FGR=0;		/* is possible */
+    int *FWR=0;		/* is possible */
     
-    int FP_reg_present;	/* Presence bits for FP registers */
-    int FP_reg_poison;	/* Poison bits for FP registers */
-    int FP_spec_load;	/* Is register waiting for a speculative load */
+    int FP_reg_present=0;	/* Presence bits for FP registers */
+    int FP_reg_poison=0;	/* Poison bits for FP registers */
+    int FP_spec_load=0;	/* Is register waiting for a speculative load */
     
     /* Other Coprocessor Registers.  The floating point registers
        (coprocessor 1) are above.  */
-    reg_word CpCond[4], CCR[4][32], CPR[4][32];
+    reg_word CpCond[4]={};
+    reg_word CCR[4][32]={};
+    reg_word CPR[4][32]={};
     
     /* Exeception Handling Registers (actually registers in Coprocoessor
        0's register file) */    
-    int exception_occurred;
+    int exception_occurred=0;
 
     /* memory variables */
     MEM_SYSTEM mem_system;
-    int dcache_modified, icache_modified;
-    int line_size;
-    int dcache_on, icache_on, tlb_on;
-    long data_size_limit, stack_size_limit, k_data_size_limit;
+    int dcache_modified=0, icache_modified=0;
+    int line_size=0;
+    int dcache_on=0, icache_on=0, tlb_on=0;
+    long data_size_limit=0, stack_size_limit=0, k_data_size_limit=0;
     /* Memory-mapped IO routines: */
-    long recv_control, recv_buffer, recv_buffer_filled;
-    long trans_control, trans_buffer, trans_buffer_filled;
+    long recv_control=0, recv_buffer=0, recv_buffer_filled=0;
+    long trans_control=0, trans_buffer=0, trans_buffer_filled=0;
 
     /* CL cache functions */
     void cache_wt_init (void);
@@ -394,6 +401,11 @@ void print_cache_data (char *buf, int type);
  int wb_conflict (MEM_SYSTEM mem_system, mem_addr addr);
  unsigned int wb_promote (MEM_SYSTEM mem_system);
  void cache_update (CACHE cache, mem_addr addr, int type);
+    int tlb_vat (mem_addr addr, unsigned int pid, int l_or_s, mem_addr *paddr) {
+        *paddr = addr;
+        return CACHEABLE;
+    }
+    
 
     /* memory functions */
     void free_instructions (register instruction **inst, int n);
