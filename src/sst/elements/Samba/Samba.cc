@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // This file is part of the SST software package. For license
@@ -45,7 +45,6 @@ Samba::Samba(SST::ComponentId_t id, SST::Params& params): Component(id) {
 
 	int  page_walk_latency = ((uint32_t) params.find<uint32_t>("page_walk_latency", 50));
 
-	TLB = new TLBhierarchy*[core_count];
 	std::cout<<"Initialized with "<<core_count<<" cores"<<std::endl;
 
 
@@ -74,7 +73,7 @@ Samba::Samba(SST::ComponentId_t id, SST::Params& params): Component(id) {
 
 
 
-		TLB[i]= new TLBhierarchy(i, levels /* level */, (SST::Component *) this,params);
+		TLB.push_back(loadComponentExtension<TLBhierarchy>(i, levels /* level */, params));
 
 
 		SST::Link * link2 = configureLink(link_buffer, "0ps", new Event::Handler<TLBhierarchy>(TLB[i], &TLBhierarchy::handleEvent_CPU));

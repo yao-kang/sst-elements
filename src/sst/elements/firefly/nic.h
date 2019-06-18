@@ -20,7 +20,6 @@
 #include <math.h>
 #include <sstream>
 #include <queue>
-#include <sst/core/elementinfo.h>
 #include <sst/core/module.h>
 #include <sst/core/component.h>
 #include <sst/core/output.h>
@@ -145,6 +144,7 @@ class Nic : public SST::Component  {
         {"read", "Port connected to the detailed model", {}},
         {"write", "Port connected to the detailed model", {}},
         {"core%(num_vNics)d", "Ports connected to the network driver", {}},
+        {"detailed", "Port connected to the detailed model", {"memHierarchy.memEvent" , ""}},
     ) 
 
   private:
@@ -304,7 +304,7 @@ class Nic : public SST::Component  {
 	template <class T>
 	class PriorityEntry : public Priority {
 	  public:
-    	PriorityEntry( int p1, int p2, T data ) : Priority( p1, p2), m_data(data) {}
+    	PriorityEntry( SimTime_t p1, int p2, T data ) : Priority( p1, p2), m_data(data) {}
     	T data() const { return m_data; }
   	  private:
     	T   m_data;
@@ -360,8 +360,9 @@ public:
     VirtNic* getVirtNic( int id ) {
         return m_vNicV[id];
     }
-	void shmemDecPending( int core ) {
-		m_shmem->decPending( core );
+
+	void shmemDecPendingPuts( int core ) {
+		m_shmem->decPendingPuts( core );
 	}
 
   private:
@@ -508,6 +509,7 @@ struct X {
     void qSendEntry( SendEntryBase* entry );
 
     void notifyHavePkt( PriorityX* px ) {
+        m_dbg.debug(CALL_INFO,3,NIC_DBG_SEND_MACHINE,"p1=%" PRIu64 " p2=%d\n",px->p1(),px->p2());
         m_sendPQ.push( px );
 		
         if ( 1 == m_sendPQ.size() ) {

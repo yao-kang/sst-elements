@@ -1,9 +1,9 @@
 // -*- mode: c++ -*-
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -26,7 +26,6 @@
 #include <sst/core/sst_types.h>
 #include <sst/core/link.h>
 #include <sst/core/interfaces/simpleMem.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/output.h>
 
 #include "sst/elements/memHierarchy/memEventBase.h"
@@ -45,14 +44,16 @@ class MemHierarchyInterface : public Interfaces::SimpleMem {
 
 public:
 /* Element Library Info */
-    SST_ELI_REGISTER_SUBCOMPONENT(MemHierarchyInterface, "memHierarchy", "memInterface", SST_ELI_ELEMENT_VERSION(1,0,0),
-            "Interface to memory hierarchy. Converts SimpleMem requests into MemEventBases.", "SST::Interfaces::SimpleMem")
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(MemHierarchyInterface, "memHierarchy", "memInterface", SST_ELI_ELEMENT_VERSION(1,0,0),
+            "Interface to memory hierarchy. Converts SimpleMem requests into MemEventBases.", SST::Interfaces::SimpleMem)
 
-    // Ports only available if loaded as named subcomponent from the python
-    SST_ELI_DOCUMENT_PORTS( { "port", "Link to memHierarchy", { "memHierarchy.MemEventBase" } } )
+    SST_ELI_DOCUMENT_PARAMS( {"port", "Optional, specify the owning component's port to used (not needed if this subcomponent is loaded in the input config)", ""} )
+
+    SST_ELI_DOCUMENT_PORTS( {"port", "Port to memory hierarchy (caches/memory/etc.)", {}} )
 
 /* Begin class definition */
     MemHierarchyInterface(SST::Component *comp, Params &params);
+    MemHierarchyInterface(SST::ComponentId_t id, Params &params, TimeConverter* time, HandlerBase* handler = NULL);
     
     /** Initialize the link to be used to connect with MemHierarchy */
     virtual bool initialize(const std::string &linkName, HandlerBase *handler = NULL);
@@ -73,11 +74,9 @@ protected:
     /** Function to update a SimpleMem request with a custom memEvent response */
     virtual void updateCustomRequest(Interfaces::SimpleMem::Request* req, MemEventBase *ev) const;
     
-    Component*  owner_;
     Output      output;
     Addr        baseAddrMask_;
     std::string rqstr_;
-    std::string dst_;
     std::map<MemEventBase::id_type, Interfaces::SimpleMem::Request*> requests_;
     SST::Link*  link_;
     

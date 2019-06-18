@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 // 
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 // 
 // Portions are copyright of other developers:
@@ -18,7 +18,6 @@
 #include <sst/core/component.h>
 #include <sst/core/params.h>
 #include <sst/core/timeLord.h>
-#include <sst/core/element.h>
 
 #include <sstream>
 
@@ -195,6 +194,7 @@ Nic::Nic(ComponentId_t id, Params &params) :
 
 		std::string useCache = smmParams.find<std::string>("useHostCache","yes");
 		std::string useBus = smmParams.find<std::string>("useBusBridge","yes");
+		std::string useDetailed = smmParams.find<std::string>("useDetailedModel","no");
 
 		if ( isdigit( useCache[0] ) ) {
 			if ( findNid( m_myNodeId, useCache ) ) {
@@ -203,6 +203,7 @@ Nic::Nic(ComponentId_t id, Params &params) :
         		smmParams.insert( "useHostCache",  "no", true );
 			}
 		}
+
 		if ( isdigit( useBus[0] ) ) {
 			if ( findNid( m_myNodeId, useBus ) ) {
         		smmParams.insert( "useBusBridge",  "yes", true );
@@ -211,10 +212,17 @@ Nic::Nic(ComponentId_t id, Params &params) :
 			}
 		}
         
+		if ( isdigit( useDetailed[0] ) ) {
+			if ( findNid( m_myNodeId, useDetailed ) ) {
+        		smmParams.insert( "useDetailedModel",  "yes", true );
+			} else {
+        		smmParams.insert( "useDetailedModel",  "no", true );
+			}
+		}
+        
         std::stringstream tmp;
 		tmp << m_myNodeId;
 		smmParams.insert( "id", tmp.str(), true );
-
 
         tmp.str( std::string() ); tmp.clear();
 
@@ -315,6 +323,9 @@ Nic::~Nic()
     }  
 	delete m_shmem;
 	delete m_linkControl;
+	delete m_unitPool;
+ 	delete m_linkSendWidget;
+	delete m_linkRecvWidget;
 
     int numRcvd = m_recvMachine->getNumReceived();
     int numSent=0;
@@ -347,6 +358,9 @@ void Nic::init( unsigned int phase )
         } 
     } 
     m_linkControl->init(phase);
+	if ( m_memoryModel ) {
+		m_memoryModel->init(phase);
+	}
 }
 
 void Nic::handleVnicEvent( Event* ev, int id )
@@ -583,6 +597,7 @@ void Nic::feedTheNetwork( )
 			m_predNetIdleTime += latPS;
 
 			m_dbg.debug(CALL_INFO,1,NIC_DBG_SEND_NETWORK,"predNetIdleTime=%lld\n",m_predNetIdleTime );
+			m_dbg.debug(CALL_INFO,1,NIC_DBG_SEND_NETWORK,"p1=%" PRIu64 " p2=%d\n", entry->p1(), entry->p2() );
 
 			sendPkt( x.pkt, x.dest, vc );
 
@@ -616,7 +631,8 @@ void Nic::sendPkt( FireflyNetworkEvent* ev, int dest, int vc )
         ++m_packetId;
     }
     m_dbg.debug(CALL_INFO,3,NIC_DBG_SEND_NETWORK,
-                    "dst=%" PRIu64 " sending event with %zu bytes packetId=%" PRIu64 " %s %s\n",req->dest,
+                    "node=%" PRIu64 " stream=%d bytes=%zu packetId=%" PRIu64 " %s %s\n",req->dest,
+													ev->getSrcStream(),
                                                     ev->bufSize(), (uint64_t)m_packetId, 
                                                     ev->isHdr() ? "Hdr":"", 
                                                     ev->isTail() ? "Tail":"" );
@@ -692,7 +708,7 @@ void Nic::detailedMemOp( Thornhill::DetailedCompute* detailed,
             callback( );
             return 0;
         };
-        detailed->start( gens, foo );
+        detailed->start( gens, foo, NULL );
     }
 }
 
@@ -753,7 +769,10 @@ Hermes::MemAddr Nic::findShmem(  int core, Hermes::Vaddr addr, size_t length )
 
     uint64_t offset =  addr - region.first.getSimVAddr();
 
-    assert(  addr + length <= region.first.getSimVAddr() + region.second );
+    if (  addr + length > region.first.getSimVAddr() + region.second ) {
+        m_dbg.fatal(CALL_INFO, -1,"address %#" PRIx64 " not in region %#" PRIx64 " length %lu \n", addr+length, region.first.getSimVAddr() , region.second );
+    }
+
     return region.first.offset(offset);
 }
 

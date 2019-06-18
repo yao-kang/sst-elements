@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -28,14 +28,17 @@
 using namespace SST;
 using namespace SST::MemHierarchy;
 
-pagedMultiMemory::pagedMultiMemory(Component *comp, Params &params) : DRAMSimMemory(comp, params), pagesInFast(0), lastMin(0) {
-    dbg.init("@R:pagedMultiMemory::@p():@l " + comp->getName() + ": ", 0, 0, 
+pagedMultiMemory::pagedMultiMemory(Component *comp, Params &params) : DRAMSimMemory(comp, params), pagesInFast(0), lastMin(0) { build(params); }
+pagedMultiMemory::pagedMultiMemory(ComponentId_t id, Params &params) : DRAMSimMemory(id, params), pagesInFast(0), lastMin(0) { build(params); }
+
+void pagedMultiMemory::build(Params& params) {
+    dbg.init("@R:pagedMultiMemory::@p():@l " + getName() + ": ", 0, 0, 
              (Output::output_location_t)params.find<int>("debug", 0));
     dbg.output(CALL_INFO, "making pagedMultiMemory controller\n");
 
 
     string access = params.find<std::string>("access_time", "35ns");
-    self_link = comp->configureSelfLink("Self", access,
+    self_link = configureSelfLink("Self", access,
                                         new Event::Handler<pagedMultiMemory>(this, &pagedMultiMemory::handleSelfEvent));
 
     maxFastPages = params.find<unsigned int>("max_fast_pages", 256);
@@ -45,7 +48,7 @@ pagedMultiMemory::pagedMultiMemory(Component *comp, Params &params) : DRAMSimMem
     dumpNum = 0;
 
     string clock_freq = params.find<std::string>("quantum", "5ms");
-    comp->registerClock(clock_freq, 
+    registerClock(clock_freq, 
                         new Clock::Handler<pagedMultiMemory>(this, 
                                                              &pagedMultiMemory::quantaClock));
 

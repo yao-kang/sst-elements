@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -20,7 +20,6 @@
 #include <sst/core/event.h>
 #include <sst/core/sst_types.h>
 #include <sst/core/component.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/link.h>
 #include <sst/core/output.h>
 #include <map>
@@ -69,6 +68,11 @@ public:
             {"request_received_scratch_put",    "Number of scratchpad Puts received from CPU (copy from scratch to memory)", "count", 1},
             {"request_issued_scratch_read",     "Number of scratchpad reads issued to scratchpad", "count", 1},
             {"request_issued_scratch_write",    "Number of scratchpad writes issued to scratchpad", "count", 1} )
+
+    SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS( 
+            {"backendConvertor", "Convertor to interface to memory timing model (backend)", "SST::MemHierarchy::ScratchBackendConvertor" },
+            {"cpulink", "CPU-side link manager", "SST::MemHierarchy::MemLinkBase"},
+            {"memlink", "Memory-side link manager", "SST::MemHierarchy::MemLinkBase"} )
 
 /* Begin class defintion */
     Scratchpad(ComponentId_t id, Params &params);

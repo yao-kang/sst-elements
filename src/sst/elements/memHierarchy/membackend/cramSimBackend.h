@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -17,7 +17,6 @@
 #ifndef _H_SST_MEMH_CRAM_SIM_BACKEND
 #define _H_SST_MEMH_CRAM_SIM_BACKEND
 
-#include <sst/core/elementinfo.h>
 
 #include "sst/elements/memHierarchy/membackend/memBackend.h"
 
@@ -27,8 +26,8 @@ namespace MemHierarchy {
 class CramSimMemory : public SimpleMemBackend {
 public:
 /* Element Library Info */
-    SST_ELI_REGISTER_SUBCOMPONENT(CramSimMemory, "memHierarchy", "cramsim", SST_ELI_ELEMENT_VERSION(1,0,0),
-            "CramSim memory timings", "SST::MemHierarchy::MemBackend")
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(CramSimMemory, "memHierarchy", "cramsim", SST_ELI_ELEMENT_VERSION(1,0,0),
+            "CramSim memory timings", SST::MemHierarchy::SimpleMemBackend)
     
     SST_ELI_DOCUMENT_PARAMS( MEMBACKEND_ELI_PARAMS,
             /* Own parameters */
@@ -41,10 +40,12 @@ public:
 
 /* Begin class definition */
     CramSimMemory(Component *comp, Params &params);
+    CramSimMemory(ComponentId_t id, Params &params);
     virtual bool issueRequest( ReqId, Addr, bool isWrite, unsigned numBytes );
     virtual bool isClocked() { return false; }
 
 private:
+    void build(Params& params);
     void handleCramsimEvent(SST::Event *event);
 
 	std::set<ReqId> memReqs;

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -56,7 +56,9 @@ class MemBackendConvertor : public SubComponent {
             { "latency_GetSX",                      "Total latency of handled GetSX requests",          "cycles",   1 },\
             { "latency_GetX",                       "Total latency of handled GetX requests",           "cycles",   1 },\
             { "latency_PutM",                       "Total latency of handled PutM requests",           "cycles",   1 }
+#define MEMBACKENDCONVERTOR_ELI_SLOTS {"backend", "Backend memory model", "SST::MemHierarchy::MemBackend"}
 
+    SST_ELI_REGISTER_SUBCOMPONENT_API(SST::MemHierarchy::MemBackendConvertor)
 
     typedef uint64_t ReqId;
 
@@ -151,6 +153,8 @@ class MemBackendConvertor : public SubComponent {
 
     MemBackendConvertor();
     MemBackendConvertor(Component* comp, Params& params);
+    MemBackendConvertor(ComponentId_t id, Params& params);
+    void build(Params& params);
     void finish(void);
     virtual const std::string& getClockFreq();
     virtual size_t getMemSize();
@@ -170,6 +174,8 @@ class MemBackendConvertor : public SubComponent {
 
         return m_pendingRequests[id]->getRqstr();
     }
+    
+    virtual void setCallbackHandlers(std::function<void(Event::id_type,uint32_t)> responseCB, std::function<Cycle_t()> clockenableCB);
 
     // generates a MemReq for the target custom command
     // this is utilized by inherited ExtMemBackendConvertor's
@@ -179,11 +185,6 @@ class MemBackendConvertor : public SubComponent {
         while ( m_requestQueue.size()) {
             delete m_requestQueue.front();
             m_requestQueue.pop_front();
-        }
-
-        PendingRequests::iterator iter = m_pendingRequests.begin();
-        for ( ; iter != m_pendingRequests.end(); ++ iter ) {
-            delete iter->second;
         }
     }
 
@@ -281,6 +282,10 @@ class MemBackendConvertor : public SubComponent {
     uint64_t m_cycleCount;
 
     bool m_clockOn;
+    
+    // Callback functions to parent component
+    std::function<Cycle_t()> m_enableClock; // Re-enable parent's clock
+    std::function<void(Event::id_type id, uint32_t)> m_notifyResponse; // notify parent of response
 
     uint32_t genReqId( ) { return ++m_reqId; }
 

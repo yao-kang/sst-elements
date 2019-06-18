@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -21,7 +21,6 @@
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 #include <sst/core/rng/marsaglia.h>
-#include <sst/core/elementinfo.h>
 
 #include <unordered_map>
 
@@ -48,12 +47,9 @@ public:
             {"maxRequestsPerCycle",     "(uint) Maximum number of requests to issue per cycle", "2"},
             {"reqsToIssue",             "(uint) Number of requests to issue before ending simulation", "1000"} )
 
-    SST_ELI_DOCUMENT_PORTS( {"mem_link", "Connection to memHierarchy with a scratchpad", { "memHierarchy.MemEventBase" } } )
+    SST_ELI_DOCUMENT_PORTS( {"mem_link", "Connection to cache", { "memHierarchy.MemEventBase" } } )
 
-    SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(
-            { "scratchpad", "Connection to a memHierarchy with a scratchpad", "SST::Interfaces::SimpleMem" },
-            { "cache", "Connection to a memHierarchy with no scratchpad", "SST::Interfaces::SimpleMem" }
-    )
+    SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS( {"memory", "Interface to memory (e.g., caches)", "SST::Interfaces::SimpleMem"} )
 
 /* Begin class definition */
     ScratchCPU(ComponentId_t id, Params& params);
@@ -81,8 +77,7 @@ private:
     uint64_t reqsToIssue;   // Number of requests to issue before ending simulation
 
     // Local variables
-    Interfaces::SimpleMem * scratchmem;     // scratch interface
-    Interfaces::SimpleMem * cachemem;       // cache interface if separate
+    Interfaces::SimpleMem * memory;         // scratch interface
     std::unordered_map<uint64_t, SimTime_t> requests; // Request queue (outstanding requests)
     TimeConverter *clockTC;                 // Clock object
     Clock::HandlerBase *clockHandler;       // Clock handler

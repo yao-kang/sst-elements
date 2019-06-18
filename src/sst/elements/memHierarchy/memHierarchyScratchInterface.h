@@ -1,9 +1,9 @@
 // -*- mode: c++ -*-
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -26,7 +26,6 @@
 #include <sst/core/sst_types.h>
 #include <sst/core/link.h>
 #include <sst/core/interfaces/simpleMem.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/output.h>
 
 #include "sst/elements/memHierarchy/memEventBase.h"
@@ -45,15 +44,16 @@ class MemHierarchyScratchInterface : public Interfaces::SimpleMem {
 
 public:
 /* Element Library Info */
-    SST_ELI_REGISTER_SUBCOMPONENT(MemHierarchyScratchInterface, "memHierarchy", "scratchInterface", SST_ELI_ELEMENT_VERSION(1,0,0),
-            "Interface to a memory hierarchy containing a scratchpad", "SST::Interfaces::SimpleMem")
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(MemHierarchyScratchInterface, "memHierarchy", "scratchInterface", SST_ELI_ELEMENT_VERSION(1,0,0),
+            "Interface to a scratchpad", SST::Interfaces::SimpleMem)
+    
+    SST_ELI_DOCUMENT_PARAMS( { "scratchpad_size", "Size of the scratchpad, with units" } )
 
-    SST_ELI_DOCUMENT_PARAMS( { "scratchpad_size", "Size of scratchpad with units in bytes ('B'). SI ok." } )
-
-    SST_ELI_DOCUMENT_PORTS( {"port",   "Link to a memory hierarchy containing a scratchpad.",   {"memHierarchy.MemEventBase"} } )
+    SST_ELI_DOCUMENT_PORTS( {"port", "Port to memory hierarchy (caches/memory/etc.)", {}} )
 
 /* Begin class definition */
     MemHierarchyScratchInterface(SST::Component *comp, Params &params);
+    MemHierarchyScratchInterface(SST::ComponentId_t id, Params &params, TimeConverter* time, HandlerBase *handler = NULL);
     
     /** Initialize the link to be used to connect with MemHierarchy */
     virtual bool initialize(const std::string &linkName, HandlerBase *handler = NULL);
@@ -84,14 +84,13 @@ private:
     MoveEvent* createMoveEvent(Interfaces::SimpleMem::Request* req) const;
     MemEvent* createMemEvent(Interfaces::SimpleMem::Request* req) const;
 
-    Component*      owner_;
     HandlerBase*    recvHandler_;
     SST::Link*      link_;
     std::map<SST::Event::id_type, Interfaces::SimpleMem::Request*> requests_;
-    Addr addrMask_;
+    Addr baseAddrMask_;
     std::string rqstr_;
-    std::string dst_;
-    Addr scratchMaxAddr_;
+    Addr remoteMemStart_;
+    bool allNoncache_;
 
     bool initDone_;
     std::queue<MemEventInit*> initSendQueue_;

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,11 +19,10 @@
 
 #include <sst/core/event.h>
 #include <sst/core/sst_types.h>
-#include <sst/core/component.h>
+#include <sst/core/componentExtension.h>
 #include <sst/core/link.h>
 #include <sst/core/output.h>
 #include <sst/core/interfaces/simpleMem.h>
-#include <sst/core/element.h>
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 #include <sst/core/timeConverter.h>
@@ -48,11 +47,9 @@
 #include "arielflushev.h"
 #include "arielfenceev.h"
 #include "arielswitchpool.h"
-#include "arielalloctrackev.h"
 
 #include "ariel_shmem.h"
 #include "arieltracegen.h"
-#include <sst/elements/Opal/Opal_Event.h>
 
 using namespace SST;
 using namespace SST::Interfaces;
@@ -62,36 +59,23 @@ namespace SST {
 namespace ArielComponent {
 
 
-class ArielCore {
-        bool ignoreOps;
-        uint64_t lastPFCache[8];
-        uint PFCCount;
-        bool useScratch;
-    set<uint64_t> scratchSet;
-    set<uint64_t> arrivedScratchSet;
+class ArielCore : public ComponentExtension {
+
     public:
-        ArielCore(ArielTunnel *tunnel, SimpleMem *coreToCacheLink,
-            uint32_t thisCoreID, uint32_t maxPendTans,
-            Output* out, uint32_t maxIssuePerCyc, uint32_t maxQLen,
-            uint64_t cacheLineSz, SST::Component* owner,
-                  ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params,
-                  uint32_t pf_maxPendTans, uint32_t pf_maxIssuePerCyc,
-                  bool uScratch);
+        ArielCore(ComponentId_t id, ArielTunnel *tunnel, uint32_t thisCoreID, uint32_t maxPendTans, Output* out,
+            uint32_t maxIssuePerCyc, uint32_t maxQLen, uint64_t cacheLineSz, ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
         ~ArielCore();
 
         bool isCoreHalted() const;
         bool isCoreStalled() const;
         bool isCoreFenced() const;
         bool hasDrainCompleted() const;
-        void advancePF();
         void tick();
         void halt();
         void stall();
         void fence();
         void unfence();
         void finishCore();
-        void createClearPFEvent();
-        void createPFEvent(uint64_t addr, int offset);
         void createReadEvent(uint64_t addr, uint32_t size);
         void createWriteEvent(uint64_t addr, uint32_t size, const uint8_t* payload);
         void createAllocateEvent(uint64_t vAddr, uint64_t length, uint32_t level, uint64_t ip);
@@ -103,9 +87,7 @@ class ArielCore {
         void createFenceEvent();
         void createSwitchPoolEvent(uint32_t pool);
 
-        void setCacheLink(SimpleMem* newCacheLink, Link* allocLink);
-        void setScratchLink(SimpleMem* newScratchLink);
-        void configureScratchpad(uint64_t line, uint64_t size);
+        void setCacheLink(SimpleMem* newCacheLink);
 
         void handleEvent(SimpleMem::Request* event);
         void handleReadRequest(ArielReadEvent* wEv);
@@ -117,14 +99,11 @@ class ArielCore {
         void handleFlushEvent(ArielFlushEvent *flEv);
         void handleFenceEvent(ArielFenceEvent *fEv);
 
-        // interrupt handlers
-        void handleInterruptEvent(SST::Event *event);
-        void ISR_Opal(SST::OpalComponent::OpalEvent *ev);
-        void setOpal() { opal_enabled = true; }
-        void setOpalLink(Link * opallink);
+        // interrupt handler
+        bool handleInterrupt(ArielMemoryManager::InterruptAction action);
 
-        void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, bool isPF=0, uint64_t scratchOffset=0);
-        void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, const uint8_t* payload, uint64_t scrOffset=0);
+        void commitReadEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
+        void commitWriteEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length, const uint8_t* payload);
         void commitFlushEvent(const uint64_t address, const uint64_t virtAddr, const uint32_t length);
 
         // Setting the max number of instructions to be simulated
@@ -136,32 +115,20 @@ class ArielCore {
     private:
         bool processNextEvent();
         bool refillQueue();
-        bool opal_enabled;
         bool writePayloads;
         uint32_t coreID;
         uint32_t maxPendingTransactions;
-        uint32_t pf_maxPendingTransactions;
         Output* output;
         std::queue<ArielEvent*>* coreQ;
-        std::queue<ArielReadEvent*>* PFQ;
         bool isStalled;
         bool isHalted;
         bool isFenced;
         SimpleMem* cacheLink;
-        SimpleMem* scratchLink;
-        Link* allocLink;
-        Link* OpalLink;
         ArielTunnel *tunnel;
         std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingTransactions;
-        std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>* pendingPFTransactions;
         uint32_t maxIssuePerCycle;
         uint32_t maxQLength;
-        uint32_t pf_maxIssuePerCycle;
         uint64_t cacheLineSize;
-        uint64_t scratchLineSize;
-        uint64_t scratchCapacity;
-        bool hasScratchpad;
-        SST::Component* owner;
         ArielMemoryManager* memmgr;
         const uint32_t verbosity;
         const uint32_t perform_checks;
@@ -177,16 +144,6 @@ class ArielCore {
 
         ArielTraceGenerator* traceGen;
 
-    Statistic<uint64_t>* statPFScratchGets;
-    Statistic<uint64_t>* statPFScratchReads;
-    Statistic<uint64_t>* statPFScratchWrites;
-    Statistic<uint64_t>* statPFScratchOffset;
-    Statistic<uint64_t>* statPFScratchWaits;
-
-        Statistic<uint64_t>* statPFRequests;
-        Statistic<uint64_t>* statIgnoreRW;
-        Statistic<uint64_t>* statIgnoreNoop;
-        Statistic<uint64_t>* statPFFolds;
         Statistic<uint64_t>* statReadRequests;
         Statistic<uint64_t>* statWriteRequests;
 	Statistic<uint64_t>* statFlushRequests;
@@ -210,7 +167,6 @@ class ArielCore {
         Statistic<uint64_t>* statFPSPOps;
 
         uint32_t pending_transaction_count;
-        uint32_t pending_pf_transaction_count;
 
 };
 

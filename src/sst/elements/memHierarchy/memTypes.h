@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -18,7 +18,7 @@
 
 #include <sst/core/sst_types.h>
 
-#include <sst/core/elibase.h>   // For ElementInfoStatistic
+#include <sst/core/eli/elibase.h>   // For ElementInfoStatistic
 
 #include "sst/elements/memHierarchy/util.h"
 
@@ -149,7 +149,7 @@ static const std::vector<ElementInfoStatistic> networkMemoryInspector_statistics
 
 
 /******************************************************************************************
- * Coherence states. Not all protocols use all states 
+ * Coherence states. Not all protocols use all states
  *****************************************************************************************/
 /* State NextState */
 #define STATE_TYPES \
@@ -246,7 +246,9 @@ struct MemRegion {
 
     std::string toString() const {
         std::ostringstream str;
+        str << showbase << hex;
         str << "Start: " << start << " End: " << end;
+        str << noshowbase << dec;
         str << " InterleaveSize: " << interleaveSize;
         str << " InterleaveStep: " << interleaveStep;
         return str.str();

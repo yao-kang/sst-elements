@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -24,14 +24,16 @@ using namespace SST;
 using namespace SST::MemHierarchy;
 using namespace SST::CramSim;
 
-CramSimMemory::CramSimMemory(Component *comp, Params &params) : SimpleMemBackend(comp, params){
+CramSimMemory::CramSimMemory(Component *comp, Params &params) : SimpleMemBackend(comp, params){ build(params); }
+CramSimMemory::CramSimMemory(ComponentId_t id, Params &params) : SimpleMemBackend(id, params){ build(params); }
+
+void CramSimMemory::build(Params& params) {
     std::string access_time = params.find<std::string>("access_time", "100 ns");
-    cramsim_link = comp->configureLink( "cube_link", access_time,
+    cramsim_link = configureLink( "cube_link", access_time,
             new Event::Handler<CramSimMemory>(this, &CramSimMemory::handleCramsimEvent));
 
     m_maxNumOutstandingReqs = params.find<int>("max_outstanding_requests",256);
     output= new Output("CramSimMemory[@p:@l]: ", 1, 0, Output::STDOUT);
-
 }
 
 

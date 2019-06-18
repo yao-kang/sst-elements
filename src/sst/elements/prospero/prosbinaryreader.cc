@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -33,7 +33,22 @@ ProsperoBinaryTraceReader::ProsperoBinaryTraceReader( Component* owner, Params& 
 
 	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t);
 	buffer = (char*) malloc(sizeof(char) * recordLength);
-};
+}
+
+ProsperoBinaryTraceReader::ProsperoBinaryTraceReader( ComponentId_t id, Params& params, Output* out ) :
+	ProsperoTraceReader(id, params, out) {
+
+	std::string traceFile = params.find<std::string>("file", "");
+	traceInput = fopen(traceFile.c_str(), "rb");
+
+	if(NULL == traceInput) {
+            output->fatal(CALL_INFO, -1, "%s, Fatal: Error opening trace file: %s in binary reader.\n",
+                    getName().c_str(), traceFile.c_str());
+	}
+
+	recordLength = sizeof(uint64_t) + sizeof(char) + sizeof(uint64_t) + sizeof(uint32_t);
+	buffer = (char*) malloc(sizeof(char) * recordLength);
+}
 
 ProsperoBinaryTraceReader::~ProsperoBinaryTraceReader() {
 	if(NULL != traceInput) {

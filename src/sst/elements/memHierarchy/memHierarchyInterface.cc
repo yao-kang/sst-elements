@@ -1,9 +1,9 @@
 // -*- mode: c++ -*-
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -28,25 +28,32 @@ using namespace SST::Interfaces;
 
 
 MemHierarchyInterface::MemHierarchyInterface(SST::Component *comp, Params &params) :
-    SimpleMem(comp, params), owner_(comp), recvHandler_(NULL), link_(NULL)
+    SimpleMem(comp, params), recvHandler_(NULL), link_(NULL)
 { 
     output.init("", 1, 0, Output::STDOUT);
     rqstr_ = "";
-    dst_ = "";
+    initDone_ = false;
+}
+
+MemHierarchyInterface::MemHierarchyInterface(SST::ComponentId_t id, Params &params, TimeConverter * time, HandlerBase* handler) :
+    SimpleMem(id, params)
+{ 
+    setDefaultTimeBase(time); // Required for link since we no longer inherit it from our parent
+
+    output.init("", 1, 0, Output::STDOUT);
+    rqstr_ = "";
     initDone_ = false;
     
+    recvHandler_ = handler;
+    std::string portname = params.find<std::string>("port", "port");
+    if ( NULL == recvHandler_) 
+        link_ = configureLink(portname);
+    else
+        link_ = configureLink(portname, new Event::Handler<MemHierarchyInterface>(this, &MemHierarchyInterface::handleIncoming));
 }
 
 
 void MemHierarchyInterface::init(unsigned int phase) {
-    /* 
-     * Check that there's a default timebase on the link, otherwise set one to avoid error
-     * What we choose won't matter since we're not adding extra latency
-     */
-    if (link_->getDefaultTimeBase() == nullptr) {
-        link_->setDefaultTimeBase(getTimeConverter("1ns"));
-    }
-    
     /* Send region message */
     if (!phase) {
         MemRegion region;
@@ -54,9 +61,9 @@ void MemHierarchyInterface::init(unsigned int phase) {
         region.end = (uint64_t) - 1;
         region.interleaveStep = 0;
         region.interleaveSize = 0;
-        link_->sendInitData(new MemEventInitRegion(parent->getName(), region, false));
+        link_->sendInitData(new MemEventInitRegion(getName(), region, false));
 
-        MemEventInitCoherence * event = new MemEventInitCoherence(parent->getName(), Endpoint::CPU, false, false, 0, false);
+        MemEventInitCoherence * event = new MemEventInitCoherence(getName(), Endpoint::CPU, false, false, 0, false);
         link_->sendInitData(event);
 
     }
@@ -65,8 +72,7 @@ void MemHierarchyInterface::init(unsigned int phase) {
         MemEventInit * memEvent = dynamic_cast<MemEventInit*>(ev);
         if (memEvent) {
             if (memEvent->getCmd() == Command::NULLCMD) {
-                if (rqstr_ == "") rqstr_ = memEvent->getSrc();
-                dst_ = memEvent->getSrc();
+                rqstr_ = memEvent->getSrc();
                 if (memEvent->getInitCmd() == MemEventInit::InitCommand::Coherence) {
                     MemEventInitCoherence * memEventC = static_cast<MemEventInitCoherence*>(memEvent);
                     baseAddrMask_ = ~(memEventC->getLineSize() - 1);
@@ -135,10 +141,10 @@ MemEventBase* MemHierarchyInterface::createMemEvent(SimpleMem::Request *req) con
 
     Addr baseAddr = (req->addrs[0]) & baseAddrMask_;
     
-    MemEvent *me = new MemEvent(owner_, req->addrs[0], baseAddr, cmd);
+    MemEvent *me = new MemEvent(getName(), req->addrs[0], baseAddr, cmd, getCurrentSimTimeNano());
     
     me->setRqstr(rqstr_);
-    me->setDst(dst_);
+    me->setDst(rqstr_);
     me->setSize(req->size);
 
     if (SimpleMem::Request::Write == req->cmd)  {
@@ -177,7 +183,7 @@ MemEventBase* MemHierarchyInterface::createCustomEvent(SimpleMem::Request * req)
     Addr baseAddr = (req->addrs[0]) & baseAddrMask_;
     CustomCmdEvent * cme = new CustomCmdEvent(getName().c_str(), req->addrs[0], baseAddr, Command::CustomReq, req->getCustomOpc(), req->size);
     cme->setRqstr(rqstr_);
-    cme->setDst(dst_);
+    cme->setDst(rqstr_);
 
     if(req->flags & SimpleMem::Request::F_NONCACHEABLE)
         cme->setFlag(MemEvent::F_NONCACHEABLE);
@@ -262,18 +268,8 @@ void MemHierarchyInterface::updateCustomRequest(SimpleMem::Request* req, MemEven
 
 bool MemHierarchyInterface::initialize(const std::string &linkName, HandlerBase *handler){
     recvHandler_ = handler;
-    std::string port;
-    if (isPortConnected("port")) {
-        port = "port";
-        rqstr_ = getName(); // Named subcomponent, we have a unique name
-    } else {
-        port = linkName;
-    }
-    if ( NULL == recvHandler_) {
-        link_ = configureLink(port);
-    } else {
-        link_ = configureLink(port, new Event::Handler<MemHierarchyInterface>(this, &MemHierarchyInterface::handleIncoming));
-    }
+    if ( NULL == recvHandler_) link_ = configureLink(linkName);
+    else                       link_ = configureLink(linkName, new Event::Handler<MemHierarchyInterface>(this, &MemHierarchyInterface::handleIncoming));
 
     return (link_ != NULL);
 }

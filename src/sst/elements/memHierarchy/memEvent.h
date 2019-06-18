@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,7 +19,6 @@
 #include <sst/core/sst_types.h>
 #include <sst/core/component.h>
 #include <sst/core/event.h>
-#include <sst/core/element.h>
 #include <sst/core/warnmacros.h>
 
 #include "sst/elements/memHierarchy/util.h"
@@ -42,6 +41,7 @@ using namespace std;
 class MemEvent : public MemEventBase  {
 public:
     
+    /****** Old calls will now throw deprecated warnings since parent pointer is not available *************/
     /** Creates a new MemEvent - Generic */
     MemEvent(const Component *src, Addr addr, Addr baseAddr, Command cmd) : MemEventBase(src->getName(), cmd) {
         initialize();
@@ -67,6 +67,30 @@ public:
         initTime_ = src->getCurrentSimTimeNano();
         setPayload(data); // Also sets size_ field
     }
+
+    /************ New calls - use these! *****************/
+    MemEvent(std::string src, Addr addr, Addr baseAddr, Command cmd, uint64_t timeInNano) : MemEventBase(src, cmd) {
+        initialize();
+        addr_ = addr;
+        baseAddr_ = baseAddr;
+        initTime_ = timeInNano;
+    }
+    MemEvent(std::string src, Addr addr, Addr baseAddr, Command cmd, uint32_t size, uint64_t timeInNano) : MemEventBase(src, cmd) {
+        initialize();
+        addr_ = addr;
+        baseAddr_ = baseAddr;
+        initTime_ = timeInNano;
+        size_ = size;
+    }
+    MemEvent(std::string src, Addr addr, Addr baseAddr, Command cmd, std::vector<uint8_t>& data, uint64_t timeInNano) : MemEventBase(src, cmd) {
+        initialize();
+        addr_ = addr;
+        baseAddr_ = baseAddr;
+        initTime_ = timeInNano;
+        setPayload(data);
+    }
+
+
 
     /** Create a new MemEvent instance, pre-configured to act as a NACK response */
     MemEvent* makeNACKResponse(MemEvent* NACKedEvent, SimTime_t timeInNano) {

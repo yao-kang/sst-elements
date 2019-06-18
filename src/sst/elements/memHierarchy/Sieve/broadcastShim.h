@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -23,13 +23,12 @@
 #include <sst/core/event.h>
 #include <sst/core/sst_types.h>
 #include <sst/core/component.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/link.h>
 #include <sst/core/output.h>
 
 
 #include "sst/elements/memHierarchy/util.h"
-#include "sst/elements/ariel/arielalloctrackev.h"
+#include "alloctrackev.h"
 
 
 namespace SST { namespace MemHierarchy {
@@ -44,8 +43,8 @@ public:
             "Used to connect a processor to multiple sieves (e.g., for private/semi-private last-level cache modeling)", COMPONENT_CATEGORY_MEMORY)
 
     SST_ELI_DOCUMENT_PORTS(
-            {"cpu_alloc_link_%(port)d", "Link to CPU's allocation port", {"ariel.arielAllocTrackEvent"}},
-            {"sieve_alloc_link_%(port)d", "Link to sieve's allocation port", {"ariel.arielAllocTrackEvent"}} )
+            {"cpu_alloc_link_%(port)d", "Link to CPU's allocation port", {"memHierarchy.AllocTrackEvent"}},
+            {"sieve_alloc_link_%(port)d", "Link to sieve's allocation port", {"memHierarchy.AllocTrackEvent"}} )
 
 /* Begin class definiton */
     /** Constructor */

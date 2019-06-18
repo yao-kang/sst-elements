@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -22,6 +22,15 @@ using namespace SST::Miranda;
 
 STREAMBenchGenerator_CustomCmd::STREAMBenchGenerator_CustomCmd( Component* owner, Params& params ) :
 	RequestGenerator(owner, params) {
+            build(params);
+        }
+
+STREAMBenchGenerator_CustomCmd::STREAMBenchGenerator_CustomCmd( ComponentId_t id, Params& params ) :
+	RequestGenerator(id, params) {
+            build(params);
+        }
+
+void STREAMBenchGenerator_CustomCmd::build( Params& params ) {
 
 	const uint32_t verbose = params.find<uint32_t>("verbose", 0);
 

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,14 +19,18 @@
 #include <stdint.h>
 #include <vector>
 
-#include "sst/core/element.h"
 #include "sst/core/params.h"
 
 using namespace SST;
 using namespace SST::MemHierarchy;
 using namespace SST::Cassini;
 
-NextBlockPrefetcher::NextBlockPrefetcher(Component* owner, Params& params) : CacheListener(owner, params) {
+NextBlockPrefetcher::NextBlockPrefetcher(Component* comp, Params& params) : CacheListener(comp, params) {
+    Output out("", 1, 0, Output::STDOUT);
+    out.fatal(CALL_INFO, -1, "%s, Error: SubComponent does not support legacy loadSubComponent call; use new calls (loadUserSubComponent or loadAnonymousSubComponent)\n", getName().c_str());
+}
+
+NextBlockPrefetcher::NextBlockPrefetcher(ComponentId_t id, Params& params) : CacheListener(id, params) {
     Simulation::getSimulation()->requireEvent("memHierarchy.MemEvent");
 
     blockSize = params.find<uint64_t>("cache_line_size", 64);
@@ -55,8 +59,7 @@ void NextBlockPrefetcher::notifyAccess(const CacheListenerNotification& notify) 
             for(callbackItr = registeredCallbacks.begin(); callbackItr != registeredCallbacks.end(); callbackItr++) {
                 // Create a new read request, we cannot issue a write because the data will get
                 // overwritten and corrupt memory (even if we really do want to do a write)
-                MemEvent* newEv = new MemEvent(parent, nextBlockAddr, nextBlockAddr, Command::GetS);
-                newEv->setSrc("Prefetcher");
+                MemEvent* newEv = new MemEvent(getName(), nextBlockAddr, nextBlockAddr, Command::GetS, getCurrentSimTimeNano());
                 newEv->setSize(blockSize);
                 newEv->setPrefetchFlag(true);
                 (*(*callbackItr))(newEv);

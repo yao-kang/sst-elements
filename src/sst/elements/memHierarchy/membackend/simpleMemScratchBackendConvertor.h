@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -17,7 +17,6 @@
 #ifndef __SST_MEMH_SIMPLEMEMSCRATCHBACKENDCONVERTOR__
 #define __SST_MEMH_SIMPLEMEMSCRATCHBACKENDCONVERTOR__
 
-#include <sst/core/elementinfo.h>
 
 #include "sst/elements/memHierarchy/membackend/scratchBackendConvertor.h"
 
@@ -27,8 +26,8 @@ namespace MemHierarchy {
 class SimpleMemScratchBackendConvertor : public ScratchBackendConvertor {
 public:
 /* Element Library Info */
-    SST_ELI_REGISTER_SUBCOMPONENT(SimpleMemScratchBackendConvertor, "memHierarchy", "simpleMemScratchBackendConvertor", SST_ELI_ELEMENT_VERSION(1,0,0),
-            "Convert a MemEventBase to a base MemBacked but uses a different interface than MemBackendConvertor", "SST::MemHierarchy::ScratchBackendConvertor")
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(SimpleMemScratchBackendConvertor, "memHierarchy", "simpleMemScratchBackendConvertor", SST_ELI_ELEMENT_VERSION(1,0,0),
+            "Convert a MemEventBase to a base MemBacked but uses a different interface than MemBackendConvertor", SST::MemHierarchy::ScratchBackendConvertor)
 
     SST_ELI_DOCUMENT_PARAMS(
             {"debug_level",     "(uint) Debugging level: 0 (no output) to 10 (all output). Output also requires that SST Core be compiled with '--enable-debug'", "0"},
@@ -50,8 +49,11 @@ public:
             { "latency_GetX",                           "Total latency of handled GetX requests",           "cycles",   1 },
             { "latency_PutM",                           "Total latency of handled PutM requests",           "cycles",   1 } )
 
+    SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(SCRATCHBACKENDCONVERTOR_ELI_SLOTS)
+
 /* Begin class definition */
     SimpleMemScratchBackendConvertor(Component *comp, Params &params);
+    SimpleMemScratchBackendConvertor(ComponentId_t id, Params &params);
 
     virtual bool issue( MemReq* req );
 

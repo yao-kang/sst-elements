@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -29,7 +29,7 @@ MemNetBridge::MemNetBridge(SST::Component *comp, SST::Params &params) :
     Bridge::Translator(comp, params)
 {
     int debugLevel = params.find<int>("debug_level", 0);
-    dbg.init("@t:Bridge::@p():@l " + comp->getName() + ": ",
+    dbg.init("@t:Bridge::@p():@l " + getName() + ": ",
             debugLevel, 0, (Output::output_location_t)params.find<int>("debug", 0));
 }
 

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -29,7 +29,6 @@
 #include <sst/core/event.h>
 #include <sst/core/sst_types.h>
 #include <sst/core/component.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/link.h>
 #include <sst/core/timeConverter.h>
 #include <sst/core/output.h>
@@ -156,6 +155,11 @@ public:
             {"FetchInvX_recv",          "Event received: FetchInvX", "count", 2},
             {"Inv_recv",                "Event received: Inv", "count", 2},
             {"NACK_recv",               "Event: NACK received", "count", 2})
+
+    SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(
+            {"cpulink", "CPU-side link manager, for single-link caches, use this one only", "SST::MemHierarchy::MemLinkBase"},
+            {"memlink", "Memory-side link manager", "SST::MemHierarchy::MemLinkBase"},
+            {"coherence", "Coherence protocol", "SST::MemHierarchy::CoherenceController"} )
 
 /* Class definition */
     typedef CacheArray::CacheLine           CacheLine;

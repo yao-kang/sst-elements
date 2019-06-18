@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,7 +19,6 @@
 #include <sst/core/sst_config.h>
 #include <sst/core/interfaces/simpleMem.h>
 #include <sst/core/component.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 
@@ -47,17 +46,13 @@ class ArielCPU : public SST::Component {
     SST_ELI_DOCUMENT_PARAMS(
         {"verbose", "Verbosity for debugging. Increased numbers for increased verbosity.", "0"},
         {"profilefunctions", "Profile functions for Ariel execution, 0 = none, >0 = enable", "0" },
-        {"alloctracker", "Use an allocation tracker (e.g. memSieve)", "0"},
         {"corecount", "Number of CPU cores to emulate", "1"},
         {"checkaddresses", "Verify that addresses are valid with respect to cache lines", "0"},
         {"maxissuepercycle", "Maximum number of requests to issue per cycle, per core", "1"},
         {"maxcorequeue", "Maximum queue depth per core", "64"},
         {"maxtranscore", "Maximum number of pending transactions", "16"},
-        {"pf_maxissuepercycle", "Maximum number of requests to issue per cycle, per core prefetcher", "1"},
-        {"pf_maxtranscore", "Maximum number of pending transactions prefetcher", "16"},
-        {"pf_useScratch","use scratchpad mapping for PFs","0"}, 
         {"pipetimeout", "Read timeout between Ariel and traced application", "10"},
-        {"cachelinesize", "Line size of the attached caching strucutre", "64"},
+        {"cachelinesize", "Line size of the attached caching structure", "64"},
         {"arieltool", "Path to the Ariel PIN-tool shared library", ""},
         {"launcher", "Specify the launcher to be used for instrumentation, default is path to PIN", STRINGIZE(PINTOOL_EXECUTABLE)},
         {"executable", "Executable to trace", ""},
@@ -76,28 +71,11 @@ class ArielCPU : public SST::Component {
         {"clock", "Clock rate at which events are generated and processed", "1GHz"},
         {"tracegen", "Select the trace generator for Ariel (which records traced memory operations", ""},
         {"memmgr", "Memory manager to use for address translation", "ariel.MemoryManagerSimple"},
-        {"writepayloadtrace", "Trace write payloads and put real memory contents into the memory system", "0"},
-        {"opal_enabled", "If enabled, MLM allocation hints will be communicated to the centralized memory manager", "0"},
-	{"opal_latency", "latency to communicate to the centralized memory manager", "32ps"},
-        {"scratchsize", "Per-core scratchpad size in bytes", "0"},
-        {"scratchlinesize", "Line size for scratchpad in bytes", "64"})
+        {"writepayloadtrace", "Trace write payloads and put real memory contents into the memory system", "0"})
 
-    SST_ELI_DOCUMENT_PORTS(
-        {"cache_link_%(corecount)d", "Each core's link to its cache", {}},
-        {"alloc_link_%(corecount)d", "Each core's link to an allocation tracker (e.g. memSieve)", {"ariel.arielAllocTrackEvent"}},
-        {"opal_link_%(corecount)d", "Each core's link to a centralized memory manager (Opal)", {}})
+    SST_ELI_DOCUMENT_PORTS( {"cache_link_%(corecount)d", "Each core's link to its cache", {}} )
     
     SST_ELI_DOCUMENT_STATISTICS(
-        { "pf_requests",        "Statistic counts number of (non-folded) PF requests", "requests", 1},   // Name, Desc, Enable Level 
-        {"pf_scratch_gets", "number of gets (to scratchpad from memory)","requests",1},
-        {"pf_scratch_reads","number of reads from scratchpad","requests",1},
-        {"pf_scratch_writes","number of writes to scratchpad","requests",1},
-        {"pf_max_offset","maximum offset into scratchpad","number",1},
-        {"pf_scratch_waits","number of times core stalled waiting on scratch read","number",1},
-
-        { "ignored_rw_requests",        "Statistic counts number of ignored read write", "requests", 1},   // Name, Desc, Enable Level 
-        { "ignored_noop_requests",        "Statistic counts number of ignored noops", "requests", 1},   // Name, Desc, Enable Level 
-        { "pf_folds",        "PF requests to a recent cacheline folded", "requests", 1},   // Name, Desc, Enable Level 
         { "read_requests",        "Statistic counts number of read requests", "requests", 1},   // Name, Desc, Enable Level 
         { "write_requests",       "Statistic counts number of write requests", "requests", 1},
         { "read_request_sizes",   "Statistic for size of read requests", "bytes", 1},   // Name, Desc, Enable Level 
@@ -119,10 +97,11 @@ class ArielCPU : public SST::Component {
         { "fp_sp_ops",            "Statistic for counting SP-FP operations (inst * SIMD width)", "instructions", 1 },
         { "cycles",               "Statistic for counting cycles of the Ariel core.", "cycles", 1 },
         { "active_cycles",        "Statistic for counting active cycles (cycles not idle) of the Ariel core.", "cycles", 1 })
-       
-    SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(
-        { "cacheInterface",     "SimpleMem interface to the cache hierarchy.", "SST::Interfaces::SimpleMem"},
-        { "scratchInterface",   "SimpleMem interface to a scratchpad if any.", "SST::Interfaces::SimpleMem"})
+    
+    SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(    
+            {"memmgr", "Memory manager to translate virtual addresses to physical, handle malloc/free, etc.", "SST::ArielComponent::ArielMemoryManager"},
+            {"memory", "Interface to the memoryHierarchy (e.g., caches)", "SST::Interfaces::SimpleMem" }
+    )
 
         /* Ariel class */
         ArielCPU(ComponentId_t id, Params& params);
@@ -137,21 +116,14 @@ class ArielCPU : public SST::Component {
     private:
         SST::Output* output;
         ArielMemoryManager* memmgr;
-        ArielCore** cpu_cores;
+        std::vector<ArielCore*> cpu_cores;
         std::vector<Interfaces::SimpleMem*> cpu_to_cache_links;
-        std::vector<Interfaces::SimpleMem*> cpu_to_scratch_links;
-        SST::Link **cpu_to_alloc_tracker_links;
-
-        SST::Link **cpu_to_opal_links;
-
         pid_t child_pid;
 
         uint32_t core_count;
         ArielTunnel* tunnel;
         bool stopTicking;
-        bool opal_enabled;
         std::string appLauncher;
-        bool useAllocTracker;
 
         char **execute_args;
         std::map<std::string, std::string> execute_env;

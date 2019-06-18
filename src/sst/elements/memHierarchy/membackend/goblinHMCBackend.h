@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -21,7 +21,6 @@
 #include <vector>
 
 #include <sst/core/component.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/params.h>
 #include <sst/core/output.h>
 #include "sst/elements/memHierarchy/membackend/memBackend.h"
@@ -115,7 +114,7 @@ class GOBLINHMCSimBackend : public ExtMemBackend {
 
 public:
 /* Element Library Info */
-    SST_ELI_REGISTER_SUBCOMPONENT(GOBLINHMCSimBackend, "memHierarchy", "goblinHMCSim", SST_ELI_ELEMENT_VERSION(1,0,0), "GOBLIN HMC Simulator driven memory timings", "SST::MemHierarchy::MemBackend")
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(GOBLINHMCSimBackend, "memHierarchy", "goblinHMCSim", SST_ELI_ELEMENT_VERSION(1,0,0), "GOBLIN HMC Simulator driven memory timings", SST::MemHierarchy::ExtMemBackend)
 
     SST_ELI_DOCUMENT_PARAMS( MEMBACKEND_ELI_PARAMS,
             /* Own parameters */
@@ -229,6 +228,7 @@ public:
 
 /* Class definition */
         GOBLINHMCSimBackend(Component* comp, Params& params);
+        GOBLINHMCSimBackend(ComponentId_t id, Params& params);
 	~GOBLINHMCSimBackend();
 	bool issueRequest(ReqId, Addr, bool,
                           std::vector<uint64_t>,
@@ -241,7 +241,7 @@ public:
 	virtual bool clock(Cycle_t cycle);
 
 private:
-	Component* owner;
+        void build(Params& params);
 	struct hmcsim_t the_hmc;
 
 	uint32_t hmc_link_count;

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -31,18 +31,19 @@ class EmptyGenerator : public RequestGenerator {
 
 public:
 	EmptyGenerator( Component* owner, Params& params ) : RequestGenerator(owner, params) {}
+	EmptyGenerator( ComponentId_t id, Params& params ) : RequestGenerator(id, params) {}
 	~EmptyGenerator() { }
 	void generate(MirandaRequestQueue<GeneratorRequest*>* q) { }
 	bool isFinished() { return true; }
 	void completed() { }
 
-        SST_ELI_REGISTER_SUBCOMPONENT(
+        SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(
 		EmptyGenerator,
                	"miranda",
                 "EmptyGenerator",
                 SST_ELI_ELEMENT_VERSION(1,0,0),
                	"Creates an empty (null) generator",
-                "SST::Miranda::RequestGenerator"
+                SST::Miranda::RequestGenerator
         )
 
 	SST_ELI_DOCUMENT_PARAMS(

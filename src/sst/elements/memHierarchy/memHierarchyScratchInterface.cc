@@ -1,9 +1,9 @@
 // -*- mode: c++ -*-
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -26,30 +26,11 @@ using namespace SST;
 using namespace SST::MemHierarchy;
 using namespace SST::Interfaces;
 
-/***
- * Interface to hierarchies with scratchpads
- * Some notes:
- *  - 'Move' requests (such as cp address X in memory to Y in scratch or vice versa) addr[0] and addr[1] populated in the SimpleRequest
- *  - Scratchpad accesses are to addresses [0 - scratchMaxAddr_), regular accesses are (scratchMaxAdd_+]
- *  - Supported configurations:
- *      CPU -> Scratch -> Memory                        Accesses to addresses above scratchMaxAddr_ get data from memory
- 
- *      CPU -> Cache(s) -> Scratch -> Memory            Scratch accesses can be cached. Accesses to addresses scratchMaxAddr_ are not cached
- 
- *      CPU ---->    Cache(s) -> Memory                 Moves from memory to scratch will search the cache hierarchy but accesses to scratch won't
- *          -> Scratch _|
- 
- *      CPU ---------------->    Cache(s) -> Memory     Moves from memory to scratch will search the cache hierarchy but accesses to scratch won't. 
- *          -> Cache(s) -> Scratch _|                   Scratch accesses can be cached in the caches on the scratchpad path.
- *  
- *  - If there are caches along both paths (last case above), the scratchpad will not be able to figure out which port belongs to the scratchpad path and which belongs to the
- *  cache path. So port0 must be scratchpad path and port1 must be cache path.
- */
 
 MemHierarchyScratchInterface::MemHierarchyScratchInterface(SST::Component *comp, Params &params) :
-    SimpleMem(comp, params), owner_(comp), recvHandler_(NULL), link_(NULL)
-{ 
-    output.init("", 1, 0, Output::STDOUT);
+    SimpleMem(comp, params), recvHandler_(NULL), link_(NULL)
+{
+    output.init("", 1, 0, Output::STDOUT); 
 
     bool found;
     UnitAlgebra size = UnitAlgebra(params.find<std::string>("scratchpad_size", "0B", found));
@@ -57,48 +38,57 @@ MemHierarchyScratchInterface::MemHierarchyScratchInterface(SST::Component *comp,
         output.fatal(CALL_INFO, -1, "Param not specified (%s): scratchpad_size - size of scratchpad\n", getName().c_str());
     if (!size.hasUnits("B"))
         output.fatal(CALL_INFO, -1, "Invalid param (%s): scratchpad_size - must have units of 'B'. SI units ok. You specified '%s'\n", getName().c_str(), size.toString().c_str());
-    scratchMaxAddr_ = size.getRoundedValue();
-    
-    rqstr_ = "";
+    remoteMemStart_ = size.getRoundedValue();
+
     initDone_ = false;
+
+}
+
+MemHierarchyScratchInterface::MemHierarchyScratchInterface(SST::ComponentId_t id, Params &params, TimeConverter* time, HandlerBase* handler) :
+    SimpleMem(id, params) 
+{
+    setDefaultTimeBase(time);
+
+    output.init("", 1, 0, Output::STDOUT); 
+
+    bool found;
+    UnitAlgebra size = UnitAlgebra(params.find<std::string>("scratchpad_size", "0B", found));
+    if (!found) 
+        output.fatal(CALL_INFO, -1, "Param not specified (%s): scratchpad_size - size of scratchpad\n", getName().c_str());
+    if (!size.hasUnits("B"))
+        output.fatal(CALL_INFO, -1, "Invalid param (%s): scratchpad_size - must have units of 'B'. SI units ok. You specified '%s'\n", getName().c_str(), size.toString().c_str());
+    remoteMemStart_ = size.getRoundedValue();
+
+    initDone_ = false;
+    
+    recvHandler_ = handler;
+    if ( NULL == recvHandler_) 
+        link_ = configureLink("port");
+    else
+        link_ = configureLink("port", new Event::Handler<MemHierarchyScratchInterface>(this, &MemHierarchyScratchInterface::handleIncoming));
 }
 
 
 void MemHierarchyScratchInterface::init(unsigned int phase) {
-    /* 
-     * Check that there's a default timebase on the link, otherwise set one to avoid error
-     * What we choose won't matter since we're not adding extra latency
-     */
-    if (link_->getDefaultTimeBase() == nullptr) {
-        link_->setDefaultTimeBase(getTimeConverter("1ns"));
-    }
-
-    /* Step 0: Send our init messages */
     if (!phase) {
         // Name, NULLCMD, Endpoint type, inclusive of all upper levels, will send writeback acks, line size
         link_->sendInitData(new MemEventInitCoherence(getName(), Endpoint::CPU, false, false, 0, false));
     }
 
-    /* Step 2: Receive init messages on both links */
     while (SST::Event * ev = link_->recvInitData()) {
         MemEventInit * memEvent = dynamic_cast<MemEventInit*>(ev);
         if (memEvent) {
             if (memEvent->getInitCmd() == MemEventInit::InitCommand::Coherence) {
                 MemEventInitCoherence * memEventC = static_cast<MemEventInitCoherence*>(memEvent);
-
+                baseAddrMask_ = ~(memEventC->getLineSize() - 1);
+                rqstr_ = memEventC->getSrc();
+                allNoncache_ = (Endpoint::Scratchpad == memEventC->getType());
                 initDone_ = true;
-                 
-                // Get parameters
-                addrMask_ = ~(memEventC->getLineSize() - 1);
-                if (rqstr_ == "") rqstr_ = memEventC->getSrc();
-                dst_ = memEventC->getSrc();
-                
             }
         }
         delete ev;
     }
-    
-    /* Step 3: Send data to initialize memory's backing store */
+
     if (initDone_) {
         while (!initSendQueue_.empty()) {
             link_->sendInitData(initSendQueue_.front());
@@ -107,13 +97,8 @@ void MemHierarchyScratchInterface::init(unsigned int phase) {
     }
 }
 
-
-/* Called by CPU to initialize memory's backing store */
 void MemHierarchyScratchInterface::sendInitData(SimpleMem::Request *req) {
-    Addr addr = req->addrs[0];
-    
-    MemEventInit * event = new MemEventInit(getName(), Command::GetX, addr, req->data);
-  
+    MemEventInit * event = new MemEventInit(getName(), Command::GetX, req->addrs[0], req->data);
     if (initDone_)
         link_->sendInitData(event);
     else 
@@ -121,21 +106,18 @@ void MemHierarchyScratchInterface::sendInitData(SimpleMem::Request *req) {
 }
 
 
-/* Called by CPU to send a new request */
 void MemHierarchyScratchInterface::sendRequest(SimpleMem::Request *req){
-    if (req->addrs.size() > 1) {                        // Scratchpad move request
-        MemEventBase * event = createMoveEvent(req);
-        requests_[event->getID()] = req;
-        link_->send(event);
+    MemEventBase * event;
+    if (req->addrs.size() > 1) {
+        event = createMoveEvent(req);
     } else {
-        MemEventBase * event = createMemEvent(req);
-        requests_[event->getID()] = req;
-        link_->send(event);
+        event = createMemEvent(req);
     }
+    requests_[event->getID()] = req;
+    link_->send(event);
 }
 
 
-/* Handle a response */
 SimpleMem::Request* MemHierarchyScratchInterface::recvResponse(void){
     SST::Event *ev = link_->recv();
     if (NULL != ev) {
@@ -159,18 +141,19 @@ MemEvent * MemHierarchyScratchInterface::createMemEvent(SimpleMem::Request * req
         default: output.fatal(CALL_INFO, -1, "MemHierarchyScratchInterface received unknown command in createMemEvent\n");
     }
 
-    Addr baseAddr = req->addrs[0] & addrMask_;
+    Addr baseAddr = req->addrs[0] & baseAddrMask_;
 
-    MemEvent * me = new MemEvent(owner_, req->addrs[0], baseAddr, cmd);
+    MemEvent * me = new MemEvent(getName(), req->addrs[0], baseAddr, cmd, getCurrentSimTimeNano());
+   
+    /* Set remote memory accesses to noncacheable so that any cache avoids trying to cache the response */
+    if (me->getAddr() >= remoteMemStart_ || allNoncache_) {
+        me->setFlag(MemEvent::F_NONCACHEABLE);
+    }
+
     me->setSize(req->size);
     me->setRqstr(rqstr_);
     me->setSrc(rqstr_);
-    me->setDst(dst_);
-   
-    /* If using the scratch path for a non-scratch access, set noncacheable flag */
-    if (me->getAddr() >= scratchMaxAddr_) {
-        me->setFlag(MemEvent::F_NONCACHEABLE);
-    }
+    me->setDst(rqstr_);
 
     if (SimpleMem::Request::Write == req->cmd) {
         if (req->data.size() == 0) req->data.resize(req->size, 0);
@@ -191,17 +174,17 @@ MoveEvent* MemHierarchyScratchInterface::createMoveEvent(SimpleMem::Request *req
         default: output.fatal(CALL_INFO, -1, "Unknown req->cmd in createMoveEvent()\n");
     }
 
-    MoveEvent *me = new MoveEvent(parent->getName(), req->addrs[1], req->addrs[1], req->addrs[0], req->addrs[0], cmd);
+    MoveEvent *me = new MoveEvent(getName(), req->addrs[1], req->addrs[1], req->addrs[0], req->addrs[0], cmd);
 
     if (cmd == Command::Get) {
-        me->setDstBaseAddr(req->addrs[0] & addrMask_);
+        me->setDstBaseAddr(req->addrs[0] & baseAddrMask_);
     } else {
-        me->setSrcBaseAddr(req->addrs[1] & addrMask_);
+        me->setSrcBaseAddr(req->addrs[1] & baseAddrMask_);
     }
 
     me->setRqstr(rqstr_);
     me->setSrc(rqstr_);
-    me->setDst(dst_);
+    me->setDst(rqstr_);
     me->setSize(req->size);
 
     me->setDstVirtualAddress(req->getVirtualAddress());
@@ -233,7 +216,7 @@ SimpleMem::Request* MemHierarchyScratchInterface::processIncoming(MemEventBase *
         updateRequest(req, ev);
     }
     else{
-        output.fatal(CALL_INFO, -1, "%s, Error: Received a response but unable to find matching request. Event: (%s)\n", getName().c_str(), ev->getVerboseString().c_str());
+        output.fatal(CALL_INFO, -1, "Unable to find matching request.  Cmd = %s, respID = %" PRIx64 "\n", CommandString[(int)ev->getCmd()], ev->getResponseToID().first);
     }
     return req;
 }
@@ -260,18 +243,10 @@ void MemHierarchyScratchInterface::updateRequest(SimpleMem::Request* req, MemEve
     
 }
 
-bool MemHierarchyScratchInterface::initialize(const std::string &linkName, HandlerBase *handler) {
+bool MemHierarchyScratchInterface::initialize(const std::string &linkName, HandlerBase *handler){
     recvHandler_ = handler;
-    std::string port;
-    if (isPortConnected("port")) {
-        port = "port";
-        rqstr_ = getName();
-    } else {
-        port = linkName;
-    }
-    
-    if ( NULL == recvHandler_) link_ = configureLink(port);
-    else                       link_ = configureLink(port, new Event::Handler<MemHierarchyScratchInterface>(this, &MemHierarchyScratchInterface::handleIncoming));
+    if ( NULL == recvHandler_) link_ = configureLink(linkName);
+    else                       link_ = configureLink(linkName, new Event::Handler<MemHierarchyScratchInterface>(this, &MemHierarchyScratchInterface::handleIncoming));
 
     return (link_ != NULL);
 }

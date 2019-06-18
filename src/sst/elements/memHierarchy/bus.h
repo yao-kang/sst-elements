@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -22,7 +22,6 @@
 #include <sst/core/event.h>
 #include <sst/core/sst_types.h>
 #include <sst/core/component.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/link.h>
 #include <sst/core/timeConverter.h>
 #include <sst/core/output.h>
@@ -55,6 +54,7 @@ public:
             {"fanout",              "(bool) If set, messages from the high network are replicated and sent to all low network ports", "0"},
             {"bus_latency_cycles",  "(uint) Bus latency in cycles", "0"},
             {"idle_max",            "(uint) Bus temporarily turns off clock after this number of idle cycles", "6"},
+            {"drain_bus",           "(bool) Drain bus on every cycle", "0"},
             {"debug",               "(uint) Output location for debug statements. Requires core configuration flag '--enable-debug'. --0[None], 1[STDOUT], 2[STDERR], 3[FILE]--", "0"},
             {"debug_level",         "(uint) Debugging level: 0 to 10", "0"},
             {"debug_addr",          "(comma separated uints) Address(es) to be debugged. Leave empty for all, otherwise specify one or more comma separated values. Start and end string with brackets", ""} )
@@ -104,6 +104,7 @@ private:
     bool                            fanout_;
     bool                            broadcast_;
     bool                            busOn_;
+    bool                            drain_;
     Clock::Handler<Bus>*            clockHandler_;
     TimeConverter*                  defaultTimeBase_;
 

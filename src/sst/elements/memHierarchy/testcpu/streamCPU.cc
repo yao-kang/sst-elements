@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -16,7 +16,6 @@
 #include <sst_config.h>
 #include "testcpu/streamCPU.h"
 
-#include <sst/core/element.h>
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 #include <sst/core/interfaces/stringEvent.h>
@@ -59,19 +58,24 @@ streamCPU::streamCPU(ComponentId_t id, Params& params) :
     registerAsPrimaryComponent();
     primaryComponentDoNotEndSim();
 
-    memory = dynamic_cast<Interfaces::SimpleMem*>(loadSubComponent("memHierarchy.memInterface", this, params));
-    if (!memory) {
-        out.fatal(CALL_INFO, -1, "Unable to load memHierarchy.memInterface subcomponent\n");
-    }
-    memory->initialize("mem_link", new Interfaces::SimpleMem::Handler<streamCPU> (this, &streamCPU::handleEvent));
-
-    addrOffset = params.find<uint64_t>("addressoffset", 0);
-
     //set our clock
     std::string clockFreq = params.find<std::string>("clock", "1GHz");
     clockHandler = new Clock::Handler<streamCPU>(this, &streamCPU::clockTic);
     clockTC = registerClock(clockFreq, clockHandler);
     num_reads_issued = num_reads_returned = 0;
+    
+    memory = loadUserSubComponent<Interfaces::SimpleMem>("memory", ComponentInfo::SHARE_NONE, clockTC, new Interfaces::SimpleMem::Handler<streamCPU>(this, &streamCPU::handleEvent));
+    
+    if (!memory) {
+        Params interfaceParams;
+        interfaceParams.insert("port", "mem_link");
+        memory = loadAnonymousSubComponent<Interfaces::SimpleMem>("memHierarchy.memInterface", "memory", 0, ComponentInfo::SHARE_PORTS | ComponentInfo::INSERT_STATS,
+                interfaceParams, clockTC, new Interfaces::SimpleMem::Handler<streamCPU>(this, &streamCPU::handleEvent));
+        //out.fatal(CALL_INFO, -1, "Unable to load memHierarchy.memInterface subcomponent\n");
+    }
+
+    addrOffset = params.find<uint64_t>("addressoffset", 0);
+
 
     // Start the next address from the offset
     nextAddr = addrOffset;

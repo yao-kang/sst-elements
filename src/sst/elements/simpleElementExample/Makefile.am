@@ -26,11 +26,16 @@ libsimpleElementExample_la_SOURCES = \
 	simpleLookupTableComponent.cc \
 	simpleSubComponent.h \
 	simpleSubComponent.cc \
+	simpleSubComponentLegacy.h \
+	simpleSubComponentLegacy.cc \
 	simpleModule.h \
-	simpleModule.cc
+	simpleModule.cc \
+	simpleParamComponent.h \
+	simpleParamComponent.cc
 
 EXTRA_DIST = \
     README \
+    tests/test_simpleParamComponent.py \
     tests/test_simpleComponent.py \
     tests/test_simpleClockerComponent.py \
     tests/test_simpleDistribComponent_discrete.py \

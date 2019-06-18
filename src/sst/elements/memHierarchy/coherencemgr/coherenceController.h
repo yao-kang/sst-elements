@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -36,10 +36,13 @@ using namespace std;
 class CoherenceController : public SST::SubComponent {
 
 public:
+    SST_ELI_REGISTER_SUBCOMPONENT_API(SST::MemHierarchy::CoherenceController, Params&)
+
     typedef CacheArray::CacheLine CacheLine;
 
     /***** Constructor & destructor *****/
     CoherenceController(Component * comp, Params &params);
+    CoherenceController(ComponentId_t id, Params &params, Params& ownerParams);
     ~CoherenceController() {}
 
     /* Return whether a line access will be a miss and what kind (encoded in the int retval) */
@@ -59,10 +62,6 @@ public:
 
     /* Handle a response - AckInv, GetSResp, etc. */
     virtual CacheAction handleResponse(MemEvent * event, CacheLine * line, MemEvent * request) =0;
-
-    virtual CacheAction handleNoAllocRequest(MemEvent* event, CacheLine* line, bool replay) {
-        output->fatal(CALL_INFO, -1, "%s, Error: No implementation for F_NOALLOC events in this cache controller\n", getName().c_str());
-    }
 
     /* Determine whether an event needs to be retried after a NACK */
     virtual bool isRetryNeeded(MemEvent * event, CacheLine * line) =0;
@@ -116,6 +115,8 @@ public:
     /* Initialize variables that tell this coherence controller how to interact with the cache below it */
     void setupLowerStatus(bool silentEvict, bool isLastLevel, bool isNoninclusive, bool isDir);
 
+    void setOwnerName(std::string name) { ownerName_ = name; }
+
     /* Setup pointers to other subcomponents/cache structures */
     void setCacheListener(CacheListener* ptr) { listener_ = ptr; }
     void setMSHR(MSHR* ptr) { mshr_ = ptr; }
@@ -143,6 +144,8 @@ protected:
         uint64_t deliveryTime;
         uint64_t size;
     };
+
+    std::string ownerName_; // Owning component name
 
     /* Pointers to other subcomponents and cache structures */
     CacheListener*  listener_;

@@ -18,9 +18,11 @@ ariel.addParams({
         "pipetimeout" : "0",
         "executable" : sst_root + "/sst-elements/src/sst/elements/ariel/frontend/simple/examples/stream/stream",
         "arielmode" : "1",
-        "memmgr.memorylevels" : "1",
-        "memmgr.defaultlevel" : "0"
+        "launchparamcount" : 1,
+        "launchparam0" : "-ifeellucky",
         })
+
+memmgr = ariel.setSubComponent("memmgr", "ariel.MemoryManagerSimple")
 
 corecount = 1;
 

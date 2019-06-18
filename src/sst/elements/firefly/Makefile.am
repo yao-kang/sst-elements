@@ -56,7 +56,13 @@ libfirefly_la_SOURCES = \
 	funcSM/recv.h \
 	funcSM/send.cc \
 	funcSM/send.h \
+	funcSM/cancel.cc \
+	funcSM/cancel.h \
 	funcSM/wait.cc \
+	funcSM/test.h \
+	funcSM/test.cc \
+	funcSM/testany.cc \
+	funcSM/testany.h \
 	funcSM/wait.h \
 	funcSM/waitAny.cc \
 	funcSM/waitAny.h \
@@ -93,6 +99,8 @@ libfirefly_la_SOURCES = \
 	shmem/fcollect.h \
 	shmem/reduction.cc \
 	shmem/reduction.h \
+	shmem/famAddrMapper.h \
+	shmem/famNodeMapper.h \
 	memoryModel/memoryModel.h \
 	memoryModel/simpleMemoryModel.h \
 	memoryModel/trivialMemoryModel.h \
@@ -114,6 +122,7 @@ libfirefly_la_SOURCES = \
 	memoryModel/thread.h \
 	memoryModel/cache.h \
 	memoryModel/unit.h \
+	memoryModel/detailedUnit.h \
 	merlinEvent.h \
 	virtNic.h \
 	virtNic.cc \

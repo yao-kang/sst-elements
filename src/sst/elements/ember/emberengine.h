@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,7 +19,6 @@
 
 #include <queue>
 
-#include <sst/core/elementinfo.h>
 #include <sst/core/sst_types.h>
 #include <sst/core/event.h>
 #include <sst/core/component.h>
@@ -35,7 +34,6 @@ namespace SST {
 namespace Ember {
 
 class EmberEvent;
-class EmberGeneratorData;
 
 class EmberEngine : public SST::Component {
 public:
@@ -132,17 +130,14 @@ public:
 		return m_detailedCompute;
 	}
 
-
-	FamAddrMapper* getFamAddrMapper() {
-		return m_famAddrMapper;
-	}
-
 	Thornhill::MemoryHeapLink* getMemHeapLink() {
 		return m_memHeapLink;
 	}
 
     EmberLib* getLib( std::string name ) {
-        assert( m_apiMap.find( name ) != m_apiMap.end() );
+        if( m_apiMap.find( name ) == m_apiMap.end() ) {
+            output.fatal(CALL_INFO, -1, "Error: could not find %s\n",name.c_str() ); 
+        }
         return m_apiMap[name]->lib; 
     }
 
@@ -170,7 +165,6 @@ private:
 
     struct ApiInfo {
         Hermes::Interface* api;
-        EmberGeneratorData* data;
         EmberLib*           lib;
     };
 
@@ -197,7 +191,6 @@ private:
 	std::vector<SST::Params> motifParams;
 	Thornhill::DetailedCompute* m_detailedCompute;
 	Thornhill::MemoryHeapLink*  m_memHeapLink;
-	FamAddrMapper* m_famAddrMapper;
 
 	EmberEngine();			    		// For serialization
 	EmberEngine(const EmberEngine&);    // Do not implement

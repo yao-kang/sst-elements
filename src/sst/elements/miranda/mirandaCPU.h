@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -18,7 +18,6 @@
 
 #include <sst/core/component.h>
 #include <sst/core/interfaces/simpleMem.h>
-#include <sst/core/elementinfo.h>
 #include <sst/core/statapi/stataccumulator.h>
 
 #include "mirandaGenerator.h"
@@ -105,7 +104,8 @@ public:
 	)
 
 	SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(
-		{ "generator", "What address generator to load", "SST::Miranda::RequestGenerator" }
+		{ "generator", "What address generator to load", "SST::Miranda::RequestGenerator" },
+                { "memory",     "The memory interface to use (e.g., interface to caches)", "SST::Interfaces::SimpleMem" }
     	)
 
 private:

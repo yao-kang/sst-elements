@@ -5,7 +5,7 @@ from sst.merlin import *
 from loadUtils import *
 
 class EmberEP( EndPoint ):
-    def __init__( self, jobId, driverParams, nicParams, motifs, numCores, ranksPerNode, statNodes, nidList, motifLogNodes, detailedModel ): # added motifLogNodes here
+    def __init__( self, jobId, driverParams, nicParams, motifs, numCores, ranksPerNode, statNodes, nidMap, numNodes, motifLogNodes, detailedModel ): # added motifLogNodes here
 
         self.driverParams = driverParams
         self.nicParams = nicParams
@@ -13,8 +13,8 @@ class EmberEP( EndPoint ):
         self.numCores = numCores
         self.driverParams['jobId'] = jobId
         self.statNodes = statNodes
-        self.nidList = nidList
-        self.numNids = calcNetMapSize( self.nidList )
+        self.nidMap = nidMap
+        self.numNids = numNodes
         # in order to create motifLog files only for the desired nodes of a job
         self.motifLogNodes = motifLogNodes
         self.detailedModel = detailedModel
@@ -27,7 +27,12 @@ class EmberEP( EndPoint ):
 
     def build( self, nodeID, extraKeys ):
 
-        nic = sst.Component( "nic" + str(nodeID), "firefly.nic" )
+        nicComponentName = "firefly.nic"
+        if 'nicComponent' in self.nicParams:
+            nicComponentName = self.nicParams['nicComponent']
+
+        nic = sst.Component( "nic" + str(nodeID), nicComponentName )
+
         nic.addParams( self.nicParams )
         nic.addParams( extraKeys)
         nic.addParam( "nid", nodeID )
@@ -39,7 +44,7 @@ class EmberEP( EndPoint ):
 
         memory = None
         if built:
-            nic.addLink( self.detailedModel.getNicLink( ), "detailed0", "1ps" )
+            nic.addLink( self.detailedModel.getNicLink( ), "detailed", "1ps" )
             memory = sst.Component("memory" + str(nodeID), "thornhill.MemoryHeap")
             memory.addParam( "nid", nodeID )
             #memory.addParam( "verboseLevel", 1 )
@@ -98,17 +103,16 @@ class EmberEP( EndPoint ):
                     print "printStats for node {0}".format(id)
                     ep.addParams( {'motif1.printStats': 1} )
 
-            ep.addParams( {'hermesParams.netId': nodeID } )
-            ep.addParams( {'hermesParams.netMapId': calcNetMapId( nodeID, self.nidList ) } ) 
-            ep.addParams( {'hermesParams.netMapSize': self.numNids } ) 
-            ep.addParams( {'hermesParams.coreId': x } ) 
+            osName = self.driverParams['os.name']
+            ep.addParams( {osName + '.netId': nodeID } )
+            ep.addParams( {osName + '.netMapId': self.nidMap[ nodeID ] } )
+            ep.addParams( {osName + '.netMapSize': self.numNids } )
+            ep.addParams( {osName + '.coreId': x } )
 
-            nicLink = sst.Link( "nic" + str(nodeID) + "core" + str(x) +
-                                            "_Link"  )
+            nicLink = sst.Link( "nic" + str(nodeID) + "core" + str(x) + "_Link"  )
             nicLink.setNoCut()
 
-            loopLink = sst.Link( "loop" + str(nodeID) + "core" + str(x) +
-                                            "_Link"  )
+            loopLink = sst.Link( "loop" + str(nodeID) + "core" + str(x) + "_Link"  )
             loopLink.setNoCut() 
 
             #ep.addLink(nicLink, "nic", self.nicParams["nic2host_lat"] )

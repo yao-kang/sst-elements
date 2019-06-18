@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // This file is part of the SST software package. For license
@@ -39,7 +39,7 @@ void EmberUnstructuredGenerator::configure()
 {
 	//Check the type of the rankmapper: CustomMap or LinearMap
 	bool use_CustomRankMap;
-	EmberCustomRankMap* cm = dynamic_cast<EmberCustomRankMap*>(m_rankMap);
+	EmberCustomRankMap* cm = dynamic_cast<EmberCustomRankMap*>(getRankMap());
 	if(cm == NULL)
 		use_CustomRankMap = false;
 	else

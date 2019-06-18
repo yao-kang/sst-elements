@@ -1,10 +1,10 @@
 // -*- mode: c++ -*-
 
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -19,7 +19,6 @@
 #ifndef COMPONENTS_KINGSLEY_LINKCONTROL_H
 #define COMPONENTS_KINGSLEY_LINKCONTROL_H
 
-#include <sst/core/elementinfo.h>
 #include <sst/core/subcomponent.h>
 #include <sst/core/unitAlgebra.h>
 
@@ -48,13 +47,13 @@ class LinkControl : public SST::Interfaces::SimpleNetwork {
 
 public:
 
-    SST_ELI_REGISTER_SUBCOMPONENT(
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(
         LinkControl,
         "kingsley",
         "linkcontrol",
         SST_ELI_ELEMENT_VERSION(0,1,0),
         "Link Control module for building Kingsley-enabled NICs",
-        "SST::Interfaces::SimpleNetwork")
+        SST::Interfaces::SimpleNetwork)
     
     SST_ELI_DOCUMENT_PARAMS(
     )
@@ -124,6 +123,7 @@ private:
     
 public:
     LinkControl(Component* parent, Params &params);
+    LinkControl(ComponentId_t id, Params &params, int);
 
     ~LinkControl();
 

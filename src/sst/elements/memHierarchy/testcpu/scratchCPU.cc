@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -64,21 +64,11 @@ ScratchCPU::ScratchCPU(ComponentId_t id, Params& params) : Component(id), rng(id
 
     std::string size = params.find<std::string>("scratchSize", "0");
     size += "B";
+    params.insert("scratchpad_size", size);
 
-    if (nullptr != (scratchmem = dynamic_cast<Interfaces::SimpleMem*>(loadNamedSubComponent("scratchpad")))) {
-        scratchmem->initialize("", new Interfaces::SimpleMem::Handler<ScratchCPU>(this, &ScratchCPU::handleEvent) );
-    } else {
-        Params scratchparams;
-        scratchparams.insert("scratchpad_size", std::to_string(scratchSize) + "B");
-        scratchmem = dynamic_cast<Interfaces::SimpleMem*>(loadSubComponent("memHierarchy.scratchInterface", this, scratchparams));
-        scratchmem->initialize("mem_link", new Interfaces::SimpleMem::Handler<ScratchCPU>(this, &ScratchCPU::handleEvent) );
-    }
-
-    if (nullptr != (cachemem = dynamic_cast<Interfaces::SimpleMem*>(loadNamedSubComponent("cache")))) {
-        cachemem->initialize("", new Interfaces::SimpleMem::Handler<ScratchCPU>(this, &ScratchCPU::handleEvent) );
-    }
-
-    if ( !scratchmem) {
+    memory = loadUserSubComponent<Interfaces::SimpleMem>("memory", ComponentInfo::SHARE_NONE, clockTC, new Interfaces::SimpleMem::Handler<ScratchCPU>(this, &ScratchCPU::handleEvent) );
+    
+    if ( !memory ) {
         out.fatal(CALL_INFO, -1, "Unable to load scratchInterface subcomponent\n");
     }
 
@@ -89,9 +79,7 @@ ScratchCPU::ScratchCPU(ComponentId_t id, Params& params) : Component(id), rng(id
 
 // SST Component functions
 void ScratchCPU::init(unsigned int phase) {
-    scratchmem->init(phase);
-    if (cachemem)
-        cachemem->init(phase);
+    memory->init(phase);
 }
 
 void ScratchCPU::finish() {
@@ -119,8 +107,7 @@ bool ScratchCPU::tick(Cycle_t time) {
                 
                 // Determine what kind of request to send -> 6 options
                 uint32_t instType = rng.generateNextUInt32() % 6;
-                bool sendcache = false;
-
+                
                 Interfaces::SimpleMem::Request * req;
                 if (instType == 0) { // Scratch read
                     // Generate request size
@@ -167,9 +154,7 @@ bool ScratchCPU::tick(Cycle_t time) {
                     uint32_t size = 1 << log2Size;
 
                     Interfaces::SimpleMem::Addr addr = (Interfaces::SimpleMem::Addr) (((rng.generateNextUInt64() % (maxAddr - scratchSize)) >> log2Size ) << log2Size);
-                    
-                    if (!cachemem) addr += scratchSize;
-                    sendcache = (cachemem != nullptr);
+                    addr += scratchSize;
                     req = new Interfaces::SimpleMem::Request(Interfaces::SimpleMem::Request::Read, addr, size);
                     out.debug(_L3_, "ScratchCPU (%s) sending mem Read. Addr: %" PRIu64 ", Size: %u\n\n", getName().c_str(), addr, size);
                 } else { // Memory write
@@ -177,9 +162,8 @@ bool ScratchCPU::tick(Cycle_t time) {
                     uint32_t size = 1 << log2Size;
 
                     Interfaces::SimpleMem::Addr addr = (Interfaces::SimpleMem::Addr) (((rng.generateNextUInt64() % (maxAddr - scratchSize)) >> log2Size ) << log2Size);
-                    if (!cachemem) addr += scratchSize;
-                    sendcache = (cachemem != nullptr);
-
+                    addr += scratchSize;
+                    
                     std::vector<uint8_t> data;
                     data.resize(size, 0);
                     
@@ -188,10 +172,7 @@ bool ScratchCPU::tick(Cycle_t time) {
                 }
 
 		// Send request
-                if (sendcache)
-                    cachemem->sendRequest(req);
-                else
-                    scratchmem->sendRequest(req);
+                memory->sendRequest(req);
 		requests[req->id] = timestamp;
 
                 // Update counter info

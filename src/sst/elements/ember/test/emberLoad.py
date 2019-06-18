@@ -18,14 +18,18 @@ useSimpleMemoryModel=False
 statNodeList = []
 jobid = 0
 loadFile = '' 
+loadFileVars ={}
 workList = []
 workFlow = []
 numCores = 1
 numNodes = 0
 nidList = ''
+statsModuleName=''
+statsFile='stats.csv'
 
 platform = 'default'
 
+paramDir='paramFiles'
 netFlitSize = '' 
 netBW = '' 
 netPktSize = '' 
@@ -65,17 +69,16 @@ motifDefaults = {
 	'api': motifAPI, 
 }
 
-sys.path.append( os.getcwd() + '/paramFiles' )
 
 try:
     opts, args = getopt.getopt(sys.argv[1:], "", ["topo=", "shape=","hostsPerRtr=",
 		"simConfig=","platParams=",",debug=","platform=","numNodes=",
-		"numCores=","loadFile=","cmdLine=","printStats=","randomPlacement=",
+		"numCores=","loadFile=","loadFileVar=","cmdLine=","printStats=","randomPlacement=",
 		"emberVerbose=","netBW=","netPktSize=","netFlitSize=",
 		"rtrArb=","embermotifLog=",	"rankmapper=","motifAPI=",
 		"bgPercentage=","bgMean=","bgStddev=","bgMsgSize=","netInspect=",
-        "detailedNameModel=","detailedModelParams=","detailedModelNodes=",
-		"useSimpleMemoryModel","param="])
+        "detailedModelName=","detailedModelParams=","detailedModelNodes=",
+		"useSimpleMemoryModel","param=","paramDir=","statsModule=","statsFile="])
 
 except getopt.GetoptError as err:
     print str(err)
@@ -96,6 +99,9 @@ for o, a in opts:
         debug = a
     elif o in ("--loadFile"):
         loadFile = a
+    elif o in ("--loadFileVar"):
+        key,value = a.split("=",1)
+        loadFileVars[key] = value  
     elif o in ("--motifAPI"):
 		motifAPI= a
     elif o in ("--cmdLine"):
@@ -137,7 +143,7 @@ for o, a in opts:
     elif o in ("--detailedModelName"):
         detailedModelName = a
     elif o in ("--detailedModelNodes"):
-        detailedModelNodes = a
+        detailedModelNodes = [int(i) for i in a.split(',')] 
     elif o in ("--detailedModelParams"):
         detailedModelParams = a
     elif o in ("--simConfig"):
@@ -149,8 +155,17 @@ for o, a in opts:
         params[key] += [value]  
     elif o in ("--useSimpleMemoryModel"):
 		useSimpleMemoryModel=True
+    elif o in ("--paramDir"):
+        paramDir = a
+    elif o in ("--statsModule"):
+        statsModuleName = a
+    elif o in ("--statsFile"):
+        statsFile = a
     else:
-        assert False, "unhandle option" 
+        assert False, "unknow option {0}".format(o)
+
+sys.path.append( os.getcwd() + '/' + paramDir )
+print 'EMBER: using param directory: {0}'.format( paramDir )
 
 if 1 == len(sys.argv):
 	simConfig = 'defaultSim'
@@ -262,6 +277,12 @@ elif "hyperx" == netTopo:
 
 	topo = topoHyperX()
 
+elif "json" == netTopo:
+
+        topo,rtr = netShape.split(':') 
+        topo = TopoJSON( topo, rtr )
+        topoInfo = JSONInfo(topo.num_nodes)
+
 else:
 	sys.exit("how did we get here")
 
@@ -345,8 +366,10 @@ if rndmPlacement and bgPercentage > 0:
         jobid += 1
         count += 1
 
-nicParams['verboseLevel'] = debug
-nicParams['verboseMask'] = 1
+if 'verboseLevel' not in nicParams: 
+    nicParams['verboseLevel'] = debug
+if 'verboseMaskl' not in nicParams: 
+    nicParams['verboseMask'] = 1
 if useSimpleMemoryModel:
 	nicParams['useSimpleMemoryModel'] = 1
 hermesParams['hermesParams.verboseLevel'] = debug
@@ -356,7 +379,7 @@ hermesParams['hermesParams.ctrlMsg.verboseLevel'] = debug
 hermesParams['hermesParams.ctrlMsg.pqs.verboseLevel'] = debug 
 hermesParams['hermesParams.ctrlMsg.pqs.verboseMask'] = 1
 emberParams['verbose'] = emberVerbose
-hermesParams['hermesParams.numNodes'] = topoInfo.getNumNodes() 
+hermesParams[ emberParams['os.name'] + '.numNodes'] = topoInfo.getNumNodes() 
 
 if embermotifLog:
     emberParams['motifLog'] = embermotifLog
@@ -447,7 +470,7 @@ baseNicParams = {
 loadInfo = LoadInfo( topoInfo.getNumNodes(), baseNicParams, epParams)
 
 if len(loadFile) > 0:
-    for jobid, nidlist, numCores, params, api, motifs in ParseLoadFile( loadFile ):
+    for jobid, nidlist, numCores, params, api, motifs in ParseLoadFile( loadFile, loadFileVars ):
 
         workList = []
         workFlow = []
@@ -484,3 +507,14 @@ topo.prepParams()
 
 topo.setEndPointFunc( loadInfo.setNode )
 topo.build()
+
+if statsModuleName:
+
+	try:
+		statsModule = __import__( statsModuleName, fromlist=[''] )
+	except:
+		sys.exit('Failed: could not import statsistics module `{0}`'.format(statsModuleName) )
+
+	print 'EMBER: statistics module: {0} '.format(statsModuleName)
+	print 'EMBER: statistics file: {0} '.format(statsFile)
+	statsModule.init(statsFile)

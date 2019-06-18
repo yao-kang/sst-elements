@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -31,19 +31,21 @@ namespace Miranda {
 class GUPSGenerator : public RequestGenerator {
 
 public:
+	GUPSGenerator( ComponentId_t id, Params& params );
 	GUPSGenerator( Component* owner, Params& params );
+        void build(Params &params);
 	~GUPSGenerator();
 	void generate(MirandaRequestQueue<GeneratorRequest*>* q);
 	bool isFinished();
 	void completed();
 
-	SST_ELI_REGISTER_SUBCOMPONENT(
+	SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(
                	GUPSGenerator,
                	"miranda",
                 "GUPSGenerator",
                	SST_ELI_ELEMENT_VERSION(1,0,0),
 		"Creates a random stream of accesses to read-modify-write",
-                "SST::Miranda::RequestGenerator"
+                SST::Miranda::RequestGenerator
        	)
 
         SST_ELI_DOCUMENT_PARAMS(
@@ -59,7 +61,9 @@ public:
 
 private:
 	uint64_t reqLength;
-	uint64_t maxAddr;
+
+	uint64_t memLength;
+	uint64_t memStart;
 	uint64_t issueCount;
 	uint64_t iterations;
 	uint64_t seed_a;

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -25,8 +25,6 @@
 
 #include "bus.h"
 
-#include <csignal>
-
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 #include <sst/core/interfaces/stringEvent.h>
@@ -37,10 +35,6 @@ using namespace std;
 using namespace SST;
 using namespace SST::MemHierarchy;
 
-
-// Debug macros
-#define is_debug_addr(addr) (DEBUG_ADDR.empty() || DEBUG_ADDR.find(addr) != DEBUG_ADDR.end())
-#define is_debug_event(ev) (DEBUG_ADDR.empty() || ev->doDebug(DEBUG_ADDR))
 
 const Bus::key_t Bus::ANY_KEY = std::pair<uint64_t, int>((uint64_t)-1, -1);
 
@@ -63,22 +57,29 @@ void Bus::processIncomingEvent(SST::Event* ev) {
 
 bool Bus::clockTick(Cycle_t time) {
 
-    if (!eventQueue_.empty()) {
-        SST::Event* event = eventQueue_.front();
+   if (eventQueue_.empty() && busOn_)
+      idleCount_++;
 
-        if (broadcast_) broadcastEvent(event);
-        else sendSingleEvent(event);
+   if (idleCount_ > idleMax_) {
+      busOn_ = false;
+      idleCount_ = 0;
+      return true;
+   }
 
-        eventQueue_.pop();
-        idleCount_ = 0;
-    } else if (busOn_) idleCount_++;
+   while (!eventQueue_.empty()) {
+      SST::Event* event = eventQueue_.front();
 
+      if (broadcast_)
+         broadcastEvent(event);
+      else
+         sendSingleEvent(event);
 
-    if (idleCount_ > idleMax_) {
-        busOn_ = false;
-        idleCount_ = 0;
-        return true;
-    }
+      eventQueue_.pop();
+      idleCount_ = 0;
+
+      if (drain_ == 0 )
+         break;
+   }
 
     return false;
 }
@@ -198,6 +199,7 @@ void Bus::configureParameters(SST::Params& params) {
     busFrequency_ = params.find<std::string>("bus_frequency", "Invalid");
     broadcast_    = params.find<bool>("broadcast", 0);
     fanout_       = params.find<bool>("fanout", 0);  /* TODO:  Fanout: Only send messages to lower level caches */
+    drain_        = params.find<bool>("drain_bus", 0);
 
     if (busFrequency_ == "Invalid") dbg_.fatal(CALL_INFO, -1, "Bus Frequency was not specified\n");
 

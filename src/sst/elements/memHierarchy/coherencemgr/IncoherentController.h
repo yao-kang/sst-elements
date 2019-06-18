@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 // 
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 // 
 // Portions are copyright of other developers:
@@ -18,7 +18,6 @@
 
 #include <iostream>
 
-#include <sst/core/elementinfo.h>
 
 #include "sst/elements/memHierarchy/coherencemgr/coherenceController.h"
 
@@ -27,8 +26,8 @@ namespace SST { namespace MemHierarchy {
 
 class IncoherentController : public CoherenceController{
 public:
-    SST_ELI_REGISTER_SUBCOMPONENT(IncoherentController, "memHierarchy", "IncoherentController", SST_ELI_ELEMENT_VERSION(1,0,0), 
-            "Implements an second level or greater cache without coherence", "SST::MemHierarchy::CoherenceController")
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(IncoherentController, "memHierarchy", "IncoherentController", SST_ELI_ELEMENT_VERSION(1,0,0), 
+            "Implements an second level or greater cache without coherence", SST::MemHierarchy::CoherenceController)
 
     SST_ELI_DOCUMENT_STATISTICS(
         /* Event sends */
@@ -112,7 +111,9 @@ public:
 
 /* Class definition */
     /** Constructor for IncoherentController. */
-    IncoherentController(SST::Component* comp, Params& params) : CoherenceController (comp, params) {
+    IncoherentController(SST::Component* comp, Params& params) : CoherenceController (comp, params) { }
+    IncoherentController(SST::ComponentId_t id, Params& params, Params& ownerParams) : CoherenceController(id, params, ownerParams) {
+        params.insert(ownerParams);
         debug->debug(_INFO_,"--------------------------- Initializing [Incoherent Controller] ... \n\n");
         inclusive_ = params.find<bool>("inclusive", true);
     

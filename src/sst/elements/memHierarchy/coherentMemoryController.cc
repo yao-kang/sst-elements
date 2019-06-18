@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -15,7 +15,6 @@
 
 
 #include <sst_config.h>
-#include <sst/core/element.h>
 #include <sst/core/params.h>
 #include <sst/core/simulation.h>
 
@@ -282,7 +281,7 @@ void CoherentMemController::handleFlush(MemEvent * ev) {
 
     MemEvent* put = NULL;
     if (ev->getPayloadSize() != 0) {
-        put = new MemEvent(this, ev->getBaseAddr(), ev->getBaseAddr(), Command::PutM, ev->getPayload());
+        put = new MemEvent(getName(), ev->getBaseAddr(), ev->getBaseAddr(), Command::PutM, ev->getPayload(), getCurrentSimTimeNano());
         put->setFlag(MemEvent::F_NORESPONSE);
         outstandingEventList_.insert(std::make_pair(put->getID(), OutstandingEvent(put, put->getBaseAddr())));
         notifyListeners(ev);
@@ -357,7 +356,7 @@ void CoherentMemController::handleFetchResp(MemEvent * ev) {
 
     // Write dirty data if needed
     if (ev->getDirty()) {
-        MemEvent * write = new MemEvent(this, ev->getAddr(), baseAddr, Command::PutM, ev->getPayload());
+        MemEvent * write = new MemEvent(getName(), ev->getAddr(), baseAddr, Command::PutM, ev->getPayload(), getCurrentSimTimeNano());
         write->setRqstr(ev->getRqstr());
         ev->setFlag(MemEvent::F_NORESPONSE);
 
@@ -450,7 +449,7 @@ void CoherentMemController::handleCustomCmd(MemEventBase * evb) {
 bool CoherentMemController::doShootdown(Addr addr, MemEventBase * ev) {
     if (cacheStatus_.at(addr/lineSize_) == true) {
         Addr globalAddr = translateToGlobal(addr);
-        MemEvent * inv = new MemEvent(this, globalAddr, globalAddr, Command::FetchInv, lineSize_);
+        MemEvent * inv = new MemEvent(getName(), globalAddr, globalAddr, Command::FetchInv, lineSize_, getCurrentSimTimeNano());
         inv->setRqstr(ev->getRqstr());
         inv->setDst(ev->getSrc());
 

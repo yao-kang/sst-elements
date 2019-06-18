@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -24,9 +24,12 @@ using namespace SST;
 using namespace SST::MemHierarchy;
 using namespace SST::VaultSim;
 
-VaultSimMemory::VaultSimMemory(Component *comp, Params &params) : FlagMemBackend(comp, params){
+VaultSimMemory::VaultSimMemory(Component *comp, Params &params) : FlagMemBackend(comp, params){ build(params); }
+VaultSimMemory::VaultSimMemory(ComponentId_t id, Params &params) : FlagMemBackend(id, params){ build(params); }
+
+void VaultSimMemory::build(Params& params) {
     std::string access_time = params.find<std::string>("access_time", "100 ns");
-    cube_link = comp->configureLink( "cube_link", access_time,
+    cube_link = configureLink( "cube_link", access_time,
             new Event::Handler<VaultSimMemory>(this, &VaultSimMemory::handleCubeEvent));
 
     output->init("VaultSimMemory[@p:@l]: ", 10, 0, Output::STDOUT);

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 // 
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 // 
 // Portions are copyright of other developers:
@@ -18,7 +18,6 @@
 
 #include <iostream>
 
-#include <sst/core/elementinfo.h>
 
 #include "sst/elements/memHierarchy/coherencemgr/coherenceController.h"
 
@@ -28,8 +27,8 @@ namespace SST { namespace MemHierarchy {
 class L1CoherenceController : public CoherenceController {
 public:
 /* Element Library Info */
-    SST_ELI_REGISTER_SUBCOMPONENT(L1CoherenceController, "memHierarchy", "L1CoherenceController", SST_ELI_ELEMENT_VERSION(1,0,0), 
-            "Implements MESI or MSI coherence for an L1 cache", "SST::MemHierarchy::CoherenceController")
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(L1CoherenceController, "memHierarchy", "L1CoherenceController", SST_ELI_ELEMENT_VERSION(1,0,0), 
+            "Implements MESI or MSI coherence for an L1 cache", SST::MemHierarchy::CoherenceController)
 
     SST_ELI_DOCUMENT_STATISTICS(
         /* Event sends */
@@ -147,7 +146,9 @@ public:
 
 /* Class definition */
     /** Constructor for L1CoherenceController */
-    L1CoherenceController(Component* comp, Params& params) : CoherenceController(comp, params) {
+    L1CoherenceController(Component* comp, Params& params) : CoherenceController(comp, params) { }
+    L1CoherenceController(ComponentId_t id, Params& params, Params& ownerParams) : CoherenceController(id, params, ownerParams) {
+        params.insert(ownerParams);
         debug->debug(_INFO_,"--------------------------- Initializing [L1Controller] ... \n\n");
         
         snoopL1Invs_ = params.find<bool>("snoop_l1_invalidations", false);

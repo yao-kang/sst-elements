@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -26,7 +26,6 @@
 #include <sst/elements/memHierarchy/memEvent.h>
 #include <sst/elements/memHierarchy/cacheListener.h>
 
-#include <sst/core/elementinfo.h>
 
 using namespace SST;
 using namespace SST::MemHierarchy;
@@ -37,19 +36,20 @@ namespace Cassini {
 
 class AddrHistogrammer : public SST::MemHierarchy::CacheListener {
 public:
-    AddrHistogrammer(Component*, Params& params);
+    AddrHistogrammer(Component*, Params& params); // Legacy
+    AddrHistogrammer(ComponentId_t, Params& params);
     ~AddrHistogrammer() {};
 
     void notifyAccess(const CacheListenerNotification& notify);
     void registerResponseCallback(Event::HandlerBase *handler);
 
-    SST_ELI_REGISTER_SUBCOMPONENT(
+    SST_ELI_REGISTER_SUBCOMPONENT_DERIVED(
         AddrHistogrammer,
             "cassini",
             "AddrHistogrammer",
             SST_ELI_ELEMENT_VERSION(1,0,0),
             "Address access histogram generator",
-            "SST::Cassini::CacheListener"
+            SST::MemHierarchy::CacheListener
     )
 
     SST_ELI_DOCUMENT_PARAMS(

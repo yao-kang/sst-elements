@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -25,6 +25,13 @@ using namespace SST::MemHierarchy;
 
 SimpleMemBackendConvertor::SimpleMemBackendConvertor(Component *comp, Params &params) :
         MemBackendConvertor(comp,params) 
+{
+    using std::placeholders::_1;
+    static_cast<SimpleMemBackend*>(m_backend)->setResponseHandler( std::bind( &SimpleMemBackendConvertor::handleMemResponse, this, _1 ) );
+}
+
+SimpleMemBackendConvertor::SimpleMemBackendConvertor(ComponentId_t id, Params &params) :
+        MemBackendConvertor(id,params) 
 {
     using std::placeholders::_1;
     static_cast<SimpleMemBackend*>(m_backend)->setResponseHandler( std::bind( &SimpleMemBackendConvertor::handleMemResponse, this, _1 ) );

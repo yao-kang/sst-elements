@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -71,14 +71,15 @@ public:
 
     bool generate( std::queue<EmberEvent*>& evQ )
     {
-		verbose(CALL_INFO, 1, 0, "\n");
 
 		if ( 0 == m_size ) {
+			verbose(CALL_INFO, 1, 0, "\n");
         	enQ_init( evQ );
         	enQ_rank( evQ, GroupWorld, &m_rank );
         	enQ_size( evQ, GroupWorld, &m_size );
 			return false;
 		} else {
+			verbose(CALL_INFO, 1, 0, "size=%d rank=%d\n",m_size,m_rank);
 			setRank(m_rank);
 			setSize(m_size);
         	return true;

@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -16,90 +16,70 @@
 #include <sst_config.h>
 #include "arielcore.h"
 
-using namespace SST::OpalComponent;
+using namespace SST::ArielComponent;
 
 #define ARIEL_CORE_VERBOSE(LEVEL, OUTPUT) if(verbosity >= (LEVEL)) OUTPUT
 
 
-ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
+ArielCore::ArielCore(ComponentId_t id, ArielTunnel *tunnel,
             uint32_t thisCoreID, uint32_t maxPendTrans,
             Output* out, uint32_t maxIssuePerCyc,
-            uint32_t maxQLen, uint64_t cacheLineSz, SST::Component* own,
-                     ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params, uint32_t pf_maxPendTrans, uint32_t pf_maxIssuePerCyc,
-                     bool uScratch) :
-            ignoreOps(0),
-            output(out), tunnel(tunnel), perform_checks(perform_address_checks),
-    verbosity(static_cast<uint32_t>(out->getVerboseLevel())),
-    useScratch(uScratch) {
+            uint32_t maxQLen, uint64_t cacheLineSz,
+            ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params) :
+            ComponentExtension(id), output(out), tunnel(tunnel), 
+            perform_checks(perform_address_checks),
+            verbosity(static_cast<uint32_t>(out->getVerboseLevel())) {
 
     // set both counters for flushes to 0
     output->verbose(CALL_INFO, 2, 0, "Creating core with ID %" PRIu32 ", maximum queue length=%" PRIu32 ", max issue is: %" PRIu32 "\n", thisCoreID, maxQLen, maxIssuePerCyc);
     inst_count = 0;
-    cacheLink = coreToCacheLink;
-    allocLink = 0;
     coreID = thisCoreID;
     maxPendingTransactions = maxPendTrans;
-    pf_maxPendingTransactions = pf_maxPendTrans;
     isHalted = false;
     isStalled = false;
     isFenced = false;
     maxIssuePerCycle = maxIssuePerCyc;
-    pf_maxIssuePerCycle = pf_maxIssuePerCyc;
     maxQLength = maxQLen;
     cacheLineSize = cacheLineSz;
-    owner = own;
     memmgr = memMgr;
-    hasScratchpad = false;
 
-    opal_enabled = false;
     writePayloads = params.find<int>("writepayloadtrace") == 0 ? false : true;
 
     coreQ = new std::queue<ArielEvent*>();
-    PFQ = new std::queue<ArielReadEvent*>();
     pendingTransactions = new std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>();
-    pendingPFTransactions = new std::unordered_map<SimpleMem::Request::id_t, SimpleMem::Request*>();
     pending_transaction_count = 0;
-    pending_pf_transaction_count = 0;
 
     char* subID = (char*) malloc(sizeof(char) * 32);
     sprintf(subID, "%" PRIu32, thisCoreID);
 
-    statPFScratchGets = own->registerStatistic<uint64_t>( "pf_scratch_gets", subID );
-    statPFScratchReads = own->registerStatistic<uint64_t>( "pf_scratch_reads", subID );
-    statPFScratchWrites = own->registerStatistic<uint64_t>( "pf_scratch_writes", subID );
-    statPFScratchOffset = own->registerStatistic<uint64_t>( "pf_max_offset", subID );
-    statPFScratchWaits = own->registerStatistic<uint64_t>( "pf_scratch_waits", subID );
+    statReadRequests  = registerStatistic<uint64_t>( "read_requests", subID );
+    statWriteRequests = registerStatistic<uint64_t>( "write_requests", subID );
+    statReadRequestSizes = registerStatistic<uint64_t>( "read_request_sizes", subID );
+    statWriteRequestSizes = registerStatistic<uint64_t>( "write_request_sizes", subID );
+    statSplitReadRequests = registerStatistic<uint64_t>( "split_read_requests", subID );
+    statSplitWriteRequests = registerStatistic<uint64_t>( "split_write_requests", subID );
+    statFlushRequests = registerStatistic<uint64_t>( "flush_requests", subID);
+    statFenceRequests = registerStatistic<uint64_t>( "fence_requests", subID);
+    statNoopCount     = registerStatistic<uint64_t>( "no_ops", subID );
+    statInstructionCount = registerStatistic<uint64_t>( "instruction_count", subID );
+    statCycles = registerStatistic<uint64_t>( "cycles", subID );
+    statActiveCycles = registerStatistic<uint64_t>( "active_cycles", subID );
 
-    statPFRequests  = own->registerStatistic<uint64_t>( "pf_requests", subID );
-    statIgnoreRW  = own->registerStatistic<uint64_t>( "ignored_rw_requests", subID );
-    statIgnoreNoop  = own->registerStatistic<uint64_t>( "ignored_noop_requests", subID );
-    statPFFolds  = own->registerStatistic<uint64_t>( "pf_folds", subID );
-    statReadRequests  = own->registerStatistic<uint64_t>( "read_requests", subID );
-    statWriteRequests = own->registerStatistic<uint64_t>( "write_requests", subID );
-    statReadRequestSizes = own->registerStatistic<uint64_t>( "read_request_sizes", subID );
-    statWriteRequestSizes = own->registerStatistic<uint64_t>( "write_request_sizes", subID );
-    statSplitReadRequests = own->registerStatistic<uint64_t>( "split_read_requests", subID );
-    statSplitWriteRequests = own->registerStatistic<uint64_t>( "split_write_requests", subID );
-    statFlushRequests = own->registerStatistic<uint64_t>( "flush_requests", subID);
-    statFenceRequests = own->registerStatistic<uint64_t>( "fence_requests", subID);
-    statNoopCount     = own->registerStatistic<uint64_t>( "no_ops", subID );
-    statInstructionCount = own->registerStatistic<uint64_t>( "instruction_count", subID );
-    statCycles = own->registerStatistic<uint64_t>( "cycles", subID );
-    statActiveCycles = own->registerStatistic<uint64_t>( "active_cycles", subID );
+    statFPSPIns = registerStatistic<uint64_t>("fp_sp_ins", subID);
+    statFPDPIns = registerStatistic<uint64_t>("fp_dp_ins", subID);
 
-    statFPSPIns = own->registerStatistic<uint64_t>("fp_sp_ins", subID);
-    statFPDPIns = own->registerStatistic<uint64_t>("fp_dp_ins", subID);
+    statFPSPSIMDIns = registerStatistic<uint64_t>("fp_sp_simd_ins", subID);
+    statFPDPSIMDIns = registerStatistic<uint64_t>("fp_dp_simd_ins", subID);
 
-    statFPSPSIMDIns = own->registerStatistic<uint64_t>("fp_sp_simd_ins", subID);
-    statFPDPSIMDIns = own->registerStatistic<uint64_t>("fp_dp_simd_ins", subID);
+    statFPSPScalarIns = registerStatistic<uint64_t>("fp_sp_scalar_ins", subID);
+    statFPDPScalarIns = registerStatistic<uint64_t>("fp_dp_scalar_ins", subID);
 
-    statFPSPScalarIns = own->registerStatistic<uint64_t>("fp_sp_scalar_ins", subID);
-    statFPDPScalarIns = own->registerStatistic<uint64_t>("fp_dp_scalar_ins", subID);
-
-    statFPSPOps = own->registerStatistic<uint64_t>("fp_sp_ops", subID);
-    statFPDPOps = own->registerStatistic<uint64_t>("fp_dp_ops", subID);
+    statFPSPOps = registerStatistic<uint64_t>("fp_sp_ops", subID);
+    statFPDPOps = registerStatistic<uint64_t>("fp_dp_ops", subID);
 
     free(subID);
+
+    memmgr->registerInterruptHandler(coreID, new ArielMemoryManager::InterruptHandler<ArielCore>(this, &ArielCore::handleInterrupt));
 
     std::string traceGenName = params.find<std::string>("tracegen", "");
     enableTracing = ("" != traceGenName);
@@ -107,12 +87,11 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
     // If we enabled tracing then open up the correct file.
     if(enableTracing) {
         Params interfaceParams = params.find_prefix_params("tracer.");
-        traceGen = dynamic_cast<ArielTraceGenerator*>( own->loadModuleWithComponent(traceGenName, own,
-                            interfaceParams) );
+        traceGen = dynamic_cast<ArielTraceGenerator*>( loadModule(traceGenName, interfaceParams) );
 
         if(NULL == traceGen) {
-                output->fatal(CALL_INFO, -1, "Unable to load tracing module: \"%s\"\n",
-                            traceGenName.c_str());
+            output->fatal(CALL_INFO, -1, "Unable to load tracing module: \"%s\"\n",
+                    traceGenName.c_str());
         }
 
         traceGen->setCoreID(coreID);
@@ -122,41 +101,17 @@ ArielCore::ArielCore(ArielTunnel *tunnel, SimpleMem* coreToCacheLink,
 }
 
 ArielCore::~ArielCore() {
-    //delete statReadRequests;
-    //delete statWriteRequests;
-    //delete statSplitReadRequests;
-    //delete statSplitWriteRequests;
-    //delete statNoopCount;
-    //delete statInstructionCount;
-
-    /*if(NULL != cacheLink) {
+    if(NULL != cacheLink) {
         delete cacheLink;
-        }*/
+    }
 
     if(enableTracing && traceGen) {
         delete traceGen;
     }
 }
 
-void ArielCore::setOpalLink(Link * opallink) {
-
-    OpalLink = opallink;
-
-}
-
-void ArielCore::setCacheLink(SimpleMem* newLink, Link* newAllocLink) {
+void ArielCore::setCacheLink(SimpleMem* newLink) {
     cacheLink = newLink;
-    allocLink = newAllocLink;
-}
-
-void ArielCore::setScratchLink(SimpleMem* scrLink) {
-    scratchLink = scrLink;
-}
-
-void ArielCore::configureScratchpad(uint64_t line, uint64_t size) {
-    hasScratchpad = true;
-    scratchLineSize = line;
-    scratchCapacity = size;
 }
 
 void ArielCore::printTraceEntry(const bool isRead,
@@ -172,64 +127,30 @@ void ArielCore::printTraceEntry(const bool isRead,
 }
 
 void ArielCore::commitReadEvent(const uint64_t address,
-                                const uint64_t virtAddress, const uint32_t length, bool isPF, uint64_t scrOffset) {
+            const uint64_t virtAddress, const uint32_t length) {
 
     if(length > 0) {
-        SimpleMem::Request *req;
-        if (isPF && useScratch) {
-            //use the scratchpad address
-            req = new SimpleMem::Request(SimpleMem::Request::Read, scrOffset,
-                                         length);
-        } else {
-            req = new SimpleMem::Request(SimpleMem::Request::Read, address,
-                                         length);
-        }
+        SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Read, address, length);
         req->setVirtualAddress(virtAddress);
 
-        if (isPF) {
-            pending_pf_transaction_count++;
-            pendingPFTransactions->insert( std::pair<SimpleMem::Request::id_t, SimpleMem::Request*>(req->id, req) );
-        } else {
-            pending_transaction_count++;
-            pendingTransactions->insert( std::pair<SimpleMem::Request::id_t, SimpleMem::Request*>(req->id, req) );
-        }
+        pending_transaction_count++;
+        pendingTransactions->insert( std::pair<SimpleMem::Request::id_t, SimpleMem::Request*>(req->id, req) );
 
         if(enableTracing) {
                 printTraceEntry(true, (const uint64_t) req->addrs[0], (const uint32_t) length);
         }
 
-        // Actually send the event to the cache/scratch
-        if (isPF && useScratch) {
-            // scratchpad GET
-            statPFScratchGets->addData(1);
-            // add in the memory address
-            req->addAddress(address+scratchCapacity);
-            scratchLink->sendRequest(req);
-        } else if (!isPF && useScratch && scrOffset) {
-            // send to scratch
-            statPFScratchReads->addData(1);
-            scratchLink->sendRequest(req); // should really set offset
-        } else {
-            // send to cache
-            cacheLink->sendRequest(req);
-        }
+        // Actually send the event to the cache
+        cacheLink->sendRequest(req);
     }
 }
 
 void ArielCore::commitWriteEvent(const uint64_t address,
-                                 const uint64_t virtAddress, const uint32_t length, const uint8_t* payload, uint64_t scrOffset) {
+        const uint64_t virtAddress, const uint32_t length, const uint8_t* payload) {
 
     if(length > 0) {
-        SimpleMem::Request *req;
-        if (useScratch && scrOffset) {
-            // write to scratchpad
-            // note: should really use offset
-            req = new SimpleMem::Request(SimpleMem::Request::Write, scrOffset, length);
-            req->setVirtualAddress(1);
-        } else {
-            req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
-            req->setVirtualAddress(virtAddress);
-        }
+        SimpleMem::Request *req = new SimpleMem::Request(SimpleMem::Request::Write, address, length);
+        req->setVirtualAddress(virtAddress);
 
         if( writePayloads ) {
             if(verbosity >= 16) {
@@ -257,13 +178,7 @@ void ArielCore::commitWriteEvent(const uint64_t address,
         }
 
         // Actually send the event to the cache
-        if (useScratch && scrOffset) {
-            //printf("write to scratch %p %p %d\n", scrOffset, address, coreID);
-            statPFScratchWrites->addData(1);
-            scratchLink->sendRequest(req);
-        } else {
-            cacheLink->sendRequest(req);
-        }
+        cacheLink->sendRequest(req);
     }
 }
 
@@ -291,7 +206,7 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " handling a memory event.\n", coreID));
 
     SimpleMem::Request::id_t mev_id = event->id;
-    auto find_entry = pendingTransactions->find(mev_id); // search main list
+    auto find_entry = pendingTransactions->find(mev_id);
 
     if(find_entry != pendingTransactions->end()) {
         ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
@@ -302,56 +217,27 @@ void ArielCore::handleEvent(SimpleMem::Request* event) {
         if(isCoreFenced() && pending_transaction_count == 0)
                 unfence();
     } else {
-        find_entry = pendingPFTransactions->find(mev_id); // search PF list
-        if (find_entry != pendingTransactions->end()) {
-            ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Correctly identified event in pending transactions, removing from list, before there are: %" PRIu32 " transactions pending.\n",
-                                                  (uint32_t) pendingTransactions->size()));
-            if (useScratch) {
-                //printf("got return from scratch %p %p %d\n", find_entry->second->addrs[0], find_entry->second->addrs[1], coreID);
-                // record that this CL has arrived in scratchpad
-                arrivedScratchSet.insert((find_entry->second->addrs[1]-scratchCapacity) >> 6);
-                // check that it is in the scratch set
-                assert(scratchSet.find(find_entry->second->addrs[1]-scratchCapacity) != scratchSet.end());
-            }
-            pendingPFTransactions->erase(find_entry);
-            pending_pf_transaction_count--;
-        } else {
-            output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
-        }
+        output->fatal(CALL_INFO, -4, "Memory event response to core: %" PRIu32 " was not found in pending list.\n", coreID);
     }
 
     delete event;
 }
 
-void ArielCore::ISR_Opal(OpalEvent *ev) {
-
-    ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " handling opal event.\n", coreID));
-
-    switch(ev->getType())
-    {
-        case SST::OpalComponent::EventType::SHOOTDOWN:
-            //maxIssuePerCycle=0; // This will stall the core by not executing anything
+bool ArielCore::handleInterrupt(ArielMemoryManager::InterruptAction action) {
+    
+    ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " received an interrupt.\n", coreID));
+    
+    switch (action) {
+        case ArielMemoryManager::InterruptAction::STALL:
             isStalled = true;
             break;
-
-        case SST::OpalComponent::EventType::SDACK:
-            //maxIssuePerCycle=storeMaxIssuePerCycle; // restore necessary information
+        case ArielMemoryManager::InterruptAction::UNSTALL:
             isStalled = false;
             break;
-
         default:
-            output->fatal(CALL_INFO, -4, "Opal event response to core: %" PRIu32 " was not valid.\n", coreID);
+            output->fatal(CALL_INFO, -4, "Received an unknown interrupt on core %" PRIu32 "\n", coreID);
     }
-
-}
-
-void ArielCore::handleInterruptEvent(SST::Event *event) {
-
-    ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " is interrupted.\n", coreID));
-
-    // for now only Opal can interrupt
-    OpalEvent * ev =  dynamic_cast<OpalComponent::OpalEvent*> (event);
-    ISR_Opal(ev);
+    return true; // Able to handle
 }
 
 void ArielCore::finishCore() {
@@ -406,43 +292,6 @@ void ArielCore::createNoOpEvent() {
     coreQ->push(ev);
 
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a No Op event on core %" PRIu32 "\n", coreID));
-}
-
-void ArielCore::createClearPFEvent() {
-    //printf("clearing scratch\n");
-    scratchSet.clear();
-    arrivedScratchSet.clear();
-}
-
-void ArielCore::createPFEvent(uint64_t address, int offset) {
-    uint64_t clAddr = (address>>6);
-    bool fold = 0;
-    for (int i = 0; i < 8; ++i) {
-        if (clAddr == lastPFCache[i]) {
-            fold = 1;
-            statPFFolds->addData(1);
-            lastPFCache[i] = clAddr;
-            break;
-        }
-    }
-
-    if (!fold) {
-        ArielReadEvent* ev;
-        ev = new ArielReadEvent(address, 8, offset, fold);
-
-        PFQ->push(ev);
-
-        lastPFCache[(++PFCCount) % 8] = clAddr;
-    } else if (useScratch) {
-        // fold && using scratchpad, we issue a 'fold' event
-        ArielReadEvent* ev;
-        ev = new ArielReadEvent(address, 8, offset, fold);
-
-        PFQ->push(ev);
-    }
-
-    ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Generated a PF event, addr=%" PRIu64 ", length=%" PRIu32 "\n", address, 8));
-
 }
 
 void ArielCore::createReadEvent(uint64_t address, uint32_t length) {
@@ -544,16 +393,8 @@ bool ArielCore::refillQueue() {
         // There is data on the pipe
         switch(ac.command) {
             case ARIEL_OUTPUT_STATS:
-                fprintf(stdout, "Performing statistics output at simulation time = %" PRIu64 "\n", owner->getCurrentSimTimeNano());
+                fprintf(stdout, "Performing statistics output at simulation time = %" PRIu64 " cycles\n", getCurrentSimTimeNano());
                 Simulation::getSimulation()->getStatisticsProcessingEngine()->performGlobalStatisticOutput();
-                if (allocLink) {
-                        // tell the allocate montior to dump stats. We
-                        // optionally pass a marker number back in the instruction field
-                        arielAllocTrackEvent *e
-                            = new arielAllocTrackEvent(arielAllocTrackEvent::BUOY,
-                                        0, 0, 0, ac.instPtr);
-                        allocLink->send(e);
-                }
                 break;
 
             case ARIEL_START_INSTRUCTION:
@@ -586,20 +427,12 @@ bool ArielCore::refillQueue() {
 
                         switch(ac.command) {
                             case ARIEL_PERFORM_READ:
-                                if (!ignoreOps) {
                                     createReadEvent(ac.inst.addr, ac.inst.size);
-                                } else {
-                                    statIgnoreRW->addData(1);
-                                }
-                                break;
+                                    break;
 
                             case ARIEL_PERFORM_WRITE:
-                                if (!ignoreOps) {
                                     createWriteEvent(ac.inst.addr, ac.inst.size, &ac.inst.payload[0]);
-                                } else {
-                                    statIgnoreRW->addData(1);
-                                }
-                                break;
+                                    break;
 
                             case ARIEL_END_INSTRUCTION:
                                     break;
@@ -617,11 +450,7 @@ bool ArielCore::refillQueue() {
                 break;
 
             case ARIEL_NOOP:
-                if (!ignoreOps) {
-                    createNoOpEvent();
-                } else {
-                    statIgnoreNoop->addData(1);
-                }
+                createNoOpEvent();
                 break;
 
             case ARIEL_FLUSHLINE_INSTRUCTION:
@@ -636,7 +465,6 @@ bool ArielCore::refillQueue() {
                 createMmapEvent(ac.mlm_mmap.fileID, ac.mlm_mmap.vaddr, ac.mlm_mmap.alloc_len, ac.mlm_mmap.alloc_level, ac.instPtr);
                 break;
 
-
             case ARIEL_ISSUE_TLM_MAP:
                 createAllocateEvent(ac.mlm_map.vaddr, ac.mlm_map.alloc_len, ac.mlm_map.alloc_level, ac.instPtr);
                 break;
@@ -647,19 +475,6 @@ bool ArielCore::refillQueue() {
 
             case ARIEL_SWITCH_POOL:
                 createSwitchPoolEvent(ac.switchPool.pool);
-                break;
-                
-            case ARIEL_TOGGLE:
-                createNoOpEvent(); // to account for the actual call
-                ignoreOps = !ignoreOps;
-                break;
-
-            case ARIEL_PF:
-                createPFEvent(ac.instPtr, ac.inst.addr);
-                break;
-
-            case ARIEL_CLEARPF:
-                createClearPFEvent();
                 break;
 
             case ARIEL_PERFORM_EXIT:
@@ -677,30 +492,23 @@ bool ArielCore::refillQueue() {
 }
 
 void ArielCore::handleFreeEvent(ArielFreeEvent* rFE) {
-    output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " processing a free event (for virtual address=%" PRIu64 ")\n", coreID, rFE->getVirtualAddress());
+    ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " processing a free event (for virtual address=%" PRIu64 ")\n", coreID, rFE->getVirtualAddress()));
 
     memmgr->freeMalloc(rFE->getVirtualAddress());
-
-    if (allocLink) {
-        // tell the allocate montior (e.g. mem sieve that a free has occured)
-        arielAllocTrackEvent *e =  new arielAllocTrackEvent(arielAllocTrackEvent::FREE,
-                            rFE->getVirtualAddress(), 0, 0, 0);
-
-        allocLink->send(e);
-    }
 }
 
 void ArielCore::handleReadRequest(ArielReadEvent* rEv) {
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " processing a read event...\n", coreID));
 
     const uint64_t readAddress = rEv->getAddress();
-    const uint64_t readLength  = (uint64_t) rEv->getLength();
+    const uint64_t readLength  = std::min((uint64_t) rEv->getLength(), cacheLineSize); // Trim to cacheline size (occurs rarely for instructions such as xsave and fxsave)
 
-    if(readLength > cacheLineSize) {
+    /* No longer neccessary due to trimming above
+     * if(readLength > cacheLineSize) {
         output->verbose(CALL_INFO, 4, 0, "Potential error? request for a read of length=%" PRIu64 " is larger than cache line which is not allowed (coreID=%" PRIu32 ", cache line: %" PRIu64 "\n",
                     readLength, coreID, cacheLineSize);
         return;
-    }
+    }*/
 
     // NOTE: Physical and virtual addresses may not be aligned the same w.r.t. line size if map-on-malloc is being used (arielinterceptcalls != 0), so use physical offsets to determine line splits
     // There is a chance that the non-alignment causes an undetected bug if an access spans multiple malloc regions that are contiguous in VA space but non-contiguous in PA space.
@@ -767,13 +575,14 @@ void ArielCore::handleWriteRequest(ArielWriteEvent* wEv) {
     ARIEL_CORE_VERBOSE(4, output->verbose(CALL_INFO, 4, 0, "Core %" PRIu32 " processing a write event...\n", coreID));
 
     const uint64_t writeAddress = wEv->getAddress();
-    const uint64_t writeLength  = wEv->getLength();
+    const uint64_t writeLength  = std::min((uint64_t) wEv->getLength(), cacheLineSize); // Trim to cacheline size (occurs rarely for instructions such as xsave and fxsave)
 
-    if(writeLength > cacheLineSize) {
+    // No longer neccessary due to trimming above
+/*    if(writeLength > cacheLineSize) {
         output->verbose(CALL_INFO, 4, 0, "Potential error? request for a write of length=%" PRIu64 " is larger than cache line which is not allowed (coreID=%" PRIu32 ", cache line: %" PRIu64 "\n",
                     writeLength, coreID, cacheLineSize);
         return;
-    }
+    }*/
 
     // See note in handleReadRequest() on alignment issues
     const uint64_t physAddr = memmgr->translateAddress(writeAddress);
@@ -847,44 +656,15 @@ void ArielCore::handleWriteRequest(ArielWriteEvent* wEv) {
 
 
 void ArielCore::handleMmapEvent(ArielMmapEvent* aEv) {
-
-    if(opal_enabled) {
-        OpalEvent * tse = new OpalEvent(OpalComponent::EventType::MMAP);
-        tse->setHint(aEv->getAllocationLevel());
-        tse->setFileId(aEv->getFileID());
-        std::cout<<"Before sending to Opal.. file ID is : "<<tse->getFileId()<<std::endl;
-        // length should be in multiple of page size
-        tse->setResp(aEv->getVirtualAddress(), 0, aEv->getAllocationLength() );
-        OpalLink->send(tse);
-    }
-
+    memmgr->allocateMMAP(aEv->getAllocationLength(), aEv->getAllocationLevel(), aEv->getVirtualAddress(),
+            aEv->getInstructionPointer(), aEv->getFileID(), coreID);
 }
 
 void ArielCore::handleAllocationEvent(ArielAllocateEvent* aEv) {
     output->verbose(CALL_INFO, 2, 0, "Handling a memory allocation event, vAddr=%" PRIu64 ", length=%" PRIu64 ", at level=%" PRIu32 " with malloc ID=%" PRIu64 "\n",
                 aEv->getVirtualAddress(), aEv->getAllocationLength(), aEv->getAllocationLevel(), aEv->getInstructionPointer());
 
-    // If Opal is enabled, make sure you pass these requests to it
-    if(opal_enabled) {
-        OpalEvent * tse = new OpalEvent(OpalComponent::EventType::HINT);
-        tse->setHint(aEv->getAllocationLevel());
-        tse->setResp(aEv->getVirtualAddress(), 0, aEv->getAllocationLength() );
-        OpalLink->send(tse);
-    }
-
-    if (allocLink) {
-        output->verbose(CALL_INFO, 2, 0, " Sending memory allocation event to allocate monitor\n");
-        // tell the allocate montior (e.g. mem sieve that an
-        // allocation has occured)
-        arielAllocTrackEvent *e = new arielAllocTrackEvent(arielAllocTrackEvent::ALLOC,
-                            aEv->getVirtualAddress(),
-                            aEv->getAllocationLength(),
-                            aEv->getAllocationLevel(),
-                            aEv->getInstructionPointer());
-        allocLink->send(e);
-    } else {    // As a config convience, we're not supporting allocLink + allocate-on-malloc but there's no real reason not to
-        memmgr->allocateMalloc(aEv->getAllocationLength(), aEv->getAllocationLevel(), aEv->getVirtualAddress());
-    }
+    memmgr->allocateMalloc(aEv->getAllocationLength(), aEv->getAllocationLevel(), aEv->getVirtualAddress(), aEv->getInstructionPointer(), coreID);
 }
 
 void ArielCore::handleFlushEvent(ArielFlushEvent *flEv) {
@@ -944,35 +724,13 @@ bool ArielCore::processNextEvent() {
         case READ_ADDRESS:
                 ARIEL_CORE_VERBOSE(8, output->verbose(CALL_INFO, 8, 0, "Core %" PRIu32 " next event is READ_ADDRESS\n", coreID));
 
+                //  if(pendingTransactions->size() < maxPendingTransactions) {
                 if(pending_transaction_count < maxPendingTransactions) {
-                    ArielReadEvent* rev = dynamic_cast<ArielReadEvent*>(nextEvent);
-                    assert(rev);
-                    const uint64_t readAddress = rev->getAddress();     
-                    const uint64_t physAddr = memmgr->translateAddress(readAddress);
-
-                    if(useScratch && scratchSet.find(physAddr) != scratchSet.end()) {
-                        if(arrivedScratchSet.find(physAddr>>6) 
-                           != arrivedScratchSet.end()) {
-                            //printf("addr %p HAS arrived %d\n", physAddr, coreID);
-                            // has arrived, issue to scratch
-                            statInstructionCount->addData(1);
-                            inst_count++;
-                            removeEvent = true;
-                            // note: we assume non-split 8B reads
-                            commitReadEvent(physAddr, readAddress, 8, 0, 1);
-                        } else {
-                            // has not arrived, stall
-                            //printf("addr %p has not arrived %d\n", physAddr, coreID);
-                            statPFScratchWaits->addData(1);
-                            break;
-                        }
-                    } else {
-                        ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Found a read event, fewer pending transactions than permitted so will process...\n"));
-                        statInstructionCount->addData(1);
-                        inst_count++;
-                        removeEvent = true;
-                        handleReadRequest(rev);
-                    }
+                    ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Found a read event, fewer pending transactions than permitted so will process...\n"));
+                    statInstructionCount->addData(1);
+                    inst_count++;
+                    removeEvent = true;
+                    handleReadRequest(dynamic_cast<ArielReadEvent*>(nextEvent));
                 } else {
                     ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Pending transaction queue is currently full for core %" PRIu32 ", core will stall for new events\n", coreID));
                     break;
@@ -984,22 +742,11 @@ bool ArielCore::processNextEvent() {
 
                 //  if(pendingTransactions->size() < maxPendingTransactions) {
                 if(pending_transaction_count < maxPendingTransactions) {
-                    ArielWriteEvent* rev = dynamic_cast<ArielWriteEvent*>(nextEvent);
-                    assert(rev);
-                    const uint64_t writeAddress = rev->getAddress();     
-                    const uint64_t physAddr = memmgr->translateAddress(writeAddress);
                     ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Found a write event, fewer pending transactions than permitted so will process...\n"));
                     statInstructionCount->addData(1);
                     inst_count++;
-                    removeEvent = true;
-                    if (useScratch && scratchSet.find(physAddr) 
-                        != scratchSet.end()){ 
-                        // issue to scratch
-                        commitWriteEvent(physAddr, writeAddress, 8, 0, 1);
-                    } else {
-                        // issue to cache
-                        handleWriteRequest(dynamic_cast<ArielWriteEvent*>(nextEvent));
-                    }
+                            removeEvent = true;
+                    handleWriteRequest(dynamic_cast<ArielWriteEvent*>(nextEvent));
                 } else {
                     ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Pending transaction queue is currently full for core %" PRIu32 ", core will stall for new events\n", coreID));
                     break;
@@ -1091,54 +838,12 @@ bool ArielCore::processNextEvent() {
 // Just to mark the starting of the simulation
 bool started=false;
 
-void ArielCore::advancePF() {
-    for(int32_t i = 0; !PFQ->empty() && (i < pf_maxIssuePerCycle); ++i) {
-        ArielReadEvent* ev = PFQ->front();
-        if(pending_pf_transaction_count < pf_maxPendingTransactions) {
-            const uint64_t readAddress = ev->getAddress();
-            const uint64_t physAddr = memmgr->translateAddress(readAddress);
-            if (!ev->getFold()) {
-                // real request
-                const uint64_t readLength  = (uint64_t) ev->getLength();
-                const uint64_t offset  = (uint64_t) ev->getScratchOffset();
-                if (useScratch) {
-                    commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true, 
-                                    offset % scratchCapacity);
-                } else {
-                    commitReadEvent(physAddr, readAddress, (uint32_t) readLength, true);
-                }
-                //printf("adv PF %p off:%d %d\n", physAddr, offset, coreID);
-                if (useScratch) {
-                    scratchSet.insert(physAddr);
-                }
-                statPFRequests->addData(1);
-                statPFScratchOffset->addData(offset);
-            } else {
-                // 'folded' event - do not issue, but record the event
-                // record for scratchpad 
-                assert(useScratch); // we should only reach this if using scratchpad
-                scratchSet.insert(physAddr);
-                i--; // don't count this against max issue since it is
-                     // not a 'real' event, but just here to be
-                     // recorded
-            }
-            PFQ->pop();
-            delete ev;
-        } else {
-            break;
-        }
-    }
-}
-
 void ArielCore::tick() {
     // todo: if the core is fenced, increment the current cycle counter
 
     if(!isHalted) {
         ARIEL_CORE_VERBOSE(16, output->verbose(CALL_INFO, 16, 0, "Ticking core id %" PRIu32 "\n", coreID));
         updateCycle = false;
-
-        //advance the PF
-        advancePF();
 
         if(!isStalled) {
                 for(uint32_t i = 0; i < maxIssuePerCycle; ++i) {

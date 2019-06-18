@@ -1,8 +1,8 @@
-// Copyright 2009-2018 NTESS. Under the terms
+// Copyright 2009-2019 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2009-2018, NTESS
+// Copyright (c) 2009-2019, NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -27,7 +27,6 @@
 #include <sst/elements/hermes/msgapi.h>
 #include "sst/elements/thornhill/detailedCompute.h"
 #include "sst/elements/thornhill/memoryHeapLink.h"
-#include "emberFamAddrMapper.h"
 
 #include "emberevent.h"
 #include "embermap.h"
@@ -35,7 +34,12 @@
 #include "emberconstdistrib.h"
 #include "embercomputeev.h"
 #include "emberdetailedcomputeev.h"
+#include "embergettimeev.h"
 #include "libs/emberLib.h"
+
+#define ENGINE_MASK (1<<0) 
+#define MOTIF_MASK (1<<1) 
+// #define EVENT_MASK (1<<2)  defined in emberevent.h"
 
 namespace SST {
 namespace Ember {
@@ -65,7 +69,7 @@ class EmberGenerator : public SubComponent {
         assert(0);
     }
 
-    virtual bool primary( ) { return true; }
+    virtual bool primary( ) { return m_primary; }
 
     virtual std::string getComputeModelName() {
         return "";
@@ -87,32 +91,13 @@ class EmberGenerator : public SubComponent {
                const char* format, ...)    const
                   __attribute__ ((format (printf, 6, 7))) ;
 
-    void setVerbosePrefix( int _rank = -1 ) {
-        if ( _rank == -1 ) {
-            _rank = rank(); 
-        }
+    void setVerbosePrefix( int rank = -1 ) {
         m_verbosePrefix.str(std::string());
-        m_verbosePrefix << "@t:" << getJobId() << ":" << _rank <<
-                    ":EmberEngine:MPI:" << getMotifName() << ":@p:@l: ";
+        m_verbosePrefix << "@t:" << getJobId() << ":" << rank <<
+                    ":EmberEngine:" << getMotifName() << ":@p:@l: ";
     }
 
     std::string getMotifName() { return m_motifName; }
-    void setRank( int rank ) { m_api->setRank( rank ); }
-    void setSize( int size ) { m_api->setSize( size ); }
-    int rank() { 
-        if ( m_api ) {
-            return m_api->getRank(); 
-        } else {
-            return -1;
-        }
-    }
-    int size() { 
-        if ( m_api ) {
-            return m_api->getSize(); 
-        } else { 
-            return -1;
-        }
-    }
     int getJobId()    { return m_jobId; }
     int getMotifNum() { return m_motifNum; }
 
@@ -120,33 +105,33 @@ class EmberGenerator : public SubComponent {
 
     virtual void* memAlloc( size_t );
     virtual void memFree( void* );
-    virtual void* memAddr( void * addr ) {
-        return  m_dataMode == Backing ? addr : NULL;
-    }
+	virtual void memSetBacked() { m_dataMode = Backing; }
     bool haveDetailed() { return m_detailedCompute; }
 
-	FamAddrMapper* 			m_famAddrMapper;
-    Hermes::Interface*  	m_api;
     Thornhill::DetailedCompute*   m_detailedCompute;
     Thornhill::MemoryHeapLink*    m_memHeapLink;
 
+	inline void enQ_getTime( Queue&, uint64_t* time );
     inline void enQ_memAlloc( Queue&, Hermes::MemAddr* addr, size_t length  );
     inline void enQ_compute( Queue&, uint64_t nanoSecondDelay );
     inline void enQ_compute( Queue& q, std::function<uint64_t()> func );
-    inline void enQ_detailedCompute( Queue& q, std::string, Params& );
-
-    enum { NoBacking, Backing, BackingZeroed  } m_dataMode; 
+    inline void enQ_detailedCompute( Queue& q, std::string, Params&, std::function<int()> func );
 
   private:
-
     Output* 	        	m_output;
+    enum { NoBacking, Backing, BackingZeroed  } m_dataMode; 
     std::string				m_motifName;
     std::ostringstream      m_verbosePrefix;
     Hermes::NodePerf*       m_nodePerf;
     int                     m_jobId;
     int                     m_motifNum;
+    bool                    m_primary;
     EmberComputeDistribution*           m_computeDistrib;
 };
+
+void EmberGenerator::enQ_getTime( Queue& q, uint64_t* time ) {
+	q.push( new EmberGetTimeEvent( &getOutput(), time ) );
+}
 
 void EmberGenerator::enQ_compute( Queue& q, uint64_t delay )
 {
@@ -159,11 +144,12 @@ void EmberGenerator::enQ_compute( Queue& q, std::function<uint64_t()> func )
 }
 
 void EmberGenerator::enQ_detailedCompute( Queue& q, std::string name,
-        Params& params )
+        Params& params, std::function<int()> fini = NULL )
 {
     assert( m_detailedCompute );
-    q.push( new EmberDetailedComputeEvent( &getOutput(), *m_detailedCompute, name, params ) );
+    q.push( new EmberDetailedComputeEvent( &getOutput(), *m_detailedCompute, name, params, fini ) );
 }
+
 void EmberGenerator::enQ_memAlloc( Queue& q, Hermes::MemAddr* addr, size_t length )
 {
     assert( m_memHeapLink );
