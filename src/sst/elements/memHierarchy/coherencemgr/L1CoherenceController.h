@@ -288,9 +288,6 @@ public:
     /** Process responses */
     CacheAction handleResponse(MemEvent* responseEvent, CacheLine* cacheLine, MemEvent* origRequest);
 
-    /** Handle No-Alloc events */
-    CacheAction handleNoAllocRequest(MemEvent* event, CacheLine* line, bool replay);
-    CacheAction handleNoAllocResponse(MemEvent* event, MemEvent* origRequest);
 
     /* Methods for sending events, called by cache controller */
     /** Send response up (to processor) */

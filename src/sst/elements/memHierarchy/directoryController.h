@@ -256,8 +256,6 @@ private:
     /** Handle noncacheable response */
     void handleNoncacheableResponse(MemEventBase * ev);
 
-    void handleNoAllocRequest(MemEvent* ev, bool replay);
-
     /** Identify and issue invalidates to sharers */
     void issueInvalidates(MemEvent * ev, DirEntry * entry, Command cmd);
 

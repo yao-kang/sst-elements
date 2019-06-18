@@ -686,35 +686,6 @@ int mapped_clockgettime(clockid_t clock, struct timespec *tp)
 }
 #endif
 
-void mapped_ariel_clearPF()
-{
-    THREADID thr = PIN_ThreadId();
-    ArielCommand ac;
-    ac.command = ARIEL_CLEARPF;
-    tunnel->writeMessage(thr, ac);
-}
-
-void mapped_ariel_pf(void* addr, int offset)
-{
-    if (enable_output) {
-        THREADID thr = PIN_ThreadId();
-        ArielCommand ac;
-        ac.command = ARIEL_PF;
-        ac.instPtr = (uint64_t) addr; //user the instruction pointer slot to send the address
-        ac.inst.addr = offset;
-        tunnel->writeMessage(thr, ac);
-    }
-}
-
-void mapped_ariel_toggle()
-{
-    if (enable_output) {
-        THREADID thr = PIN_ThreadId();
-        ArielCommand ac;
-        ac.command = ARIEL_TOGGLE;
-        tunnel->writeMessage(thr, ac);
-    }
-}
 
 void mapped_ariel_output_stats()
 {
@@ -1097,15 +1068,6 @@ VOID InstrumentRoutine(RTN rtn, VOID* args)
             enable_output = false;
         }
         return;
-    } else if (RTN_Name(rtn) == "ariel_pf") {
-        fprintf(stderr,"Replacing ariel_pf().\n");
-        RTN_Replace(rtn, (AFUNPTR) mapped_ariel_pf);
-    } else if (RTN_Name(rtn) == "ariel_clearPF") {
-        fprintf(stderr,"Replacing ariel_clearFP().\n");
-        RTN_Replace(rtn, (AFUNPTR) mapped_ariel_clearPF);
-    } else if (RTN_Name(rtn) == "ariel_toggle") {
-        fprintf(stderr,"Replacing ariel_toggle().\n");
-        RTN_Replace(rtn, (AFUNPTR) mapped_ariel_toggle);
     } else if (RTN_Name(rtn) == "gettimeofday" || RTN_Name(rtn) == "_gettimeofday") {
         fprintf(stderr,"Identified routine: gettimeofday, replacing with Ariel equivalent...\n");
         RTN_Replace(rtn, (AFUNPTR) mapped_gettimeofday);

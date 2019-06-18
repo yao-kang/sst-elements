@@ -435,14 +435,13 @@ void MemController::handleMemResponse( Event::id_type id, uint32_t flags ) {
     /* Handle MemEvents */
     MemEvent * ev = static_cast<MemEvent*>(evb);
 
-    bool noncacheable  = ev->queryFlag(MemEvent::F_NONCACHEABLE) || ev->queryFlag(MemEventBase::F_NOALLOC);
+    bool noncacheable  = ev->queryFlag(MemEvent::F_NONCACHEABLE);
     
     /* Write data. Here instead of receive to try to match backing access order to backend execute order */
     if (backing_ && (ev->getCmd() == Command::PutM || (ev->getCmd() == Command::GetX && noncacheable)))
         writeData(ev);
 
     if (ev->queryFlag(MemEvent::F_NORESPONSE)) {
-        Debug(_L8_, "\tF_NORESPONSE set, no response sent...\n");
         delete ev;
         return;
     }
@@ -462,7 +461,6 @@ void MemController::handleMemResponse( Event::id_type id, uint32_t flags ) {
         resp->setAddr(translateToGlobal(ev->getAddr()));
     }
     
-    Debug(_L8_, "\tSending response...\n");
     link_->send( resp );
     delete ev;
 }
@@ -501,7 +499,7 @@ void MemController::finish(void) {
 
 void MemController::writeData(MemEvent* event) {
     /* Noncacheable events occur on byte addresses, others on line addresses */
-    bool noncacheable = event->queryFlag(MemEvent::F_NONCACHEABLE) || event->queryFlag(MemEventBase::F_NOALLOC);
+    bool noncacheable = event->queryFlag(MemEvent::F_NONCACHEABLE);
     Addr addr = noncacheable ? event->getAddr() : event->getBaseAddr();
 
     if (event->getCmd() == Command::PutM) { /* Write request to memory */
@@ -524,7 +522,7 @@ void MemController::writeData(MemEvent* event) {
 
 
 void MemController::readData(MemEvent* event) { 
-    bool noncacheable = event->queryFlag(MemEvent::F_NONCACHEABLE) || event->queryFlag(MemEventBase::F_NOALLOC);
+    bool noncacheable = event->queryFlag(MemEvent::F_NONCACHEABLE);
     Addr localAddr = noncacheable ? event->getAddr() : event->getBaseAddr();
 
     vector<uint8_t> payload;
