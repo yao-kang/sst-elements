@@ -32,6 +32,11 @@ EXTRA_DIST = \
 
 libmips_4kc_la_LDFLAGS = -module -avoid-version
 
+# add lib elf
+libmips_4kc_la_LDFLAGS += $(LIBELF_LDFLAGS)
+libmips_4kc_la_LIBADD = $(LIBELF_LIB)
+AM_CPPFLAGS += $(LIBELF_CPPFLAGS)
+
 ##########################################################################
 ##########################################################################
 ##########################################################################
