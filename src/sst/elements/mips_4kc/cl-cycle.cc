@@ -2929,6 +2929,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
   }
   sprintf (buf++, "\n");
 
+#if 0 //AFR
   sprintf (buf, "*** Multiply/Divide Unit\n"); buf += strlen(buf);
   //sprintf (buf, "HI 0x%08x\tLO 0x%08x\n", MDU.hi_val, MDU.lo_val);
   buf += strlen(buf);
@@ -2991,6 +2992,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
     buf += strlen(buf);
   }
   sprintf (buf++, "\n");
+#endif // omit FP pipe
 
   sprintf (buf, "*** Bypass Registers, Values\n");
   buf += strlen(buf);

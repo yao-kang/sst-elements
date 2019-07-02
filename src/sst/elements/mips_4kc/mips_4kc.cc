@@ -26,8 +26,8 @@ using namespace SST;
 using namespace SST::MIPS4KCComponent;
 
 MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
-    Component(id), next_data_pc(0), next_k_data_pc(0), next_text_pc(0),
-    next_k_text_pc(0), break_inst(NULL), program_break(0), 
+    Component(id), next_data_pc(0), next_k_data_pc(0), 
+    break_inst(NULL), program_break(0), 
     breakpoint_reinsert(0), text_seg(0), text_modified(0), text_top(0),
     data_seg(0), data_modified(0), data_seg_h(0), data_seg_b(0), 
     data_top(0), cycle_level(0), cycle_running(0)

@@ -54,7 +54,6 @@ using namespace SST::MIPS4KCComponent;
 int MIPS4KC::read_aout_file (const char *file_name)
 {
     // load instructions, pre-decoded 
-    text_dir = 1;
     
     if (elf_version(EV_CURRENT) == EV_NONE) {
         out.fatal(CALL_INFO,-1, "ELF library initialization failed: %s\n", 
@@ -104,27 +103,37 @@ int MIPS4KC::read_aout_file (const char *file_name)
             out.fatal(CALL_INFO,-1 , "elf_strptr() failed:␣%s.", 
                       elf_errmsg(-1));
         
-        printf("Section %4lu %s Size=%lu Flags= %s %s %s\n", 
+        printf("Section %4lu %s Size=%lu Flags= %s%s%s Addr=%lx\n", 
                elf_ndxscn(scn), name, shdr.sh_size,
                (shdr.sh_flags & SHF_WRITE) ? "Write " : "",
                (shdr.sh_flags & SHF_ALLOC) ? "Alloc " : "",
-               (shdr.sh_flags & SHF_EXECINSTR) ? "Exec " : "");
+               (shdr.sh_flags & SHF_EXECINSTR) ? "Exec " : "",
+               shdr.sh_addr);
+
+                    
+        // if .init section, set the program_starting_address
+        if (strncmp(name,".init",5) == 0) {
+            printf("Detected INIT section %lx\n", shdr.sh_addr);
+            program_starting_address = shdr.sh_addr;
+        }
         
         // load executable sections
         if (shdr.sh_flags & SHF_EXECINSTR) {
-            Elf_Data *data=NULL;
-            size_t n=0;
-            while (n < shdr.sh_size &&
-                   (data = elf_getdata(scn, data)) != NULL) {
-                printf(" Data: align %d, off %d, size %d\n", data->d_align, 
-                       data->d_off, data->d_size);
-                //pointer to instruction
-                uint32_t* wp = (uint32_t*) data->d_buf;
-                // make instruction
-                instruction *add_inst = inst_decode(*wp); 
-                // TODO: figure out how to store_instruction to arbitrary address, store instruction there
-                // TODO: if .init section, set the 
-                // set program_starting_address
+            mem_addr addr = shdr.sh_addr;
+            Elf_Data *data = NULL;
+            while((data = elf_getdata(scn, data)) != NULL) {
+                size_t n=0;
+                printf(" Data: align %lu, off %llu, size %lu\n", 
+                       data->d_align, data->d_off, data->d_size);
+                while (n < shdr.sh_size) {
+                    //pointer to instruction
+                    uint32_t* wp = (uint32_t*) data->d_buf + (n>>2);
+                    // make instruction
+                    instruction *add_inst = inst_decode(*wp); 
+                    store_instruction(add_inst, addr); // store
+                    addr += 4; // advance
+                    n += 4;
+                }
             }
         }
     }
@@ -155,11 +164,10 @@ int MIPS4KC::read_aout_file (const char *file_name)
 
     printf("Reading...\n");
     print_inst(TEXT_BOT);
+    program_starting_address = TEXT_BOT; //header.entry;
 #endif
 
-    text_dir = 0;
-    program_starting_address = TEXT_BOT; //header.entry;
-    // load data
+    // TODO load data
     //data_begins_at_point (header.data_start);
     //program_break = header.bss_start + header.bsize;
     

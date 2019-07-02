@@ -63,10 +63,8 @@ void MIPS4KC::initialize_world (int load_trap_handler)
 	       initial_k_data_size, initial_k_data_limit);
   initialize_registers ();
   //initialize_symbol_table ();
-  k_text_begins_at_point (K_TEXT_BOT);
   k_data_begins_at_point (K_DATA_BOT);
   data_begins_at_point (DATA_BOT);
-  text_begins_at_point (TEXT_BOT);
   if (load_trap_handler)
     {
 #if 0 //AFR

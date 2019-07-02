@@ -162,7 +162,6 @@ protected:
     //void lcomm_directive (char *name, int size);
     void set_data_alignment (int);
     void set_data_pc (mem_addr addr);
-    void set_text_pc (mem_addr addr);
     void store_byte (int value);
     void store_double (double *value);
     void store_float (double *value);
@@ -173,12 +172,6 @@ protected:
     mem_addr next_data_pc;	/* Location for next datum in user process */
     mem_addr next_k_data_pc;	/* Location for next datum in kernel */    
     int in_kernel = 0;	/* Non-zero => data goes to kdata, not data */
-    int data_dir = 0;
-    int text_dir = 0;
-    mem_addr next_text_pc; /* Locations for next instruction in user
-                              and kernel text segments */
-    mem_addr next_k_text_pc; /* Locations for next instruction in user
-                                and kernel text segments */
 
     instruction *break_inst;
     int program_break;	/* Last address in data segment (edata) */
@@ -292,12 +285,10 @@ void print_signal_status (int sig);
     //imm_expr *const_imm_expr (long int value);
     imm_expr *copy_imm_expr (imm_expr *old_expr);
     instruction *copy_inst (instruction *inst);
-    mem_addr current_text_pc (void);
     //long eval_imm_expr (imm_expr *expr);
     void free_inst (instruction *inst);
     //void i_type_inst (int opcode, int rt, int rs, imm_expr *expr);
     //void i_type_inst_free (int opcode, int rt, int rs, imm_expr *expr);
-    void increment_text_pc (int delta);
     //imm_expr *incr_expr_offset (imm_expr *expr, long int value);
     instruction *inst_decode (unsigned long int value);
     void sort_i_opcode_table (void);
@@ -305,8 +296,6 @@ void print_signal_status (int sig);
     long inst_encode (instruction *inst);
     int inst_is_breakpoint (mem_addr addr);
     //void j_type_inst (int opcode, imm_expr *target);
-    void k_text_begins_at_point ();
-    void k_text_begins_at_point (mem_addr addr);
     //imm_expr *lower_bits_of_expr (imm_expr *old_expr);
     //addr_expr *make_addr_expr (long int offs, char *sym, int reg_no);
     //imm_expr *make_imm_expr (int offs, char *sym, int pc_rel);
@@ -315,11 +304,8 @@ void print_signal_status (int sig);
     int opcode_is_load_store (int opcode);
     void print_inst (mem_addr addr);
     int print_inst_internal (char *buf, int len, instruction *inst, mem_addr addr);
-    void r_cond_type_inst (int opcode, int rs, int rt);
-    void r_sh_type_inst (int opcode, int rd, int rt, int shamt);
-    void r_type_inst (int opcode, int rd, int rs, int rt);
     instruction *set_breakpoint (mem_addr addr);
-    void store_instruction (instruction *inst);
+    void store_instruction (instruction *inst, const mem_addr addr);
     void text_begins_at_point (mem_addr addr);
     imm_expr *upper_bits_of_expr (imm_expr *old_expr);
     void user_kernel_text_segment (int to_kernel);

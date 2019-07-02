@@ -47,59 +47,6 @@ using namespace SST::MIPS4KCComponent;
 
 /* Non-zero means store instructions in kernel, not user, text segment */
 
-/* Instruction used as breakpoint by SPIM: */
-
-
-
-
-
-
-#define INST_PC (in_kernel ? next_k_text_pc : next_text_pc)
-#define BUMP_INST_PC(DELTA) {if (in_kernel) \
-			       next_k_text_pc += DELTA; \
-			       else next_text_pc += DELTA;}
-
-
-
-/* Set ADDRESS at which the next instruction is stored. */
-
-void MIPS4KC::text_begins_at_point (mem_addr addr)
-{
-  next_text_pc = addr;
-}
-
-
-void MIPS4KC::k_text_begins_at_point (mem_addr addr)
-{
-  next_k_text_pc = addr;
-}
-
-
-/* Set the location (in user or kernel text space) for the next instruction. */
-
-void MIPS4KC::set_text_pc (mem_addr addr)
-{
-  if (in_kernel)
-    next_k_text_pc = addr;
-  else
-    next_text_pc = addr;
-}
-
-
-/* Return address for next instruction, in appropriate text segment. */
-
-mem_addr MIPS4KC::current_text_pc (void)
-{
-  return (INST_PC);
-}
-
-
-/* Increment the current text segement PC. */
-
-void MIPS4KC::increment_text_pc (int delta)
-{
-  BUMP_INST_PC (delta);
-}
 
 
 /* If FLAG is non-zero, next instruction goes to kernel text segment,
@@ -113,29 +60,17 @@ void MIPS4KC::user_kernel_text_segment (int to_kernel)
 
 /* Store an INSTRUCTION in memory at the next location. */
 
-void MIPS4KC::store_instruction (instruction *inst)
-{
-  if (data_dir)
-    {
-      store_word (inst_encode (inst));
-      free_inst (inst);
-    }
-  else if (text_dir)
-    {
-      exception_occurred = 0;
-      SET_MEM_INST (INST_PC, inst);
-      printf("storing %lx to %lx\n", inst->encoding, INST_PC);
-      if (exception_occurred)
-	error ("Invalid address (0x%08x) for instruction\n", INST_PC);
-      else
-	BUMP_INST_PC (BYTES_PER_WORD);
-      if (inst != NULL)
-	{
-            //SOURCE (inst) = source_line ();
-	  if (ENCODING (inst) == 0)
-	    ENCODING (inst) = inst_encode (inst);
-	}
-    }
+void MIPS4KC::store_instruction (instruction *inst, const mem_addr addr) {
+  exception_occurred = 0;
+  SET_MEM_INST (addr, inst);
+  printf("storing %lx to %lx\n", inst->encoding, addr);
+  if (exception_occurred)
+      error ("Invalid address (0x%08x) for instruction\n", addr);
+
+  if (inst != NULL) {
+    if (ENCODING (inst) == 0)
+      ENCODING (inst) = inst_encode (inst);
+  }
 }
 
 
@@ -156,27 +91,9 @@ instruction * MIPS4KC::make_r_type_inst (int opcode, int rd, int rs, int rt)
 }
 
 
-/* Return a register-type instruction with the given OPCODE, RD, RS, and RT
-   fields. */
-
-void MIPS4KC::r_type_inst (int opcode, int rd, int rs, int rt)
-{
-  store_instruction (make_r_type_inst (opcode, rd, rs, rt));
-}
 
 
-/* Return a register-shift instruction with the given OPCODE, RD, RT, and
-   SHAMT fields.*/
-
-void MIPS4KC::r_sh_type_inst (int opcode, int rd, int rt, int shamt)
-{
-  instruction *inst = make_r_type_inst (opcode, rd, 0, rt);
-
-  SHAMT(inst) = shamt & 0x1f;
-  store_instruction (inst);
-}
-
-
+#if 0
 /* Return a floating-point compare instruction with the given OPCODE,
    FS, and FT fields.*/
 
@@ -286,6 +203,7 @@ void MIPS4KC::r_cond_type_inst (int opcode, int rs, int rt)
     }
   store_instruction (inst);
 }
+#endif
 
 imm_expr *MIPS4KC::copy_imm_expr (imm_expr *old_expr)
 {
