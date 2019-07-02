@@ -63,8 +63,8 @@ void MIPS4KC::initialize_world (int load_trap_handler)
 	       initial_k_data_size, initial_k_data_limit);
   initialize_registers ();
   //initialize_symbol_table ();
-  k_data_begins_at_point (K_DATA_BOT);
-  data_begins_at_point (DATA_BOT);
+  //k_data_begins_at_point (K_DATA_BOT);
+  //data_begins_at_point (DATA_BOT);
   if (load_trap_handler)
     {
 #if 0 //AFR
@@ -123,48 +123,6 @@ void MIPS4KC::initialize_registers (void)
   Status_Reg = (0x3 << 28) | (0x3);
 }
 
-
-/* Read file NAME, which should contain assembly code. Return zero if
-   successful and non-zero otherwise. */
-
-int MIPS4KC::read_assembly_file (char *name)
-{
-  fatal_error("no read assembly\n");
-#if 0
-  FILE *file = fopen (name, "r");;
-
-  source_file = 1;
-  if (file == NULL)
-    {
-      error ("Cannot open file: `%s'\n", name);
-      return (1);
-    }
-  else
-    {
-#ifdef mips
-#include <sys/exec.h>
-      unsigned short magic;
-
-      fread (&magic, sizeof (short), 1, file);
-      fclose (file);
-      if (magic == MIPSEBMAGIC || magic == MIPSELMAGIC)
-	{
-	  error ("Source file appears to be executable: %s\n", name);
-	  return (1);
-	}
-      fopen (name, "r");
-#endif
-      initialize_scanner (file);
-      initialize_parser (name);
-      while (!yyparse ()) ;
-      fclose (file);
-      flush_local_labels ();
-      end_of_assembly_file ();
-      return (0);
-    }
-#endif
-return 0;
-}
 
 #if 0
 mem_addr MIPS4KC::starting_address (void)

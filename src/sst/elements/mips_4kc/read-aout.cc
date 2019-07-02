@@ -136,6 +136,7 @@ int MIPS4KC::read_aout_file (const char *file_name)
                 }
             }
         }
+        // SET R[REG_GP] = ;
     }
 
     elf_end(e);

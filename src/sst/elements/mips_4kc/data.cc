@@ -36,16 +36,9 @@ using namespace SST::MIPS4KCComponent;
    middle of the segment, so we can use the full offset field in an
    instruction. */
 
-#define DATA_PC (in_kernel ? next_k_data_pc : next_data_pc)
+//static int next_gp_offset;	/* Offset off $gp of next data item */
 
-#define BUMP_DATA_PC(DELTA) {if (in_kernel) \
-				next_k_data_pc += DELTA; \
-				else {next_data_pc += DELTA; \
-				      program_break = next_data_pc;}}
-
-static int next_gp_offset;	/* Offset off $gp of next data item */
-
-static int auto_alignment = 1;	/* Non-zero => align literal to natural bound*/
+//static int auto_alignment = 1;	/* Non-zero => align literal to natural bound*/
 
 
 
@@ -59,13 +52,9 @@ void MIPS4KC::user_kernel_data_segment (int to_kernel)
 }
 
 
-void MIPS4KC::end_of_assembly_file (void)
-{
-  in_kernel = 0;
-  auto_alignment = 1;
-}
 
 
+#if 0
 /* Set the point at which the first datum is stored to be ADDRESS +
    64K.	 The 64K increment allocates an area pointed to by register
    $gp, which is initialized. */
@@ -76,8 +65,8 @@ void MIPS4KC::data_begins_at_point (mem_addr addr)
     next_data_pc = addr;
   else
     {
-      next_gp_offset = addr;
-      gp_midpoint = addr + 32*K;
+        //next_gp_offset = addr;
+        //gp_midpoint = addr + 32*K;
       R[REG_GP] = gp_midpoint;
       next_data_pc = addr + 64 * K;
     }
@@ -91,8 +80,10 @@ void MIPS4KC::k_data_begins_at_point (mem_addr addr)
 {
     next_k_data_pc = addr;
 }
+#endif
 
 
+#if 0
 /* Arrange that the next datum is stored on a memory boundary with its
    low ALIGNMENT bits equal to 0.  If argument is 0, disable automatic
    alignment.*/
@@ -116,7 +107,6 @@ void MIPS4KC::align_data (int alignment)
     }
 }
 
-
 void MIPS4KC::set_data_alignment (int alignment)
 {
   if (auto_alignment)
@@ -128,34 +118,8 @@ void MIPS4KC::enable_data_alignment (void)
 {
   auto_alignment = 1;
 }
+#endif
 
-
-/* Set the location (in user or kernel data space) for the next datum. */
-
-void MIPS4KC::set_data_pc (mem_addr addr)
-{
-  if (in_kernel)
-    next_k_data_pc = addr;
-  else
-    next_data_pc = addr;
-}
-
-
-/* Return the address at which the next datum will be stored.  */
-
-mem_addr MIPS4KC::current_data_pc (void)
-{
-  return (DATA_PC);
-}
-
-
-/* Bump the address at which the next data will be stored by VALUE
-   bytes. */
-
-void MIPS4KC::increment_data_pc (int value)
-{
-  BUMP_DATA_PC (value);
-}
 
 
 /* Process a .extern NAME SIZE directive. */
@@ -203,6 +167,7 @@ lcomm_directive (name, size)
 #endif
 
 
+#if 0
 /* Process a .ascii STRING or .asciiz STRING directive. */
 
 void MIPS4KC::store_string (char *string, int length, int null_terminate)
@@ -217,95 +182,90 @@ void MIPS4KC::store_string (char *string, int length, int null_terminate)
       BUMP_DATA_PC(1);
     }
 }
+#endif
 
 
 /* Process a .byte EXPR directive. */
 
-void MIPS4KC::store_byte (int value)
+void MIPS4KC::store_byte (int value, const mem_addr addr)
 {
-  SET_MEM_BYTE (DATA_PC, value);
-  BUMP_DATA_PC (1);
+  SET_MEM_BYTE (addr, value);
 }
 
 
 /* Process a .half EXPR directive. */
 
-void MIPS4KC::store_half (int value)
+void MIPS4KC::store_half (int value, const mem_addr addr)
 {
-  if (DATA_PC & 0x1)
+  if (addr & 0x1)
     {
 #ifdef BIGENDIAN
-      store_byte ((value >> 8) & 0xff);
-      store_byte (value & 0xff);
+        store_byte ((value >> 8) & 0xff, addr);
+        store_byte (value & 0xff, addr + 1);
 #else
-      store_byte (value & 0xff);
-      store_byte ((value >> 8) & 0xff);
+        store_byte (value & 0xff, addr);
+        store_byte ((value >> 8) & 0xff, addr + 1);
 #endif
     }
   else
     {
-      SET_MEM_HALF (DATA_PC, value);
-      BUMP_DATA_PC (BYTES_PER_WORD / 2);
+      SET_MEM_HALF (addr, value);
     }
 }
 
 
 /* Process a .word EXPR directive. */
 
-void MIPS4KC::store_word (int value)
+void MIPS4KC::store_word (int value, const mem_addr addr)
 {
-  if (DATA_PC & 0x3)
+  if (addr & 0x3)
     {
 #ifdef BIGENDIAN
-      store_half ((value >> 16) & 0xffff);
-      store_half (value & 0xffff);
+        store_half ((value >> 16) & 0xffff, addr);
+        store_half (value & 0xffff, addr + 2);
 #else
-      store_half (value & 0xffff);
-      store_half ((value >> 16) & 0xffff);
+        store_half (value & 0xffff, addr);
+        store_half ((value >> 16) & 0xffff, addr + 2);
 #endif
     }
   else
     {
-      SET_MEM_WORD (DATA_PC, value);
-      BUMP_DATA_PC (BYTES_PER_WORD);
+      SET_MEM_WORD (addr, value);
     }
 }
 
 
 /* Process a .double EXPR directive. */
 
-void MIPS4KC::store_double (double *value)
+void MIPS4KC::store_double (double *value, const mem_addr addr)
 {
-  if (DATA_PC & 0x7)
+  if (addr & 0x7)
     {
-      store_word (* ((long *) value));
-      store_word (* (((long *) value) + 1));
+        store_word (* ((long *) value), addr);
+        store_word (* (((long *) value) + 1), addr+4);
     }
   else
     {
-      SET_MEM_WORD (DATA_PC, * ((long *) value));
-      BUMP_DATA_PC (BYTES_PER_WORD);
-      SET_MEM_WORD (DATA_PC, * (((long *) value) + 1));
-      BUMP_DATA_PC (BYTES_PER_WORD);
+        SET_MEM_WORD (addr, * ((long *) value));
+        SET_MEM_WORD (addr+4, * (((long *) value) + 1));
     }
 }
 
 
 /* Process a .float EXPR directive. */
 
-void MIPS4KC::store_float (double *value)
+void MIPS4KC::store_float (double *value, const mem_addr addr)
 {
   float val = *value;
   float *vp = &val;
 
-  if (DATA_PC & 0x3)
+  if (addr & 0x3)
     {
-      store_half (*(long *) vp & 0xffff);
-      store_half ((*(long *) vp >> 16) & 0xffff);
+        store_half (*(long *) vp & 0xffff, addr);
+        store_half ((*(long *) vp >> 16) & 0xffff, addr+2);
     }
   else
     {
-      SET_MEM_WORD (DATA_PC, *((long *) vp));
-      BUMP_DATA_PC (BYTES_PER_WORD);
+        SET_MEM_WORD (addr, *((long *) vp));
     }
 }

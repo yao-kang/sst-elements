@@ -137,7 +137,7 @@ protected:
     //void list_breakpoints (void);
     inst_info *map_int_to_inst_info (vector<inst_info> &tbl, int num);
     inst_info *map_string_to_inst_info (inst_info tbl[], int tbl_len, char *id);
-    int read_assembly_file (char *name);
+    //int read_assembly_file (char *name);
     int run_program (mem_addr pc, int steps, int display, int cont_bkpt);
     //mem_addr starting_address (void);
     char *str_copy (char *str);
@@ -151,26 +151,18 @@ protected:
     void delete_all_breakpoints (void);
 
     /* Data functions */
-    void align_data (int alignment);
-    mem_addr current_data_pc (void);
-    void data_begins_at_point (mem_addr addr);
-    void enable_data_alignment (void);
-    void end_of_assembly_file (void);
+    //void enable_data_alignment (void);
+    //void end_of_assembly_file (void);
     //void extern_directive (char *name, int size);
-    void increment_data_pc (int value);
-    void k_data_begins_at_point (mem_addr addr);
     //void lcomm_directive (char *name, int size);
-    void set_data_alignment (int);
-    void set_data_pc (mem_addr addr);
-    void store_byte (int value);
-    void store_double (double *value);
-    void store_float (double *value);
-    void store_half (int value);
-    void store_string (char *string, int length, int null_terminate);
-    void store_word (int value);
+    //void set_data_alignment (int);
+    void store_byte (int valu, const mem_addr addre);
+    void store_double (double *value, const mem_addr addr);
+    void store_float (double *value, const mem_addr addr);
+    void store_half (int value, const mem_addr addr);
+    //void store_string (char *string, int length, int null_terminate);
+    void store_word (int value, const mem_addr addr);
     void user_kernel_data_segment (int to_kernel); 
-    mem_addr next_data_pc;	/* Location for next datum in user process */
-    mem_addr next_k_data_pc;	/* Location for next datum in kernel */    
     int in_kernel = 0;	/* Non-zero => data goes to kdata, not data */
 
     instruction *break_inst;
@@ -242,7 +234,7 @@ void print_signal_status (int sig);
     short *data_seg_h;	/* Points to same vector as DATA_SEG */
     BYTE_TYPE *data_seg_b;	/* Ditto */
     mem_addr data_top;
-    mem_addr gp_midpoint=0;	/* Middle of $gp area */
+    //mem_addr gp_midpoint=0;	/* Middle of $gp area */
     /* The stack segment and boundaries. */
     mem_word *stack_seg=0;
     short *stack_seg_h=0;	/* Points to same vector as STACK_SEG */
