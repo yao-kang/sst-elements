@@ -234,6 +234,7 @@ void print_signal_status (int sig);
     short *data_seg_h;	/* Points to same vector as DATA_SEG */
     BYTE_TYPE *data_seg_b;	/* Ditto */
     mem_addr data_top;
+    mem_addr DATA_BOT;
     //mem_addr gp_midpoint=0;	/* Middle of $gp area */
     /* The stack segment and boundaries. */
     mem_word *stack_seg=0;

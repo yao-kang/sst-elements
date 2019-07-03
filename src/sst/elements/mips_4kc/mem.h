@@ -28,7 +28,8 @@
 
 /* Type of contents of a memory word. */
 
-typedef long mem_word;
+//typedef long mem_word;
+typedef int32_t mem_word;
 
 
 
@@ -59,7 +60,7 @@ typedef long mem_word;
 #endif
 
 
-#define DATA_BOT ((mem_addr) 0x10000000)
+//#define DATA_BOT ((mem_addr) 0x10000000)
 
 
 
@@ -111,22 +112,6 @@ typedef long mem_word;
 /* You would think that a compiler could perform CSE on the arguments to
    these macros.  However, complex expressions break some compilers, so
    do the CSE ourselves. */
-
-/* Translate from SPIM memory address to physical address */
-
-#define MEM_ADDRESS(ADDR)						   \
-(((mem_addr) (ADDR) >= TEXT_BOT && (mem_addr) (ADDR) < text_top)	   \
- ? (mem_addr) (ADDR) - TEXT_BOT + (mem_addr) text_seg			   \
- : (((mem_addr) (ADDR) >= DATA_BOT && (mem_addr) (ADDR) < data_top)	   \
-    ? (mem_addr) (ADDR) - DATA_BOT + (mem_addr) data_seg		   \
-    : (((mem_addr) (ADDR) >= stack_bot && (mem_addr) (ADDR) < STACK_TOP)   \
-       ? (mem_addr) (ADDR) - stack_bot + (mem_addr) stack_seg		   \
-       : ((mem_addr) (ADDR) >= K_TEXT_BOT && (mem_addr) (ADDR) < k_text_top)\
-       ? (mem_addr) (ADDR) - K_TEXT_BOT + (mem_addr) k_text_seg		   \
-       : (((mem_addr) (ADDR) >= K_DATA_BOT && (mem_addr) (ADDR) < k_data_top)\
-	  ? (mem_addr) (ADDR) - K_DATA_BOT + (mem_addr) k_data_seg	   \
-	  : run_error ("Memory address out of bounds\n")))))
-
 
 #define READ_MEM_INST(LOC, ADDR)					   \
 {mem_addr _addr_ = (mem_addr) (ADDR);				   \

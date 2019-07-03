@@ -77,7 +77,7 @@ typedef struct excpt_desc
   int sig;		/* if mappable to signal, what is signal ? */
   int freq;		/* how many times has it occurred */
     excpt_desc(const char*e, int s, int f) : excptname(e), sig(s), freq(f) {
-        printf("init %s %s %p\n", e, excptname.c_str(), this);
+        //printf("init %s %s %p\n", e, excptname.c_str(), this);
     }
 } excpt_desc;
 

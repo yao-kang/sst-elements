@@ -99,12 +99,6 @@ static syscall_desc syscall_table[] =
 
 static int syscall_usage[MAX_SYSCALL]; /* Track system calls */
 
-#define SYSCALL_ARG(REGOFF, ARG, REG)					\
-  ((syscall_table[R[REGOFF]].ARG == ADDR_ARG) ?				\
-     (R[REG] == 0 ? 0 : MEM_ADDRESS(R[REG])) :				\
-   (syscall_table[R[REGOFF]].ARG == STR_ARG) ? MEM_ADDRESS(R[REG])  :	\
-   (((syscall_table[R[REGOFF]].ARG == FD_ARG)				\
-     && (R[REG] < OPEN_MAX) && (R[REG] >= 0)))  ? prog_fds[R[REG]] : R[REG])
 
 #define SYSCALL_COUNT(SYSCALL)						\
   if (SYSCALL < MAX_SYSCALL && SYSCALL >= 0) syscall_usage[SYSCALL]++;
@@ -141,7 +135,7 @@ int MIPS4KC::do_syscall (void)
 	  break;
 
 	case PRINT_STRING_SYSCALL:
-	  write_output (console_out, "%s", MEM_ADDRESS (R[REG_A0]));
+            //write_output (console_out, "%s", MEM_ADDRESS_PTR(R[REG_A0]));
 	  break;
 
 	case READ_INT_SYSCALL:
@@ -555,13 +549,15 @@ int MIPS4KC::do_syscall (void)
 
 int MIPS4KC::unixsyscall (void)
 {
-  int arg0, arg1, arg2, arg3;
+  fatal_error("syscall not implemented\n");
+#if 0
+  int *arg0, *arg1, *arg2, *arg3;
 
   arg0 = SYSCALL_ARG (REG_V0,arg0, REG_A0);
   arg1 = SYSCALL_ARG (REG_V0,arg1, REG_A1);
   arg2 = SYSCALL_ARG (REG_V0,arg2, REG_A2);
   arg3 = SYSCALL_ARG (REG_V0,arg3, REG_A3);
-  fatal_error("syscall not imply\n");
+#endif
   //R[REG_RES] = syscall (R[REG_V0], arg0, arg1, arg2, arg3);
 
   /* See if an error has occurred during the system call. If so, the

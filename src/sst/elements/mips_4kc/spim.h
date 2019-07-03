@@ -81,7 +81,8 @@ char *strncpy ();
 
 /* Type of a memory address. */
 
-typedef unsigned long mem_addr;
+//typedef unsigned long mem_addr;
+typedef uint32_t mem_addr;
 
 
 #define BYTES_PER_WORD 4	/* On the MIPS processor */

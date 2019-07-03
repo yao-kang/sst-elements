@@ -424,7 +424,7 @@ int MIPS4KC::cycle_spim (int *steps, int display)
     else if (ps_ptr != NULL && (STAGE(ps_ptr) == IF))  {
       CL_READ_MEM_INST(mem_system, ps_ptr->inst, STAGE_PC(ps_ptr),
 		       PADDR(ps_ptr), cmiss, EXCPT(ps_ptr), RNUM(ps_ptr));
-      printf("IF fetch %lx\n", STAGE_PC(ps_ptr));
+      printf("IF fetch %x\n", STAGE_PC(ps_ptr));
 #if 0
       /* reinsert a breakpoint (occurs only after break excpt was caught) */
       if (STAGE_PC(ps_ptr) == breakpoint_reinsert) {
@@ -558,10 +558,10 @@ int MIPS4KC::process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy)
       Operand2 (ps) = read_R_reg(RT (inst));
       break;
 
-
     case Y_ADDI_OP:
       Operand1 (ps) = read_R_reg(RS (inst));
       Operand2 (ps) = IMM (inst);
+      break;
 
     case Y_ADDIU_OP:
       Operand1 (ps) = read_R_reg(RS (inst));
@@ -668,9 +668,11 @@ int MIPS4KC::process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy)
       break;
 
     case Y_BNE_OP:
-      if ((!DSLOT(ps)) &&
-	  (read_R_reg(RS (inst)) != read_R_reg(RT (inst))))
-	tmp_PC = PC + (SIGN_EX (IOFFSET (inst)) << 2);
+        {
+            if ((!DSLOT(ps)) &&
+                (read_R_reg(RS (inst)) != read_R_reg(RT (inst))))
+                tmp_PC = PC + (SIGN_EX (IOFFSET (inst)) << 2);
+        }
       break;
 
     case Y_BREAK_OP:
@@ -724,6 +726,7 @@ int MIPS4KC::process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy)
 
     case Y_JALR_OP:
     case Y_JR_OP:
+        printf("JR %x\n", read_R_reg(RS (inst)));
       if (!DSLOT (ps))
 	tmp_PC = read_R_reg(RS (inst));
       break;
@@ -1715,6 +1718,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 
     case Y_LW_OP:
       CL_READ_MEM_WORD(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      printf("LW %x from %x\n", VALUE(ps), ADDR(ps));
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
       break;
@@ -1879,8 +1883,10 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
       break;
 
     case Y_SW_OP:
+        printf("SW %x %x %x v:%x\n", ADDR(ps), PADDR(ps), EXCPT(ps), VALUE(ps));
       CL_SET_MEM_WORD(mem_sys, ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
 		      RNUM (ps));
+      printf("SW %x %x %x cm:%x\n", ADDR(ps), PADDR(ps), EXCPT(ps), cmiss);
       break;
 
     case Y_SWC1_OP:

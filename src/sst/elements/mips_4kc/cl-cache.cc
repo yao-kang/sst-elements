@@ -522,17 +522,17 @@ void MIPS4KC::print_mem_sys_status (int finished, MEM_SYSTEM mem_system)
 	 (bus->direction == CPU_TO_MEM) ? "CPU_TO_MEM" : "MEM_TO_CPU",
 	 bus->request);
 
-  printf("DCRB -- addr = %lx, status = %s, module = %lu, req_num = %d\n",
+  printf("DCRB -- addr = %x, status = %s, module = %u, req_num = %d\n",
 	 rb->addr, status_str(rb->status), mem_module(rb->addr),
 	 rb->req_num);
-  printf("ICRB -- addr = %lx, status = %s, module = %lu, req_num = %d\n",
+  printf("ICRB -- addr = %x, status = %s, module = %u, req_num = %d\n",
 	 ib->addr, status_str(ib->status), mem_module(ib->addr),
 	 ib->req_num);
 
   for (i = 0; i <= WB_DEPTH; i++) {
     if (wb[i].status == CLEAR)
       break;
-    printf("DCWB[%d] -- addr = %lx, status = %s, module = %lu \n",
+    printf("DCWB[%d] -- addr = %x, status = %s, module = %u \n",
 	   i,
 	   wb[i].addr,
 	   status_str(wb[i].status),

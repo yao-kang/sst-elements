@@ -25,7 +25,8 @@
 #ifndef _REG_H
 #define _REG_H
 
-typedef long reg_word;
+//typedef long reg_word;
+typedef int32_t reg_word;
 
 
 

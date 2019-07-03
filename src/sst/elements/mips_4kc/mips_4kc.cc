@@ -29,7 +29,7 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     break_inst(NULL), program_break(0), 
     breakpoint_reinsert(0), text_seg(0), text_modified(0), text_top(0),
     data_seg(0), data_modified(0), data_seg_h(0), data_seg_b(0), 
-    data_top(0), cycle_level(0), cycle_running(0)
+    data_top(0), DATA_BOT(0), cycle_level(0), cycle_running(0)
 {
     uint32_t outputLevel = params.find<uint32_t>("verbose", 0);
     out.init("MIPS4KC:@p:@l: ", outputLevel, 0, Output::STDOUT);

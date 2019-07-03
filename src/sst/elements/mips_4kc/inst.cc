@@ -63,7 +63,7 @@ void MIPS4KC::user_kernel_text_segment (int to_kernel)
 void MIPS4KC::store_instruction (instruction *inst, const mem_addr addr) {
   exception_occurred = 0;
   SET_MEM_INST (addr, inst);
-  printf("storing %lx to %lx\n", inst->encoding, addr);
+  printf("storing %lx to %x\n", inst->encoding, addr);
   if (exception_occurred)
       error ("Invalid address (0x%08x) for instruction\n", addr);
 
@@ -285,7 +285,7 @@ void MIPS4KC::print_inst (mem_addr addr)
   if (exception_occurred)
     {
       error ("Can't print instruction not in text segment (0x%08x)\n", addr);
-      printf("%lx %lx\n", TEXT_BOT, text_top);
+      printf("%x %x\n", TEXT_BOT, text_top);
       return;
     }
   print_inst_internal (buf, 128, inst, addr);
@@ -301,7 +301,7 @@ int MIPS4KC::print_inst_internal (char *buf, int length, instruction *inst, mem_
   if (!sorted_name_table)
     sort_name_table ();
 
-  sprintf (buf, "[0x%08lx]\t", addr);
+  sprintf (buf, "[0x%08x]\t", addr);
   buf += strlen (buf);
   if (inst == NULL)
     {

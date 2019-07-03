@@ -28,8 +28,21 @@
 using namespace SST;
 using namespace SST::MIPS4KCComponent;
 
+#if 0
+/* Translate from SPIM memory address to physical address */
+/* returns a pointer to the region of host memory */
+mem_word* MIPS4KC::MEM_ADDRESS_PTR(mem_addr ADDR) {   
+    mem_addr _addr_ = (mem_addr) (ADDR);
 
-
+    if (_addr_ >= DATA_BOT && _addr_ < data_top) {
+        return &data_seg[_addr_ - DATA_BOT];
+    } else if (_addr_ >= stack_bot && _addr_ < STACK_TOP) {
+        return &stack_seg[_addr_ - stack_bot];
+    } else {      
+        run_error ("Memory address out of bounds or kernel or instruction range\n");
+    }
+}
+#endif
 
 
 /* Memory is allocated in five chunks:
@@ -74,7 +87,7 @@ void MIPS4KC::make_memory (long int text_size, long int data_size, long int data
   if (data_seg == NULL)
     data_seg =
       (mem_word *) xmalloc (sizeof (mem_word) * data_size / BYTES_PER_WORD);
-  memclr (data_seg, sizeof (instruction *) * data_size / BYTES_PER_WORD);
+  memclr (data_seg, sizeof (mem_word) * data_size / BYTES_PER_WORD);
   data_seg_b = (BYTE_TYPE *) data_seg;
   data_seg_h = (short *) data_seg;
   data_top = DATA_BOT + data_size;
@@ -83,7 +96,7 @@ void MIPS4KC::make_memory (long int text_size, long int data_size, long int data
   if (stack_seg == NULL)
     stack_seg =
       (mem_word *) xmalloc (sizeof (mem_word) * stack_size / BYTES_PER_WORD);
-  memclr (stack_seg, sizeof (instruction *) * stack_size / BYTES_PER_WORD);
+  memclr (stack_seg, sizeof (mem_word) * stack_size / BYTES_PER_WORD);
   stack_seg_b = (BYTE_TYPE *) stack_seg;
   stack_seg_h = (short *) stack_seg;
   stack_bot = STACK_TOP - stack_size;
@@ -100,7 +113,7 @@ void MIPS4KC::make_memory (long int text_size, long int data_size, long int data
   if (k_data_seg == NULL)
     k_data_seg =
       (mem_word *) xmalloc (sizeof (mem_word) * k_data_size / BYTES_PER_WORD);
-  memclr (k_data_seg, sizeof (instruction *) * k_data_size / BYTES_PER_WORD);
+  memclr (k_data_seg, sizeof (mem_word) * k_data_size / BYTES_PER_WORD);
   k_data_seg_b = (BYTE_TYPE *) k_data_seg;
   k_data_seg_h = (short *) k_data_seg;
   k_data_top = K_DATA_BOT + k_data_size;
@@ -115,6 +128,8 @@ void MIPS4KC::make_memory (long int text_size, long int data_size, long int data
 
 void MIPS4KC::free_instructions (register instruction **inst, int n)
 {
+    printf("FREEING Instructions\n");
+
   for ( ; n > 0; n --, inst ++)
     if (*inst)
       free_inst (*inst);

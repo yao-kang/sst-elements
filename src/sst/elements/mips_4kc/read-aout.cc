@@ -94,6 +94,8 @@ int MIPS4KC::read_aout_file (const char *file_name)
 
     Elf_Scn *scn=NULL;
     GElf_Shdr shdr;
+    mem_addr lowData = 0xffffffff;
+    bool lowDataSet = 0;
     while ((scn = elf_nextscn(e, scn)) != NULL) {
         if (gelf_getshdr(scn, &shdr) != &shdr) 
             out.fatal(CALL_INFO,-1 , "getshdr() failed:␣%s.", elf_errmsg(-1));
@@ -111,8 +113,9 @@ int MIPS4KC::read_aout_file (const char *file_name)
                shdr.sh_addr);
 
                     
-        // if .init section, set the program_starting_address
-        if (strncmp(name,".init",5) == 0) {
+        // if .text section, set the program_starting_address
+        // NOTE: this assumes built with -nostartfiles
+        if (strncmp(name,".text",5) == 0) {
             printf("Detected INIT section %lx\n", shdr.sh_addr);
             program_starting_address = shdr.sh_addr;
         }
@@ -123,7 +126,7 @@ int MIPS4KC::read_aout_file (const char *file_name)
             Elf_Data *data = NULL;
             while((data = elf_getdata(scn, data)) != NULL) {
                 size_t n=0;
-                printf(" Data: align %lu, off %llu, size %lu\n", 
+                printf(" Text Data: align %lu, off %llu, size %lu\n", 
                        data->d_align, data->d_off, data->d_size);
                 while (n < shdr.sh_size) {
                     //pointer to instruction
@@ -135,8 +138,53 @@ int MIPS4KC::read_aout_file (const char *file_name)
                     n += 4;
                 }
             }
+        } else if (shdr.sh_flags & SHF_ALLOC) {
+            if ((strncmp(name,".MIPS.abiflags",14) == 0) ||
+                (strncmp(name,".eh_frame",9) == 0)) {
+                continue; // ignore these sections
+            }
+
+            // if this is the first data section
+            mem_addr addr = shdr.sh_addr;
+            if (addr < lowData) {
+                if (lowDataSet) {
+                    // we probable make some unsafe assumptions about
+                    // the layout of the executable
+                    out.fatal(CALL_INFO,-1 , 
+                              "start of data segment already set\n"); 
+                }
+                printf("setting start of data section to %x\n", addr);
+                R[REG_GP] = addr; // set $gp NOT SURE IF THIS IS RIGHT?x
+                DATA_BOT = addr; // set bottom of the text 
+                data_top = DATA_BOT + initial_data_size;
+                lowData = addr;
+                lowDataSet = 1;
+            }
+
+            // load data
+            Elf_Data *data = NULL;
+            uint8_t zero = 0;
+            while((data = elf_getdata(scn, data)) != NULL) {
+                size_t n=0;
+                printf(" Data Data: align %lu, off %llu, size %lu\n", 
+                       data->d_align, data->d_off, data->d_size);
+                while (n < shdr.sh_size) {
+                    //pointer to data
+                    uint8_t* wp;
+                    if (data->d_buf) {
+                        // load from the file
+                        wp = (uint8_t*) data->d_buf + n;
+                    } else {
+                        // load zeros (e.g. the .bss segment)
+                        wp = &zero;
+                    }
+                    store_byte(*wp, addr); // store
+                    printf("store data %x to %x\n", *wp, addr);
+                    addr += 1; // advance
+                    n += 1;
+                }
+            }
         }
-        // SET R[REG_GP] = ;
     }
 
     elf_end(e);

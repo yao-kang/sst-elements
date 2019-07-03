@@ -62,25 +62,7 @@ void MIPS4KC::initialize_world (int load_trap_handler)
 	       initial_k_text_size,
 	       initial_k_data_size, initial_k_data_limit);
   initialize_registers ();
-  //initialize_symbol_table ();
-  //k_data_begins_at_point (K_DATA_BOT);
-  //data_begins_at_point (DATA_BOT);
-  if (load_trap_handler)
-    {
-#if 0 //AFR
-      int old_bare = 0; //bare_machine;
-
-      //bare_machine = 0;		/* Trap handler uses extended machine */
-      if (read_assembly_file (DEFAULT_TRAP_HANDLER))
-	fatal_error ("Cannot read trap handler: %s\n", DEFAULT_TRAP_HANDLER);
-//bare_machine = old_bare;
-      write_output (message_out, "Loaded: %s\n", DEFAULT_TRAP_HANDLER);
-#endif
-    }
-#if 0
-  initialize_scanner (stdin);
-  delete_all_breakpoints ();
-#endif
+  initialize_sighandlers();
 
   /* cycle level stuff */
   mem_system = mem_sys_init ();
@@ -174,7 +156,7 @@ void MIPS4KC::initialize_run_stack (int argc, char **argv)
   R[REG_A0] = argc;
   R[29] = R[29] & ~7;		/* Round down to nearest double-word */
   R[29] = copy_int_to_stack (argc); /* Leave pointing to argc */
-
+  printf("stack starting at %x\n", R[29]);
 }
 
 
