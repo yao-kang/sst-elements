@@ -36,7 +36,10 @@ libariel_la_SOURCES = \
 	ariel_shmem.h \
 	arieltracegen.h \
 	arieltexttracegen.h \
-	arieltexttracegen.cc
+	arieltexttracegen.cc \
+	arielappinterface.h \
+	pin2.h \
+	pin2.cc
 
 EXTRA_DIST = \
 	frontend/simple/fesimple.cc \

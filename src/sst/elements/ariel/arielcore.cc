@@ -26,18 +26,12 @@ using namespace SST::ArielComponent;
 #define ARIEL_CORE_VERBOSE(LEVEL, OUTPUT) if(verbosity >= (LEVEL)) OUTPUT
 
 
-ArielCore::ArielCore(ComponentId_t id, ArielTunnel *tunnel,
-#ifdef HAVE_CUDA
-            GpuReturnTunnel *tunnelR, GpuDataTunnel *tunnelD,
-#endif
+ArielCore::ArielCore(ComponentId_t id, ArielAppInterface *tunnel,
             uint32_t thisCoreID, uint32_t maxPendTrans,
             Output* out, uint32_t maxIssuePerCyc,
             uint32_t maxQLen, uint64_t cacheLineSz,
             ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params) :
             ComponentExtension(id), output(out), tunnel(tunnel), 
-#ifdef HAVE_CUDA
-            tunnelR(tunnelR), tunnelD(tunnelD),
-#endif
             perform_checks(perform_address_checks),
             verbosity(static_cast<uint32_t>(out->getVerboseLevel())) {
 
@@ -60,6 +54,8 @@ ArielCore::ArielCore(ComponentId_t id, ArielTunnel *tunnel,
     pending_transaction_count = 0;
 
 #ifdef HAVE_CUDA
+    tunnelR = tunnel->getGpuReturnTunnel();
+    tunnelD = tunnel->getGpuDataTunnel();
     midTransfer = false;
     remainingTransfer = 0;
     remainingPageTransfer = 0;
@@ -74,7 +70,7 @@ ArielCore::ArielCore(ComponentId_t id, ArielTunnel *tunnel,
 
     char* subID = (char*) malloc(sizeof(char) * 32);
     sprintf(subID, "%" PRIu32, thisCoreID);
-
+   
     statReadRequests  = registerStatistic<uint64_t>( "read_requests", subID );
     statWriteRequests = registerStatistic<uint64_t>( "write_requests", subID );
     statReadRequestSizes = registerStatistic<uint64_t>( "read_request_sizes", subID );
@@ -760,7 +756,7 @@ bool ArielCore::refillQueue() {
                             coreID, (uint32_t) coreQ->size(), (uint32_t) maxQLength));
 
         ArielCommand ac;
-        const bool avail = tunnel->readMessageNB(coreID, &ac);
+        const bool avail = tunnel->getCommandNB(coreID, &ac);
 
         if ( !avail ) {
                 ARIEL_CORE_VERBOSE(32, output->verbose(CALL_INFO, 32, 0, "Tunnel claims no data on core: %" PRIu32 "\n", coreID));
@@ -802,7 +798,7 @@ bool ArielCore::refillQueue() {
                 }
 
                 while(ac.command != ARIEL_END_INSTRUCTION) {
-                        ac = tunnel->readMessage(coreID);
+                        ac =tunnel->getCommand(coreID);
 
                         switch(ac.command) {
                             case ARIEL_PERFORM_READ:

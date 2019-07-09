@@ -31,6 +31,7 @@
 #include "arielmemmgr.h"
 #include "arielcore.h"
 #include "ariel_shmem.h"
+#include "arielappinterface.h"
 
 namespace SST {
 namespace ArielComponent {
@@ -102,8 +103,9 @@ class ArielCPU : public SST::Component {
         { "active_cycles",        "Statistic for counting active cycles (cycles not idle) of the Ariel core.", "cycles", 1 })
 
     SST_ELI_DOCUMENT_SUBCOMPONENT_SLOTS(
-            {"memmgr", "Memory manager to translate virtual addresses to physical, handle malloc/free, etc.", "SST::ArielComponent::ArielMemoryManager"},
-            {"memory", "Interface to the memoryHierarchy (e.g., caches)", "SST::Interfaces::SimpleMem" }
+            {"memmgr",  "Memory manager to translate virtual addresses to physical, handle malloc/free, etc.", "SST::ArielComponent::ArielMemoryManager"},
+            {"memory",  "Interface to the memoryHierarchy (e.g., caches)", "SST::Interfaces::SimpleMem" },
+            {"app",     "Interface to application interface. Default is 'ariel.interface.pin2'", "SST::ArielComponent::ArielAppInterface"}
     )
 
         /* Ariel class */
@@ -127,12 +129,10 @@ class ArielCPU : public SST::Component {
         pid_t child_pid;
 
         uint32_t core_count;
-        ArielTunnel* tunnel;
+        ArielAppInterface *app;
         bool stopTicking;
 
 #ifdef HAVE_CUDA
-        GpuReturnTunnel* tunnelR;
-        GpuDataTunnel* tunnelD;
         bool gpu_enabled;
 #endif
 

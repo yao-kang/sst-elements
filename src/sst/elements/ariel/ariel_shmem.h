@@ -132,13 +132,13 @@ struct ArielCommand {
             uint64_t alloc_len;
             uint32_t alloc_level;
         } mlm_map;
-            struct {
+        struct {
             uint64_t vaddr;
             uint64_t alloc_len;
             uint32_t alloc_level;
             uint32_t fileID;
         } mlm_mmap;
-            struct {
+        struct {
             uint64_t vaddr;
             uint64_t alloc_len;
             uint32_t alloc_level;

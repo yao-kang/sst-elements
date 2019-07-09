@@ -47,6 +47,7 @@
 #include "arielflushev.h"
 #include "arielfenceev.h"
 #include "arielswitchpool.h"
+#include "arielappinterface.h"
 
 #include "ariel_shmem.h"
 #include "arieltracegen.h"
@@ -66,10 +67,7 @@ namespace ArielComponent {
 class ArielCore : public ComponentExtension {
 
     public:
-        ArielCore(ComponentId_t id, ArielTunnel *tunnel, 
-#ifdef HAVE_CUDA
-            GpuReturnTunnel *tunnelR, GpuDataTunnel *tunnelD,
-#endif
+        ArielCore(ComponentId_t id, ArielAppInterface *tunnel, 
             uint32_t thisCoreID, uint32_t maxPendTans, Output* out,
             uint32_t maxIssuePerCyc, uint32_t maxQLen, uint64_t cacheLineSz,
             ArielMemoryManager* memMgr, const uint32_t perform_address_checks, Params& params);
@@ -205,7 +203,7 @@ class ArielCore : public ComponentExtension {
         bool isFenced;
 
         SimpleMem* cacheLink;
-        ArielTunnel *tunnel;
+        ArielAppInterface *tunnel;
 
 #ifdef HAVE_CUDA
         Link* GpuLink;
