@@ -69,6 +69,9 @@ ArielPin2Interface::ArielPin2Interface(ComponentId_t id, Params& params, uint32_
     output->verbose(CALL_INFO, 1, 0, "Model specifies that there are %" PRIu32 " application arguments\n", app_argc);
 
     uint32_t pin_startup_mode = (uint32_t) params.find<uint32_t>("arielmode", 2);
+
+    int instrument_instructions = params.find<int>("instrument_instructions", 1);
+
     uint32_t intercept_mem_allocations = (uint32_t) params.find<uint32_t>("arielinterceptcalls", 0);
 
     switch(intercept_mem_allocations) {
@@ -163,6 +166,9 @@ ArielPin2Interface::ArielPin2Interface(ComponentId_t id, Params& params, uint32_
     	execute_args[arg++] = const_cast<char*>("1");
     }
 
+    execute_args[arg++] = const_cast<char*>("-E");
+    execute_args[arg++] = (char*) malloc(sizeof(char) * 8);
+    sprintf(execute_args[arg-1], "%d", instrument_instructions);
     execute_args[arg++] = const_cast<char*>("-p");
     execute_args[arg++] = (char*) malloc(sizeof(char) * (shmem_region_name.length() + 1));
     strcpy(execute_args[arg-1], shmem_region_name.c_str());
