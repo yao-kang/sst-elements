@@ -42,7 +42,6 @@ libariel_la_SOURCES = \
 	pin2.cc
 
 EXTRA_DIST = \
-	frontend/simple/fesimple.cc \
 	frontend/simple/examples/multicore.py \
 	frontend/simple/examples/stream/Makefile \
 	frontend/simple/examples/stream/ariel_ivb.py \
@@ -56,6 +55,9 @@ EXTRA_DIST = \
 	frontend/simple/examples/stream/stream.c \
 	frontend/simple/examples/stream/stream_malloc.c
 
+if HAVE_PINTOOL
+EXTRA_DIST += frontend/simple/fesimple.cc
+endif
 
 libariel_la_LDFLAGS = -module -avoid-version
 libariel_la_LIBADD = $(SHM_LIB)
@@ -85,7 +87,7 @@ nobase_sst_HEADERS = \
 
 libexec_PROGRAMS =
 
-
+if HAVE_PINTOOL
 if SST_COMPILE_OSX
 
 all-local: frontend/simple/fesimple.cc
@@ -153,3 +155,5 @@ install-exec-hook:
 	$(INSTALL) fesimple.so $(libexecdir)/fesimple.so
 
 endif
+endif
+
