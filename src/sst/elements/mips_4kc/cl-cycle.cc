@@ -124,7 +124,7 @@ void MIPS4KC::cycle_init (void)
   Cause = 0;
   bd_slot = FALSE;
   bp_clear ();
-  pipe_dealloc (WB+1, alu, fpa);
+  pipe_dealloc (WB+1, alu);
 
   program_break = ((program_break / 32) + 1) * 32;
 }
@@ -151,7 +151,7 @@ void MIPS4KC::mdu_and_fp_init (void)
 
 int MIPS4KC::cycle_spim (int *steps, int display)
 {
-  PIPE_STAGE ps_ptr, fp_ptr, fp_prev;
+  PIPE_STAGE ps_ptr;
   mem_addr bus_req;
   int id_stall = FALSE, mem_stall = FALSE, cmiss = 0;
 
@@ -174,31 +174,9 @@ int MIPS4KC::cycle_spim (int *steps, int display)
     else if (MDU.count > 1)
       MDU.count--;
 
-    /* service fpa unit available counts */
-    FP_add_cnt = ((FP_add_cnt == 0) ? 0 : FP_add_cnt - 1);
-    FP_mul_cnt = ((FP_mul_cnt == 0) ? 0 : FP_mul_cnt - 1);
-    FP_div_cnt = ((FP_div_cnt == 0) ? 0 : FP_div_cnt - 1);
-
-
-    /* Floating Point Write Back */
-    fp_ptr = fpa[FPA_FWB];
-    while (fp_ptr != NULL) {
-      PIPE_STAGE tmp_ptr;
-
-      process_f_fwb(fp_ptr);
-      tmp_ptr = fp_ptr->next;
-      stage_dealloc(fp_ptr);
-      fp_ptr = tmp_ptr;
-    }
-
-    fpa[FPA_FWB] = NULL;
-
-
-
     /* Write Back Stage */
     ps_ptr = alu[WB];
     if (ps_ptr != NULL) {
-
       if (EXCPT (ps_ptr) != 0) {
 	/* exception is about to be handled, set up registers */
 	Cause = EXCPT (ps_ptr);
@@ -216,81 +194,24 @@ int MIPS4KC::cycle_spim (int *steps, int display)
       alu[WB] = NULL;
     }
 
-
-
-    /* FPA WB stage -- there maybe up to 4 entries in this stage
-     * one for each of the functional units */
-    /* If an instruction gets this far, then all previous instructions
-     * will complete without causing an exception */
-    fp_ptr = fpa[FPA_EX3];
-    fp_prev = NULL;
-    while (fp_ptr != NULL) {
-      PIPE_STAGE tmp_ptr;
-
-      process_f_ex2(fp_ptr);
-      /* This one is ready to go to wb if count is 0 */
-      if (Count (fp_ptr) == 0) {
-
-	/* fix up list */
-	if (fp_prev == NULL)
-	  fpa[FPA_EX3] = fp_ptr->next;
-	else
-	  fp_prev->next = fp_ptr->next;
-
-	tmp_ptr = fp_ptr->next;
-	fp_ptr->next = fpa[FPA_FWB];
-	fpa[FPA_FWB] = fp_ptr;
-	fp_ptr = tmp_ptr;
-      }
-      else { /* Count > 0 */
-	fp_prev = fp_ptr;
-	fp_ptr = fp_ptr->next;
-      }
-
-    }
-
-
-
-    /* FPA MEM stage */
-    /* Any FP exception will have already been signaled. */
-    fp_ptr = fpa[FPA_EX2];
-    if (fp_ptr != NULL) {
-      process_f_ex2(fp_ptr);
-      fp_ptr->next = fpa[FPA_EX3];
-      fpa[FPA_EX3] = fp_ptr;
-      fpa[FPA_EX2] = NULL;
-    }
-
-
-
     /* MEM STALL stage */
     /* Cannot get to MEM STALL if an instruction earlier
      * in the pipeline causes an exception. */
     ps_ptr = alu[MEM];
     if ((ps_ptr != NULL) && STAGE (ps_ptr) == MEM_STALL) {
       if (RNUM (ps_ptr) == bus_req) {
-	if (((OPCODE (ps_ptr->inst) == Y_LWC1_OP) ||
-	     (OPCODE (ps_ptr->inst) == Y_MTC1_OP))) {
-	  ps_ptr->next = fpa[FPA_EX3];
-	  fpa[FPA_EX3] = ps_ptr;
-	  alu[MEM] = NULL;
-	}
-	else {
 	  STAGE (ps_ptr) = WB;
 	  alu[WB] = ps_ptr;
 	  alu[MEM] = NULL;
-	}
-	mem_stall = FALSE;
+          mem_stall = FALSE;
+      } else {
+          mem_stall = TRUE;
       }
-      else mem_stall = TRUE;
     }
-
-
 
     /* MEM Stage */
     ps_ptr = alu[MEM];
     if ((ps_ptr != NULL) && (STAGE (ps_ptr) == MEM)) {
-
       /* use SWC2 to print memory stats */
       if ((EXCPT(ps_ptr) == 0) && (OPCODE(ps_ptr->inst) == Y_SWC2_OP)) {
           //write_output (message_out, "memory system counts:\n");
@@ -298,56 +219,25 @@ int MIPS4KC::cycle_spim (int *steps, int display)
           //mem_stall_count, total_mem_ops);
           stat_print();
           fflush(stdout);
-      }
-
-      else if (EXCPT (ps_ptr) == 0)
+      } else if (EXCPT (ps_ptr) == 0) {
 	cmiss = process_MEM(ps_ptr, mem_system);
+      }
 
       if (EXCPT (ps_ptr) != 0) {
 	STAGE (ps_ptr) = WB;
 	alu[WB] = ps_ptr;
 	alu[MEM] = NULL;
-	pipe_dealloc(MEM, alu, fpa);
+	pipe_dealloc(MEM, alu);
 	END_OF_CYCLE
-      }
-
-      else if (cmiss == CACHE_MISS) {
+      } else if (cmiss == CACHE_MISS) {
 	STAGE (ps_ptr) = MEM_STALL;
 	mem_stall = TRUE;
-      }
-
-      /* If this is a floating point load or a MTC1, move it to
-       * the floating point pipeline */
-      else if ((OPCODE (ps_ptr->inst) == Y_LWC1_OP) ||
-	       (OPCODE (ps_ptr->inst) == Y_MTC1_OP)) {
-	ps_ptr->next = fpa[FPA_EX3];
-	fpa[FPA_EX3] = ps_ptr;
-	alu[MEM] = NULL;
-      }
-
-      else {
+      } else {
 	STAGE (ps_ptr) = WB;
 	alu[WB] = ps_ptr;
 	alu[MEM] = NULL;
       }
-  }
-
-
-
-
-    /* FPA EX Stage */
-    fp_ptr = fpa[FPA_EX1];
-    if (fp_ptr != NULL) {
-      process_f_ex1(fp_ptr);
-      fpa[FPA_EX2] = fp_ptr;
-      fpa[FPA_EX1] = NULL;
-      if (EXCPT (fp_ptr) != 0) {
-	pipe_dealloc(FPA_EX1, alu, fpa);
-	END_OF_CYCLE
-      }
     }
-
-
 
     /* EX Stage */
     ps_ptr = alu[EX];
@@ -361,15 +251,12 @@ int MIPS4KC::cycle_spim (int *steps, int display)
       alu[EX] = NULL;
 
       if (EXCPT (ps_ptr) != 0) {
-	pipe_dealloc(EX, alu, fpa);
+	pipe_dealloc(EX, alu);
 	END_OF_CYCLE
       }
     }
 
-
-
     /* ID Stage */
-
     ps_ptr = alu[ID];
     if ((ps_ptr != NULL) && (STAGE(ps_ptr) == ID) && !mem_stall) {
       id_stall = FALSE;
@@ -387,36 +274,34 @@ int MIPS4KC::cycle_spim (int *steps, int display)
 	/* If it's a floating point op move it to the floating point
 	 * pipeline */
 	if ((EXCPT(ps_ptr) == 0) && (is_fp_op(OPCODE (ps_ptr->inst))))
-	  fpa[FPA_EX1] = ps_ptr;
+            fatal_error("Floating point not supported");
 	else
 	  alu[EX] = ps_ptr;
 	alu[ID] = NULL;
       }
 
       if (EXCPT (ps_ptr) != 0) {
-	pipe_dealloc(ID, alu, fpa);
+	pipe_dealloc(ID, alu);
 	END_OF_CYCLE
       }
     }
 
-
-
-
     /* IF STALL stage */
     ps_ptr = alu[IF];
     if ((ps_ptr != NULL) && (STAGE (ps_ptr) == IF_STALL)) {
-      if (RNUM (ps_ptr) == bus_req)
-	if (mem_stall || id_stall) {
-	  STAGE(ps_ptr) = IF;
-	  END_OF_CYCLE
-	}
-	else {
-	  STAGE (ps_ptr) = ID;
-	  alu[ID] = ps_ptr;
-	  alu[IF] = NULL;
-	  PC = (nPC ? nPC : PC + BYTES_PER_WORD);
-	}
-      else END_OF_CYCLE
+        if (RNUM (ps_ptr) == bus_req) {
+            if (mem_stall || id_stall) {
+                STAGE(ps_ptr) = IF;
+                END_OF_CYCLE
+                    } else {
+                STAGE (ps_ptr) = ID;
+                alu[ID] = ps_ptr;
+                alu[IF] = NULL;
+                PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+            }
+        } else {
+            END_OF_CYCLE;
+        }
     }
 
 
@@ -442,17 +327,12 @@ int MIPS4KC::cycle_spim (int *steps, int display)
 	  PC = (nPC ? nPC : PC + BYTES_PER_WORD);
 	}
 	END_OF_CYCLE
-      }
-
-      else if (cmiss == CACHE_MISS) {
+      } else if (cmiss == CACHE_MISS) {
 	STAGE (ps_ptr) = IF_STALL;
-	END_OF_CYCLE
-	}
-
-      else if (mem_stall || id_stall)
-	END_OF_CYCLE
-
-      else {
+	END_OF_CYCLE;
+      } else if (mem_stall || id_stall) {
+        END_OF_CYCLE;
+      } else {
 	alu[ID] = ps_ptr;
 	alu[IF] = NULL;
 	STAGE (ps_ptr) = ID;
@@ -2794,15 +2674,13 @@ void MIPS4KC::stage_dealloc (PIPE_STAGE ps)
 }
 
 
-void MIPS4KC::pipe_dealloc (int stage, PIPE_STAGE alu[], PIPE_STAGE fpa[])
+void MIPS4KC::pipe_dealloc (int stage, PIPE_STAGE alu[])
 {
   int i;
 
   for(i=0; i < stage; i++) {
     stage_dealloc(alu[i]);
-    alu[i] = NULL;
-    stage_dealloc(fpa[i]);
-    fpa[i] = NULL;
+    alu[i] = NULL;    
   }
 }
 

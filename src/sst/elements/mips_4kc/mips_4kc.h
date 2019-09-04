@@ -317,7 +317,7 @@ void print_signal_status (int sig);
     reg_word EX_bp_val=0, MEM_bp_val=0, CP_bp_val=0;
     int FP_add_cnt=0, FP_mul_cnt=0, FP_div_cnt=0;
     PIPE_STAGE alu[5]={0,0,0,0,0};
-    PIPE_STAGE fpa[6]={0,0,0,0,0,0};
+    //PIPE_STAGE fpa[6]={0,0,0,0,0,0};
 
     /* registers */
     reg_word R[32] = {};
@@ -419,7 +419,7 @@ void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
     void init_stage_pool (void);
     PIPE_STAGE stage_alloc (void);
     void stage_dealloc (PIPE_STAGE ps);
-    void pipe_dealloc (int stage, PIPE_STAGE alu[], PIPE_STAGE fpa[]);
+    void pipe_dealloc (int stage, PIPE_STAGE alu[]);
     void long_multiply (reg_word v1, reg_word v2, reg_word *hi, reg_word
                         *lo);
 
