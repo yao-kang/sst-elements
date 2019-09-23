@@ -365,21 +365,21 @@ void print_signal_status (int sig);
     mem_word read_memory_mapped_IO (mem_addr addr);
     void write_memory_mapped_IO (mem_addr addr, mem_word value);
     mem_word bad_mem_read (mem_addr addr, int mask, mem_word *dest);
-void bad_mem_write (mem_addr addr, mem_word value, int mask);
-instruction *bad_text_read (mem_addr addr);
-void bad_text_write (mem_addr addr, instruction *inst);
-void check_memory_mapped_IO (void);
-void expand_data (long int addl_bytes);
-void expand_k_data (long int addl_bytes);
-void expand_stack (long int addl_bytes);
-void make_memory (long int text_size, long int data_size, long int data_limit,
-	long int stack_size, long int stack_limit, long int k_text_size,
-	long int k_data_size, long int k_data_limit);
-void print_mem (mem_addr addr);
+    void bad_mem_write (mem_addr addr, mem_word value, int mask);
+    instruction *bad_text_read (mem_addr addr);
+    void bad_text_write (mem_addr addr, instruction *inst);
+    void check_memory_mapped_IO (void);
+    void expand_data (long int addl_bytes);
+    void expand_k_data (long int addl_bytes);
+    void expand_stack (long int addl_bytes);
+    void make_memory (long int text_size, long int data_size, long int data_limit,
+                      long int stack_size, long int stack_limit, long int k_text_size,
+                      long int k_data_size, long int k_data_limit);
+    void print_mem (mem_addr addr);
     instruction *cl_bad_text_read (mem_addr addr, int *excpt);
-void cl_bad_text_write (mem_addr addr, instruction *inst, int *excpt);
-mem_word cl_bad_mem_read (mem_addr addr, int mask, mem_word *dest, int *excpt);
-void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
+    void cl_bad_text_write (mem_addr addr, instruction *inst, int *excpt);
+    mem_word cl_bad_mem_read (mem_addr addr, int mask, mem_word *dest, int *excpt);
+    void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
 
     /* Local functions: */
     int cycle_spim (int *steps, int display);
@@ -388,9 +388,6 @@ void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
     void process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU);
     int process_MEM (PIPE_STAGE ps);
     int process_WB (PIPE_STAGE ps);
-    int process_f_ex1 (PIPE_STAGE ps);
-    void process_f_ex2 (PIPE_STAGE ps);
-    void process_f_fwb (PIPE_STAGE ps);
     void init_stage_pool (void);
     PIPE_STAGE stage_alloc (void);
     void stage_dealloc (PIPE_STAGE ps);
