@@ -134,13 +134,13 @@
 #define FPA_EX2 3
 #define FPA_EX1 2
 #define WB 4
-#define MEM 3
+#define MEM 3 
 #define EX 2
 #define ID 1
 #define IF 0
 #define DONE 0
 #define IF_STALL -1
-#define MEM_STALL -2
+#define MEM_STALL -2  // issued, but not complete
 #define STALL -3
 
 #define ALU 0

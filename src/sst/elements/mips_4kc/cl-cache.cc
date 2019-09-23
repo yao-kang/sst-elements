@@ -29,36 +29,14 @@
 using namespace SST;
 using namespace SST::MIPS4KCComponent;
 
-/*#include <stdio.h>
-#include <setjmp.h>
-
-#include "spim.h"
-#include "inst.h"
-#include "mem.h"
-#include "mips-syscall.h"
-#include "cl-cache.h"
-#include "cl-mem.h"
-#include "cl-tlb.h"*/
 
 #define TRUE 1
 #define FALSE 0
-
-
-
-/* Exported Variables: */
-
-//extern jmp_buf spim_top_level_env;
-
-
-/* service the bus queues for 1 cycle at time t */
-/* Priority scheme...see arbitrate              */
 
 unsigned int MIPS4KC::bus_service ()
 {
     return 0;
 }
-
-
 
 int MIPS4KC::cache_service (mem_addr addr, int type, 
                             unsigned int *req_num)

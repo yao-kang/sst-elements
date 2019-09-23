@@ -44,27 +44,41 @@
 using namespace SST;
 using namespace SST::MIPS4KCComponent;
 
+// ugly - essentially a goto
 #define END_OF_CYCLE 	{						\
-			(*steps)--;					\
 			if (display) print_pipeline ();			\
 			continue;					\
 			}
 
 
-/* function cl_run_program:
- * responsible for calling cycle_spim; completes when <steps> cycles have
- * been completed or when exception processing indicates that execution has
- * paused or ended.
+/*
+ * function cl_run_rising: issue memory requests
+ */
+void MIPS4KC::cl_run_rising () {
+    PIPE_STAGE ps_ptr = alu[MEM];
+    if (ps_ptr != NULL) {            
+        if (IS_MEM_OP(OPCODE(ps_ptr->inst))) {  // if it is a load            
+            if (ps_ptr->issued_to_cache == 0) { // not already issued
+#warning issue to cache here
+                printf("issuing ");
+                print_inst(ps_ptr->pc); printf("\n");
+                ps_ptr->issued_to_cache = 1;
+                STAGE(ps_ptr) = MEM_STALL;
+            }
+        }
+    }
+}
+
+/* function cl_run_falling:
+ * responsible for calling cycle_spim, simulating falling edge of clock
  */
 
-void MIPS4KC::cl_run_program (mem_addr addr, int steps, int display)
+void MIPS4KC::cl_run_falling (mem_addr addr, int display)
 {
-    assert(steps == 1);
     PC = addr;
-    cycle_steps = steps;
     cycle_running = 1;
 
-    if (cycle_spim (&cycle_steps, display)) {
+    if (cycle_spim (display)) {
         
 	switch (process_excpt ()) {
             
@@ -98,17 +112,12 @@ void MIPS4KC::cl_initialize_world (int run)
 {
   initialize_registers ();
   initialize_run_stack (0, 0);
-  //initialize_catch_signals ();
   if (cycle_level) {
-    if (run) 
-      initialize_prog_fds ();
-    //initialize_sighandlers ();
-    //initialize_excpt_counts ();
-    cycle_init ();
-    mdu_and_fp_init ();
-    //tlb_init();
-    //cache_init (mem_system, DATA_CACHE);
-    //cache_init (mem_system, INST_CACHE);
+      if (run) {
+          initialize_prog_fds ();
+      }
+      cycle_init ();
+      mdu_and_fp_init ();
   }
 }
 
@@ -147,15 +156,13 @@ void MIPS4KC::mdu_and_fp_init (void)
  * 1 upon finding an exception, 0 upon completing number of steps.
  */
 
-int MIPS4KC::cycle_spim (int *steps, int display)
+int MIPS4KC::cycle_spim (int display)
 {
   PIPE_STAGE ps_ptr;
   mem_addr bus_req;
   int id_stall = FALSE, mem_stall = FALSE, cmiss = 0;
 
-  assert(*steps == 1);
-
-  while (*steps > 0) {
+  do { // ugly hack to all us to 'continue' out of this loop
 
     bus_req = bus_service();
 
@@ -194,44 +201,51 @@ int MIPS4KC::cycle_spim (int *steps, int display)
       alu[WB] = NULL;
     }
 
-    /* MEM STALL stage */
-    /* Cannot get to MEM STALL if an instruction earlier
-     * in the pipeline causes an exception. */
+    /* MEM stage - check for completion
+       stage should be MEM_STALL (waiting for cache) or MEM (good to go)
+    */
     if (alu[WB] == NULL) {
         ps_ptr = alu[MEM];
-        if ((ps_ptr != NULL) && STAGE (ps_ptr) == MEM_STALL) {
-            if (RNUM (ps_ptr) == bus_req) { // check for completion
+        if (ps_ptr != NULL) {
+            printf("MEM: %s\n", (STAGE(ps_ptr)==MEM_STALL) ? "MEM_STALL" : "MEM");
+            if (STAGE (ps_ptr) == MEM_STALL) { // waiting on cache
+                assert(ps_ptr->issued_to_cache);
+                // check for completion from cache
+#warning cache_complete() here
+                if (1) {
+                    mem_stall = FALSE;
+                    if (EXCPT (ps_ptr) == 0) {
+                        // complete load/store, set bypasses
+                        cmiss = process_MEM(ps_ptr);
+                    } 
+                    
+                    if (EXCPT (ps_ptr) != 0) { //exception
+                        STAGE (ps_ptr) = WB;
+                        alu[WB] = ps_ptr;
+                        alu[MEM] = NULL;
+                        pipe_dealloc(MEM, alu);
+                        END_OF_CYCLE;
+                    } else { // OK, advance pipe
+                        STAGE (ps_ptr) = WB;
+                        alu[WB] = ps_ptr;
+                        alu[MEM] = NULL;
+                    }
+                } else {
+                    // still waiting
+                    mem_stall = TRUE;
+                }
+            } else if (STAGE(ps_ptr) == MEM) {
+                // nothing to do, forward on bypass registers, pass
+                // stage on                
+                assert(ps_ptr->issued_to_cache == 0);
+                assert(!IS_MEM_OP(OPCODE(ps_ptr->inst)));
+                // non mem insts set MEM bypass to EX bypass
+                set_mem_bypass(EX_bp_reg, EX_bp_val);
                 STAGE (ps_ptr) = WB;
                 alu[WB] = ps_ptr;
                 alu[MEM] = NULL;
-                mem_stall = FALSE;
             } else {
-                mem_stall = TRUE; // still stall incase bypass not available
-            }
-        }
-    }
-
-    /* MEM Stage */
-    if (alu[WB] == NULL) {
-        ps_ptr = alu[MEM];
-        if ((ps_ptr != NULL) && (STAGE (ps_ptr) == MEM)) {
-            if (EXCPT (ps_ptr) == 0) {
-                cmiss = process_MEM(ps_ptr);
-            }
-            
-            if (EXCPT (ps_ptr) != 0) {
-                STAGE (ps_ptr) = WB;
-                alu[WB] = ps_ptr;
-                alu[MEM] = NULL;
-                pipe_dealloc(MEM, alu);
-                END_OF_CYCLE;
-            } else if (cmiss == CACHE_MISS) {
-                STAGE (ps_ptr) = MEM_STALL;
-                mem_stall = TRUE;
-            } else {
-                STAGE (ps_ptr) = WB;
-                alu[WB] = ps_ptr;
-                alu[MEM] = NULL;
+                fatal_error("mem stage not set correctly\n");
             }
         }
     }
@@ -343,7 +357,7 @@ int MIPS4KC::cycle_spim (int *steps, int display)
 
     END_OF_CYCLE;
 
-  }
+  } while (0);
   return 0;
 }
 
@@ -1550,6 +1564,8 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
   int cmiss = -1;
 
   inst = ps->inst;
+
+  printf("process_MEM ");  print_inst(ps->pc); printf("\n");
 
   /* only load instructions update the MEM bypass variables
      to something other than the values generated by the EX stage */

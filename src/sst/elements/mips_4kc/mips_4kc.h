@@ -57,6 +57,7 @@ struct pipe_stage {
     double fval;
     reg_word addr_value;
     mem_addr paddr;
+    bool issued_to_cache; // has MEM already issued this to cache
     unsigned int req_num;
     int dslot;
     int exception;
@@ -70,6 +71,7 @@ struct pipe_stage {
         fop1 = fop2 = 0;
         fval = 0;
         addr_value = paddr = 0;
+        issued_to_cache = 0;
         req_num = dslot = exception = cyl_count = 0;
         count = 0;
         next = 0;
@@ -117,7 +119,8 @@ public:
     }
 
 protected:
-    void cl_run_program (mem_addr addr, int steps, int display);
+    void cl_run_rising();
+    void cl_run_falling (mem_addr addr, int display);
     void cl_initialize_world (int run);
     void cycle_init (void);
     void mdu_and_fp_init (void);
@@ -382,7 +385,7 @@ void print_signal_status (int sig);
     void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
 
     /* Local functions: */
-    int cycle_spim (int *steps, int display);
+    int cycle_spim (int display);
     int can_issue (short int oc);
     int process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy);
     void process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU);

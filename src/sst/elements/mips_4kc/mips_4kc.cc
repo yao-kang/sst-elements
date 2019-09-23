@@ -124,9 +124,15 @@ void MIPS4KC::handleEvent(Interfaces::SimpleMem::Request * req)
 
 bool MIPS4KC::clockTic( Cycle_t c)
 {
-    printf("CYCLE %llu\n", c);
+    bool isFalling = (c & 0x1);
+    Cycle_t pipeCycle = c >> 1;
+    printf("CYCLE %llu: %llu.%u\n", c, pipeCycle, isFalling);
 
-    cl_run_program (PC, 1, 1);
+    if (isFalling) {
+        cl_run_falling (PC, 1);
+    } else {
+        cl_run_rising(); // issue memory requests
+    }
 
     // return false so we keep going
     return false;
