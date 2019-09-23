@@ -59,9 +59,9 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     cycle_level = 1;
     bare_machine = 1;
     quiet = 1;
-    tlb_on = 0;
+    /*tlb_on = 0;
     icache_on = 0;
-    dcache_on = 0;
+    dcache_on = 0;*/
 
     program_starting_address = 0;
     initial_text_size = TEXT_SIZE;
@@ -122,10 +122,9 @@ void MIPS4KC::handleEvent(Interfaces::SimpleMem::Request * req)
     }
 }
 
-bool MIPS4KC::clockTic( Cycle_t )
+bool MIPS4KC::clockTic( Cycle_t c)
 {
-    static int c = 0;
-    printf("CYCLE %d\n", ++c);
+    printf("CYCLE %llu\n", c);
 
     cl_run_program (PC, 1, 1);
 

@@ -109,8 +109,8 @@ void MIPS4KC::cl_initialize_world (int run)
     cycle_init ();
     mdu_and_fp_init ();
     //tlb_init();
-    cache_init (mem_system, DATA_CACHE);
-    cache_init (mem_system, INST_CACHE);
+    //cache_init (mem_system, DATA_CACHE);
+    //cache_init (mem_system, INST_CACHE);
   }
 }
 
@@ -155,9 +155,11 @@ int MIPS4KC::cycle_spim (int *steps, int display)
   mem_addr bus_req;
   int id_stall = FALSE, mem_stall = FALSE, cmiss = 0;
 
+  assert(*steps == 1);
+
   while (*steps > 0) {
 
-    bus_req = bus_service (mem_system);
+    bus_req = bus_service();
 
     /* increment Random register each cycle */
     Random = (((Random >> 8) < 63) ? ((Random >> 8) + 1) : 8) << 8;
@@ -197,150 +199,150 @@ int MIPS4KC::cycle_spim (int *steps, int display)
     /* MEM STALL stage */
     /* Cannot get to MEM STALL if an instruction earlier
      * in the pipeline causes an exception. */
-    ps_ptr = alu[MEM];
-    if ((ps_ptr != NULL) && STAGE (ps_ptr) == MEM_STALL) {
-      if (RNUM (ps_ptr) == bus_req) {
-	  STAGE (ps_ptr) = WB;
-	  alu[WB] = ps_ptr;
-	  alu[MEM] = NULL;
-          mem_stall = FALSE;
-      } else {
-          mem_stall = TRUE;
-      }
-    }
-
-    /* MEM Stage */
-    ps_ptr = alu[MEM];
-    if ((ps_ptr != NULL) && (STAGE (ps_ptr) == MEM)) {
-      /* use SWC2 to print memory stats */
-      if ((EXCPT(ps_ptr) == 0) && (OPCODE(ps_ptr->inst) == Y_SWC2_OP)) {
-          //write_output (message_out, "memory system counts:\n");
-          //write_output (message_out, "\t%d stalls, %d total memory ops.\n",
-          //mem_stall_count, total_mem_ops);
-          stat_print();
-          fflush(stdout);
-      } else if (EXCPT (ps_ptr) == 0) {
-	cmiss = process_MEM(ps_ptr, mem_system);
-      }
-
-      if (EXCPT (ps_ptr) != 0) {
-	STAGE (ps_ptr) = WB;
-	alu[WB] = ps_ptr;
-	alu[MEM] = NULL;
-	pipe_dealloc(MEM, alu);
-	END_OF_CYCLE
-      } else if (cmiss == CACHE_MISS) {
-	STAGE (ps_ptr) = MEM_STALL;
-	mem_stall = TRUE;
-      } else {
-	STAGE (ps_ptr) = WB;
-	alu[WB] = ps_ptr;
-	alu[MEM] = NULL;
-      }
-    }
-
-    /* EX Stage */
-    ps_ptr = alu[EX];
-    if ((ps_ptr != NULL) && (! mem_stall)) {
-
-      if (EXCPT (ps_ptr) == 0)
-	process_EX(ps_ptr, &(MDU));
-
-      STAGE (ps_ptr) = MEM;
-      alu[MEM] = ps_ptr;
-      alu[EX] = NULL;
-
-      if (EXCPT (ps_ptr) != 0) {
-	pipe_dealloc(EX, alu);
-	END_OF_CYCLE
-      }
-    }
-
-    /* ID Stage */
-    ps_ptr = alu[ID];
-    if ((ps_ptr != NULL) && (STAGE(ps_ptr) == ID) && !mem_stall) {
-      id_stall = FALSE;
-
-      DSLOT(ps_ptr) = bd_slot;
-      if (EXCPT (ps_ptr) == 0) {
-	process_ID (ps_ptr, &id_stall, MDU.count);
-	if (!id_stall)
-	  bd_slot = ((DSLOT(ps_ptr) == TRUE) ? FALSE :
-		      (IS_BRANCH (OPCODE(ps_ptr->inst)) ? TRUE : FALSE));
-      }
-
-      if (!id_stall) {
-	STAGE (ps_ptr) = EX;
-	/* If it's a floating point op move it to the floating point
-	 * pipeline */
-	if ((EXCPT(ps_ptr) == 0) && (is_fp_op(OPCODE (ps_ptr->inst))))
-            fatal_error("Floating point not supported");
-	else
-	  alu[EX] = ps_ptr;
-	alu[ID] = NULL;
-      }
-
-      if (EXCPT (ps_ptr) != 0) {
-	pipe_dealloc(ID, alu);
-	END_OF_CYCLE
-      }
-    }
-
-    /* IF STALL stage */
-    ps_ptr = alu[IF];
-    if ((ps_ptr != NULL) && (STAGE (ps_ptr) == IF_STALL)) {
-        if (RNUM (ps_ptr) == bus_req) {
-            if (mem_stall || id_stall) {
-                STAGE(ps_ptr) = IF;
-                END_OF_CYCLE
-                    } else {
-                STAGE (ps_ptr) = ID;
-                alu[ID] = ps_ptr;
-                alu[IF] = NULL;
-                PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+    if (alu[WB] == NULL) {
+        ps_ptr = alu[MEM];
+        if ((ps_ptr != NULL) && STAGE (ps_ptr) == MEM_STALL) {
+            if (RNUM (ps_ptr) == bus_req) { // check for completion
+                STAGE (ps_ptr) = WB;
+                alu[WB] = ps_ptr;
+                alu[MEM] = NULL;
+                mem_stall = FALSE;
+            } else {
+                mem_stall = TRUE; // still stall incase bypass not available
             }
-        } else {
-            END_OF_CYCLE;
         }
     }
 
-
-    /* IF Stage */
-    else if (ps_ptr != NULL && (STAGE(ps_ptr) == IF))  {
-      CL_READ_MEM_INST(mem_system, ps_ptr->inst, STAGE_PC(ps_ptr),
-		       PADDR(ps_ptr), cmiss, EXCPT(ps_ptr), RNUM(ps_ptr));
-      printf("IF fetch %x\n", STAGE_PC(ps_ptr));
-#if 0
-      /* reinsert a breakpoint (occurs only after break excpt was caught) */
-      if (STAGE_PC(ps_ptr) == breakpoint_reinsert) {
-	add_breakpoint (STAGE_PC(ps_ptr));
-	breakpoint_reinsert = 0;
-      }
-#endif
-
-      /* if exception, must be tlb, read instruction for viewing purposes */
-      if (EXCPT(ps_ptr) != 0) {
-	if (! (mem_stall || id_stall)) {
-	  alu[ID] = ps_ptr;
-	  alu[IF] = NULL;
-	  STAGE (ps_ptr) = ID;
-	  PC = (nPC ? nPC : PC + BYTES_PER_WORD);
-	}
-	END_OF_CYCLE
-      } else if (cmiss == CACHE_MISS) {
-	STAGE (ps_ptr) = IF_STALL;
-	END_OF_CYCLE;
-      } else if (mem_stall || id_stall) {
-        END_OF_CYCLE;
-      } else {
-	alu[ID] = ps_ptr;
-	alu[IF] = NULL;
-	STAGE (ps_ptr) = ID;
-	PC = (nPC ? nPC : PC + BYTES_PER_WORD);
-      }
+    /* MEM Stage */
+    if (alu[WB] == NULL) {
+        ps_ptr = alu[MEM];
+        if ((ps_ptr != NULL) && (STAGE (ps_ptr) == MEM)) {
+            /* use SWC2 to print memory stats */
+            if ((EXCPT(ps_ptr) == 0) && (OPCODE(ps_ptr->inst) == Y_SWC2_OP)) {
+                //write_output (message_out, "memory system counts:\n");
+                //write_output (message_out, "\t%d stalls, %d total memory ops.\n",
+                //mem_stall_count, total_mem_ops);
+                //stat_print();
+                fflush(stdout);
+            } else if (EXCPT (ps_ptr) == 0) {
+                cmiss = process_MEM(ps_ptr);
+            }
+            
+            if (EXCPT (ps_ptr) != 0) {
+                STAGE (ps_ptr) = WB;
+                alu[WB] = ps_ptr;
+                alu[MEM] = NULL;
+                pipe_dealloc(MEM, alu);
+                END_OF_CYCLE;
+            } else if (cmiss == CACHE_MISS) {
+                STAGE (ps_ptr) = MEM_STALL;
+                mem_stall = TRUE;
+            } else {
+                STAGE (ps_ptr) = WB;
+                alu[WB] = ps_ptr;
+                alu[MEM] = NULL;
+            }
+        }
     }
 
+    /* EX Stage */
+    if (alu[MEM] == NULL) {
+        ps_ptr = alu[EX];
+        if ((ps_ptr != NULL) && (! mem_stall)) {
 
+            if (EXCPT (ps_ptr) == 0)
+                process_EX(ps_ptr, &(MDU));
+
+            STAGE (ps_ptr) = MEM;
+            alu[MEM] = ps_ptr;
+            alu[EX] = NULL;
+
+            if (EXCPT (ps_ptr) != 0) {
+                pipe_dealloc(EX, alu);
+                END_OF_CYCLE;
+            }
+        }
+    }
+
+    /* ID Stage */
+    if (alu[EX] == NULL) {
+        ps_ptr = alu[ID];
+        if ((ps_ptr != NULL) && (STAGE(ps_ptr) == ID) && !mem_stall) {
+            id_stall = FALSE;
+
+            DSLOT(ps_ptr) = bd_slot;
+            if (EXCPT (ps_ptr) == 0) {
+                process_ID (ps_ptr, &id_stall, MDU.count);
+                if (!id_stall)
+                    bd_slot = ((DSLOT(ps_ptr) == TRUE) ? FALSE :
+                               (IS_BRANCH (OPCODE(ps_ptr->inst)) ? TRUE : FALSE));
+            }
+            
+            if (!id_stall) {
+                STAGE (ps_ptr) = EX;
+                /* If it's a floating point op move it to the floating point
+                 * pipeline */
+                if ((EXCPT(ps_ptr) == 0) && (is_fp_op(OPCODE (ps_ptr->inst))))
+                    fatal_error("Floating point not supported");
+                else
+                    alu[EX] = ps_ptr;
+                alu[ID] = NULL;
+            }
+
+            if (EXCPT (ps_ptr) != 0) {
+                pipe_dealloc(ID, alu);
+                END_OF_CYCLE;
+            }
+        }
+    }
+
+    if (alu[ID] == NULL) {
+        ps_ptr = alu[IF];
+        if ((ps_ptr != NULL) && (STAGE (ps_ptr) == IF_STALL)) {
+            /* IF STALL stage */
+            if (RNUM (ps_ptr) == bus_req) {
+                if (mem_stall || id_stall) {
+                    STAGE(ps_ptr) = IF;
+                    END_OF_CYCLE;
+                } else {
+                    STAGE (ps_ptr) = ID;
+                    alu[ID] = ps_ptr;
+                    alu[IF] = NULL;
+                    PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+                }
+            } else {
+                END_OF_CYCLE;
+            }
+        } else if (ps_ptr != NULL && (STAGE(ps_ptr) == IF))  {
+            /* IF Stage */
+            CL_READ_MEM_INST(ps_ptr->inst, STAGE_PC(ps_ptr),
+                             PADDR(ps_ptr), cmiss, EXCPT(ps_ptr), RNUM(ps_ptr));
+            printf("IF fetch %x\n", STAGE_PC(ps_ptr));
+
+            /* if exception, must be tlb, read instruction for viewing purposes */
+            if (EXCPT(ps_ptr) != 0) {
+                if (! (mem_stall || id_stall)) {
+                    alu[ID] = ps_ptr;
+                    alu[IF] = NULL;
+                    STAGE (ps_ptr) = ID;
+                    PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+                }
+                END_OF_CYCLE;
+            } else if (cmiss == CACHE_MISS) {
+                STAGE (ps_ptr) = IF_STALL;
+                END_OF_CYCLE;
+            } else if (mem_stall || id_stall) {
+                END_OF_CYCLE;
+            } else {
+                alu[ID] = ps_ptr;
+                alu[IF] = NULL;
+                STAGE (ps_ptr) = ID;
+                PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+            }
+        }
+    }
+
+  
     /* if we got this far, get next instruction into IF stage */
     alu[IF] = stage_alloc();
     STAGE (alu[IF]) = IF;
@@ -348,7 +350,7 @@ int MIPS4KC::cycle_spim (int *steps, int display)
     /* do a dummy read just so we can see the instruction in the pipeline */
     READ_MEM_INST (alu[IF]->inst, PC);
 
-    END_OF_CYCLE
+    END_OF_CYCLE;
 
   }
   return 0;
@@ -1551,7 +1553,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 /* process memory stage */
 /* need to handle misses and faults */
 
-int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
+int MIPS4KC::process_MEM (PIPE_STAGE ps)
 {
   instruction *inst;
   int cmiss = -1;
@@ -1567,13 +1569,13 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
   switch (OPCODE (inst))
     {
     case Y_LB_OP:
-      CL_READ_MEM_BYTE(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_BYTE(VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
       break;
 
     case Y_LBU_OP:
-      CL_READ_MEM_BYTE(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_BYTE( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
       if (EXCPT (ps) == 0) {
 	/* 0xff is probably not necessary */
 	VALUE (ps) &= 0xff;
@@ -1582,13 +1584,13 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
       break;
 
     case Y_LH_OP:
-      CL_READ_MEM_HALF(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_HALF( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
       break;
 
     case Y_LHU_OP:
-      CL_READ_MEM_HALF(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_HALF( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
       if (EXCPT (ps) == 0) {
 	/* 0xffff is probably not necessary */
 	VALUE (ps) &= 0xffff;
@@ -1597,7 +1599,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
       break;
 
     case Y_LW_OP:
-      CL_READ_MEM_WORD(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
       printf("LW %x from %x\n", VALUE(ps), ADDR(ps));
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
@@ -1606,7 +1608,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
     case Y_LWC0_OP:
     case Y_LWC2_OP:
     case Y_LWC3_OP:
-      CL_READ_MEM_WORD(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
       if (EXCPT (ps) == 0)
 	set_CP_bypass((OPCODE (inst) - Y_LWC0_OP), RT (inst), VALUE (ps), 1)
       else
@@ -1618,7 +1620,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 
 
     case Y_LWC1_OP:
-      CL_READ_MEM_WORD(mem_sys, VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
       if (EXCPT (ps) == 0)
 	set_CP_bypass((OPCODE (inst) - Y_LWC0_OP), RT (inst), VALUE (ps), 1)
       else
@@ -1637,7 +1639,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 	   instruction. */
 	reg_word reg_val = R[RT (inst)];
 
-	CL_READ_MEM_WORD(mem_sys, word, addr & 0xfffffffc, PADDR (ps), cmiss,
+	CL_READ_MEM_WORD( word, addr & 0xfffffffc, PADDR (ps), cmiss,
 			 EXCPT (ps), RNUM (ps));
 	/* Fix this */
 /*	if ((Cause >> 2) > LAST_REAL_EXCEPT) */
@@ -1694,7 +1696,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 	/* is this right? */
 	reg_word reg_val = R[RT (inst)];
 
-        CL_READ_MEM_WORD(mem_sys, word, addr & 0xfffffffc, PADDR (ps), cmiss,
+        CL_READ_MEM_WORD( word, addr & 0xfffffffc, PADDR (ps), cmiss,
 			 EXCPT (ps), RNUM (ps));
 	/* fix this */
 
@@ -1753,18 +1755,18 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 
 
     case Y_SB_OP:
-      CL_SET_MEM_BYTE(mem_sys, ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
+      CL_SET_MEM_BYTE( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
 		      RNUM (ps));
       break;
 
     case Y_SH_OP:
-      CL_SET_MEM_HALF(mem_sys, ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
+      CL_SET_MEM_HALF( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
 		      RNUM (ps));
       break;
 
     case Y_SW_OP:
         printf("SW %x %x %x v:%x\n", ADDR(ps), PADDR(ps), EXCPT(ps), VALUE(ps));
-      CL_SET_MEM_WORD(mem_sys, ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
+      CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
 		      RNUM (ps));
       printf("SW %x %x %x cm:%x\n", ADDR(ps), PADDR(ps), EXCPT(ps), cmiss);
       break;
@@ -1774,14 +1776,14 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 	float val = FGR [RT (inst)];
 	reg_word *vp = (reg_word *) &val;
 
-	CL_SET_MEM_WORD (mem_sys, ADDR (ps), PADDR (ps), *vp, cmiss, EXCPT (ps),
+	CL_SET_MEM_WORD ( ADDR (ps), PADDR (ps), *vp, cmiss, EXCPT (ps),
 			 RNUM (ps));
 	break;
       }
 
     case Y_SWC0_OP:
     case Y_SWC3_OP:
-      CL_SET_MEM_WORD(mem_sys, ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
+      CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
 		      RNUM (ps));
       break;
 
@@ -1797,7 +1799,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 	reg_word reg = R[RT (inst)];
 	int byte = addr & 0x3;
 
-	CL_READ_MEM_WORD (mem_sys, data, addr & 0xfffffffc, PADDR (ps), cmiss,
+	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), cmiss,
 			  EXCPT (ps), RNUM (ps));
 
 #ifdef BIGENDIAN
@@ -1839,7 +1841,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 	    break;
 	  }
 #endif
-	CL_SET_MEM_WORD (mem_sys, addr & 0xfffffffc, PADDR (ps), data, cmiss,
+	CL_SET_MEM_WORD ( addr & 0xfffffffc, PADDR (ps), data, cmiss,
 			 EXCPT(ps), RNUM (ps));
 	break;
       }
@@ -1851,7 +1853,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 	reg_word reg = R[RT (inst)];
 	int byte = addr & 0x3;
 
-	CL_READ_MEM_WORD (mem_sys, data, addr & 0xfffffffc, PADDR (ps), cmiss,
+	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), cmiss,
 			  EXCPT (ps), RNUM (ps));
 
 #ifdef BIGENDIAN
@@ -1893,7 +1895,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys)
 	    break;
 	  }
 #endif
-	CL_SET_MEM_WORD (mem_sys, addr & 0xfffffffc, PADDR (ps), data, cmiss,
+	CL_SET_MEM_WORD ( addr & 0xfffffffc, PADDR (ps), data, cmiss,
 			 EXCPT(ps), RNUM (ps));
 	break;
       }
@@ -2884,11 +2886,11 @@ void MIPS4KC::print_pipeline_internal (char *buf)
   sprintf (buf, "MEM %d 0x%08x   EX %d 0x%08x\n",MEM_bp_reg,  uint(MEM_bp_val), EX_bp_reg, uint(EX_bp_val));
   buf += strlen(buf);
 
-  sprintf (buf, "*** Write Back Buffer\n");
-  buf += strlen(buf);
+  //sprintf (buf, "*** Write Back Buffer\n");
+  //buf += strlen(buf);
 
-  sprintf (buf, "%s\n", print_write_buffer());
-  buf += strlen(buf);
+  //sprintf (buf, "%s\n", print_write_buffer());
+  //buf += strlen(buf);
 }
 
 

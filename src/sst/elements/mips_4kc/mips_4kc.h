@@ -345,40 +345,15 @@ void print_signal_status (int sig);
     int exception_occurred=0;
 
     /* memory variables */
-    MEM_SYSTEM mem_system;
-    int dcache_modified=0, icache_modified=0;
-    int line_size=0;
-    int dcache_on=0, icache_on=0, tlb_on=0;
     long data_size_limit=0, stack_size_limit=0, k_data_size_limit=0;
     /* Memory-mapped IO routines: */
     long recv_control=0, recv_buffer=0, recv_buffer_filled=0;
     long trans_control=0, trans_buffer=0, trans_buffer_filled=0;
 
     /* CL cache functions */
-    void cache_wt_init (void);
-void stat_init (void);
-void stat_print (void);
-unsigned int bus_service (MEM_SYSTEM mem_system);
-MEM_SYSTEM mem_sys_init (void);
-void print_mem_sys_status (int finished, MEM_SYSTEM mem_system);
-void cache_init (MEM_SYSTEM mem_system, int type);
-int cache_service (MEM_SYSTEM mem_system, mem_addr addr, int type, unsigned int
-		   *req_num);
-int cache_probe (CACHE cache, mem_addr addr, int type);
-void print_cache_stats (char *buf, int type);
-char *print_write_buffer (void);
-void print_cache_data (char *buf, int type);
- int arbitrate (MEM_SYSTEM mem_system);
- int service_request(MEM_SYSTEM);
- void rb_insert (MEM_SYSTEM mem_system, mem_addr addr, unsigned int
-		       *req_num);
- void ib_insert (MEM_SYSTEM mem_system, mem_addr addr, unsigned int
-		       *req_num);
- int wb_insert (MEM_SYSTEM mem_system, mem_addr addr, unsigned int
-		      *req_num);
- int wb_conflict (MEM_SYSTEM mem_system, mem_addr addr);
- unsigned int wb_promote (MEM_SYSTEM mem_system);
- void cache_update (CACHE cache, mem_addr addr, int type);
+    unsigned int bus_service ();
+    int cache_service (mem_addr addr, int type, 
+                       unsigned int *req_num);
     int tlb_vat (mem_addr addr, unsigned int pid, int l_or_s, mem_addr *paddr) {
         *paddr = addr;
         return CACHEABLE;
@@ -401,7 +376,7 @@ void make_memory (long int text_size, long int data_size, long int data_limit,
 	long int stack_size, long int stack_limit, long int k_text_size,
 	long int k_data_size, long int k_data_limit);
 void print_mem (mem_addr addr);
-instruction *cl_bad_text_read (mem_addr addr, int *excpt);
+    instruction *cl_bad_text_read (mem_addr addr, int *excpt);
 void cl_bad_text_write (mem_addr addr, instruction *inst, int *excpt);
 mem_word cl_bad_mem_read (mem_addr addr, int mask, mem_word *dest, int *excpt);
 void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
@@ -411,7 +386,7 @@ void cl_bad_mem_write (mem_addr addr, mem_word value, int mask, int *excpt);
     int can_issue (short int oc);
     int process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy);
     void process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU);
-    int process_MEM (PIPE_STAGE ps, MEM_SYSTEM mem_sys);
+    int process_MEM (PIPE_STAGE ps);
     int process_WB (PIPE_STAGE ps);
     int process_f_ex1 (PIPE_STAGE ps);
     void process_f_ex2 (PIPE_STAGE ps);

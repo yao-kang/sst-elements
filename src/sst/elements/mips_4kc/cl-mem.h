@@ -8,12 +8,12 @@
 /* New Memory Macros ... have an extra argument for signalling an exception */
 
 
-#define CL_READ_MEM_INST(MS, LOC, ADDR, PADDR, CMISS, EXPT, RNUM)	     \
+#define CL_READ_MEM_INST(LOC, ADDR, PADDR, CMISS, EXPT, RNUM)	     \
 {mem_addr _addr_ = (mem_addr) (ADDR);			             \
  unsigned int tmp;                                                           \
  tmp = tlb_vat(ADDR, 0, 1, &PADDR);					\
  if (tmp == CACHEABLE) {						\
-   CMISS = cache_service (MS, PADDR, ILOAD, &RNUM);			\
+   CMISS = cache_service (PADDR, ILOAD, &RNUM);			\
    if (_addr_ >= TEXT_BOT && _addr_ < text_top && !(_addr_ & 0x3))           \
      LOC = text_seg [(_addr_ - TEXT_BOT) >> 2];		                     \
    else if (_addr_ >= K_TEXT_BOT && _addr_ < k_text_top && !(_addr_ & 0x3))  \
@@ -24,12 +24,12 @@
 }
 
 
-#define CL_READ_MEM_BYTE(MS, LOC, ADDR, PADDR, CMISS, EXPT, RNUM)            \
+#define CL_READ_MEM_BYTE(LOC, ADDR, PADDR, CMISS, EXPT, RNUM)            \
 {mem_addr _addr_ = (mem_addr) (ADDR);			             \
  unsigned int tmp;                                                           \
  tmp = tlb_vat(ADDR, 0, 1, &PADDR);                                          \
  if (tmp == CACHEABLE) {                                                     \
-   CMISS = cache_service(MS, PADDR, LOAD, &RNUM);                            \
+   CMISS = cache_service(PADDR, LOAD, &RNUM);                            \
    if (_addr_ >= DATA_BOT && _addr_ < data_top)			             \
     LOC = data_seg_b [_addr_ - DATA_BOT];			             \
    else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)		             \
@@ -41,12 +41,12 @@
  }
 
 
-#define CL_READ_MEM_HALF(MS, LOC, ADDR, PADDR, CMISS, EXPT, RNUM)            \
+#define CL_READ_MEM_HALF(LOC, ADDR, PADDR, CMISS, EXPT, RNUM)            \
 {mem_addr _addr_ = (mem_addr) (ADDR);			             \
  unsigned int tmp;                                                           \
  tmp = tlb_vat(ADDR, 0, 1, &PADDR);                                          \
  if (tmp == CACHEABLE) {                                                     \
-   CMISS = cache_service(MS, PADDR, LOAD, &RNUM);                            \
+   CMISS = cache_service(PADDR, LOAD, &RNUM);                            \
    if (_addr_ >= DATA_BOT && _addr_ < data_top && !(_addr_ & 0x1))           \
      LOC = data_seg_h [(_addr_ - DATA_BOT) >> 1];		             \
    else if (_addr_ >= stack_bot && _addr_ < STACK_TOP && !(_addr_ & 0x1))    \
@@ -59,12 +59,12 @@
 
 
 
-#define CL_READ_MEM_WORD(MS, LOC, ADDR, PADDR, CMISS, EXPT, RNUM)	      \
+#define CL_READ_MEM_WORD(LOC, ADDR, PADDR, CMISS, EXPT, RNUM)	      \
 {mem_addr _addr_ = (mem_addr) (ADDR);			              \
  unsigned int tmp;                                                            \
  tmp = tlb_vat(ADDR, 0, 1, &PADDR);                                           \
  if (tmp == CACHEABLE) {                                                      \
-   CMISS = cache_service(MS, PADDR, LOAD, &RNUM);                             \
+   CMISS = cache_service(PADDR, LOAD, &RNUM);                             \
    if (_addr_ >= DATA_BOT && _addr_ < data_top && !(_addr_ & 0x3))            \
      LOC = data_seg [(_addr_ - DATA_BOT) >> 2];			              \
    else if (_addr_ >= stack_bot && _addr_ < STACK_TOP && !(_addr_ & 0x3))     \
@@ -76,7 +76,7 @@
  }
 
 
-#define CL_SET_MEM_INST(MS, ADDR, INST, CMISS, EXPT)		             \
+#define CL_SET_MEM_INST(ADDR, INST, CMISS, EXPT)		             \
 {mem_addr _addr_ = (mem_addr) (ADDR);			             \
  unsigned int tmp;                                                           \
  CMISS = CACHE_HIT;                                                          \
@@ -88,12 +88,12 @@
  else cl_bad_text_write (_addr_, INST, &EXPT);}                              \
  }
 
-#define CL_SET_MEM_BYTE(MS, ADDR, PADDR, VALUE, CMISS, EXPT, RNUM)	\
+#define CL_SET_MEM_BYTE(ADDR, PADDR, VALUE, CMISS, EXPT, RNUM)	\
 {mem_addr _addr_ = (mem_addr) (ADDR);			        \
  unsigned int tmp;                                                      \
  tmp = tlb_vat(ADDR, 0, 0, &PADDR);                                     \
  if (tmp == CACHEABLE) {                                                \
-   CMISS = cache_service(MS, PADDR, STORE, &RNUM);                      \
+   CMISS = cache_service(PADDR, STORE, &RNUM);                      \
    data_modified = 1;						        \
    if (_addr_ >= DATA_BOT && _addr_ < data_top)			        \
      data_seg_b [_addr_ - DATA_BOT] = (unsigned char) (VALUE);	        \
@@ -106,12 +106,12 @@
  }
 
 
-#define CL_SET_MEM_HALF(MS, ADDR, PADDR, VALUE, CMISS, EXPT, RNUM)           \
+#define CL_SET_MEM_HALF(ADDR, PADDR, VALUE, CMISS, EXPT, RNUM)           \
 {mem_addr _addr_ = (mem_addr) (ADDR);			             \
  unsigned int tmp;                                                           \
  tmp = tlb_vat(ADDR, 0, 0, &PADDR);                                          \
  if (tmp == CACHEABLE) {                                                     \
-   CMISS = cache_service(MS, PADDR, STORE, &RNUM);                           \
+     CMISS = cache_service(PADDR, STORE, &RNUM);                     \
    data_modified = 1;						             \
    if (_addr_ >= DATA_BOT && _addr_ < data_top && !(_addr_ & 0x1))           \
      data_seg_h [(_addr_ - DATA_BOT) >> 1] = (unsigned short) (VALUE);	     \
@@ -124,12 +124,12 @@
  }
 
 
-#define CL_SET_MEM_WORD(MS, ADDR, PADDR, VALUE, CMISS, EXPT, RNUM)           \
+#define CL_SET_MEM_WORD(ADDR, PADDR, VALUE, CMISS, EXPT, RNUM)           \
 {mem_addr _addr_ = (mem_addr) (ADDR);			             \
  unsigned int tmp;                                                           \
  tmp = tlb_vat(ADDR, 0, 0, &PADDR);                                          \
  if (tmp == CACHEABLE) {                                                     \
-   CMISS = cache_service(MS, PADDR, STORE, &RNUM);                           \
+   CMISS = cache_service(PADDR, STORE, &RNUM);                           \
    data_modified = 1;						             \
    if (_addr_ >= DATA_BOT && _addr_ < data_top && !(_addr_ & 0x3))           \
      data_seg [(_addr_ - DATA_BOT) >> 2] = (mem_word) (VALUE);	             \
@@ -143,18 +143,6 @@
 
 
 
-/* read a word, instruction or data, and don't complain */
 
-#define BASIC_READ_MEM_WORD(LOC, ADDR, EXPT)				\
-{									\
-  mem_addr _addr_ = (mem_addr) (ADDR);			      	\
-  if (_addr_ >= DATA_BOT && _addr_ < data_top && !(_addr_ & 0x3))	\
-    LOC = data_seg [(_addr_ - DATA_BOT) >> 2];		                \
-  else if (_addr_ >= stack_bot && _addr_ < STACK_TOP && !(_addr_ & 0x3))\
-    LOC = stack_seg [(_addr_ - stack_bot) >> 2];		        \
-  else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top && !(_addr_ & 0x3)) \
-    LOC = k_data_seg [(_addr_ - K_DATA_BOT) >> 2];		        \
-  else LOC = cl_bad_mem_read(ADDR, 0x3, &LOC, EXPT);                    \
-}
 
 #endif // _CL_MEM_H

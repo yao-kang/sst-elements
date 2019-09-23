@@ -223,6 +223,13 @@ void MIPS4KC::expand_k_data (long int addl_bytes)
 
 
 /* Handle the infrequent and erroneous cases in the memory access macros. */
+instruction * MIPS4KC::cl_bad_text_read (mem_addr addr, int *excpt)
+{
+  mem_word bits;
+
+  READ_MEM_WORD (bits, addr);
+  return (inst_decode (bits));
+}
 
 instruction * MIPS4KC::bad_text_read (mem_addr addr)
 {
@@ -362,15 +369,6 @@ void MIPS4KC::bad_mem_write (mem_addr addr, mem_word value, int mask)
 
 /* Handle infrequent and erroneous cases in cycle-level SPIM memory
    access macros. */
-
-instruction * MIPS4KC::cl_bad_text_read (mem_addr addr, int *excpt)
-{
-  mem_word bits;
-
-  BASIC_READ_MEM_WORD (bits, addr, excpt);
-  return (inst_decode (bits));
-}
-
 
 void MIPS4KC::cl_bad_text_write (mem_addr addr, instruction *inst, int *excpt)
 {
