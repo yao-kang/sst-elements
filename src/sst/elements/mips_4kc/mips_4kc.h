@@ -389,6 +389,9 @@ void print_signal_status (int sig);
     int can_issue (short int oc);
     int process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy);
     void process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU);
+    void sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t size, 
+                            Interfaces::SimpleMem::Request::dataVec &data);
+    void process_rising_MEM (PIPE_STAGE ps);
     int process_MEM (PIPE_STAGE ps);
     int process_WB (PIPE_STAGE ps);
     void init_stage_pool (void);
@@ -410,7 +413,7 @@ private:
 
     Output out;
     Interfaces::SimpleMem * memory;
-    std::map<uint64_t, void*> requests; //memory requests
+    std::map<uint64_t, PIPE_STAGE> requests; //memory requests
 
     TimeConverter *clockTC;
     Clock::HandlerBase *clockHandler;

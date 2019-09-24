@@ -50,6 +50,98 @@ using namespace SST::MIPS4KCComponent;
 			continue;					\
 			}
 
+void MIPS4KC::sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t memSz, 
+                                 Interfaces::SimpleMem::Request::dataVec &data){
+    using namespace Interfaces;
+
+    SimpleMem::Request::Command cmd;
+    if (isLoad) {
+        cmd = SimpleMem::Request::Read;
+    } else {
+        cmd = SimpleMem::Request::Write;
+    }
+
+    SimpleMem::Request *req = 
+        new SimpleMem::Request(cmd, ADDR(ps), memSz, data);
+    memory->sendRequest(req);
+    requests.insert(std::make_pair(req->id, ps));
+    printf(" sent id:%llx to cache\n", req->id);
+}
+
+/* 
+ * issue memory requests to cache
+ */
+void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {    
+    instruction *inst = ps->inst;
+
+    printf("issuing ");
+    print_inst(ps->pc); printf("\n");
+    
+    size_t memSize = 0;
+    Interfaces::SimpleMem::Request::dataVec data;
+
+    switch (OPCODE (inst)) {
+        /* 'normal' memory operations */
+    case Y_LB_OP:
+    case Y_LBU_OP:
+        if (memSize == 0) memSize = 1;
+    case Y_LH_OP:
+    case Y_LHU_OP:
+        if (memSize == 0) memSize = 2;
+    case Y_LW_OP:
+        if (memSize == 0) memSize = 4;
+        printf("load to cache: %x\n", ADDR(ps));
+        sendRequestToCache(ps, true, memSize, data);    
+        break;
+
+    case Y_SB_OP:
+        if (memSize == 0) {
+            memSize = 1;
+            data.resize(memSize);
+            data[0] = (uint8_t)(VALUE(ps) & 0xff);
+        }
+    case Y_SH_OP:
+        if (memSize == 0) {
+            memSize = 2;
+            data.resize(memSize);
+            data[0] = (uint8_t)((VALUE(ps)>>8) & 0xff);
+            data[1] = (uint8_t)((VALUE(ps)>>0) & 0xff);
+        }
+    case Y_SW_OP:
+        if (memSize == 0) {
+            memSize = 4;
+            data.resize(memSize);
+            data[0] = (uint8_t)((VALUE(ps)>>24) & 0xff);
+            data[2] = (uint8_t)((VALUE(ps)>>16) & 0xff);
+            data[3] = (uint8_t)((VALUE(ps)>>8) & 0xff);
+            data[4] = (uint8_t)((VALUE(ps)>>0) & 0xff);
+        }
+        printf("store to cache: %x\n", ADDR(ps));
+        sendRequestToCache(ps, false, memSize, data);  
+        break;
+
+        /* coprocessor */
+    case Y_LWC0_OP: case Y_LWC2_OP: case Y_LWC3_OP: case Y_SWC0_OP:
+    case Y_SWC2_OP: case Y_SWC3_OP: case Y_CFC0_OP: case Y_CFC2_OP:
+    case Y_CFC3_OP: case Y_MFC0_OP: case Y_MFC2_OP: case Y_MFC3_OP:
+    case Y_CTC0_OP: case Y_CTC2_OP: case Y_CTC3_OP: case Y_MTC0_OP:
+    case Y_MTC2_OP: case Y_MTC3_OP:
+        fatal_error("Coprocessors not supported");
+        break;
+
+        /* FPU */
+    case Y_LWC1_OP: case Y_SWC1_OP: case Y_MFC1_OP: case Y_LWL_OP:
+    case Y_LWR_OP: case Y_SWL_OP: case Y_SWR_OP:
+        fatal_error("FPU not supported");
+        break;
+
+    default:
+        /*do nothing: case Y_SYSCALL_OP:     case Y_TLBP_OP:    case Y_TLBR_OP:
+          case Y_TLBWI_OP:    case Y_TLBWR_OP:*/
+        break;
+    }
+}
+
 
 /*
  * function cl_run_rising: issue memory requests
@@ -59,9 +151,7 @@ void MIPS4KC::cl_run_rising () {
     if (ps_ptr != NULL) {            
         if (IS_MEM_OP(OPCODE(ps_ptr->inst))) {  // if it is a load            
             if (ps_ptr->issued_to_cache == 0) { // not already issued
-#warning issue to cache here
-                printf("issuing ");
-                print_inst(ps_ptr->pc); printf("\n");
+                process_rising_MEM(ps_ptr);
                 ps_ptr->issued_to_cache = 1;
                 STAGE(ps_ptr) = MEM_STALL;
             }

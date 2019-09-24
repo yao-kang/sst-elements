@@ -17,7 +17,7 @@ comp_mips.addParams({
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")
 comp_l1cache.addParams({
     "access_latency_cycles" : "1",
-    "cache_frequency" : "1 Ghz",
+    "cache_frequency" : "4 Ghz",
     "replacement_policy" : "lru",
     "coherence_protocol" : "MSI",
     "associativity" : "4",
@@ -34,9 +34,9 @@ comp_memory.addParams({
       "debug" : 1,
       "coherence_protocol" : "MSI",
       "debug_level" : 10,
-      "backend.access_time" : "200 ns",
+      "backend.access_time" : "10 ps",
       "backing" : "malloc", 
-      "clock" : "1GHz",
+      "clock" : "4GHz",
       "backend.mem_size" : "512MiB"
 })
 
@@ -48,7 +48,7 @@ sst.enableAllStatisticsForComponentType("memHierarchy.Cache")
 
 # Define the simulation links
 link_mips_cache = sst.Link("link_mips_mem")
-link_mips_cache.connect( (comp_mips, "mem_link", "1000ps"), (comp_l1cache, "high_network_0", "1000ps") )
+link_mips_cache.connect( (comp_mips, "mem_link", "10ps"), (comp_l1cache, "high_network_0", "10ps") )
 link_mem_bus_link = sst.Link("link_mem_bus_link")
-link_mem_bus_link.connect( (comp_l1cache, "low_network_0", "50ps"), (comp_memory, "direct_link", "50ps") )
+link_mem_bus_link.connect( (comp_l1cache, "low_network_0", "10ps"), (comp_memory, "direct_link", "10ps") )
 

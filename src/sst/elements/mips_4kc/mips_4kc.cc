@@ -111,7 +111,9 @@ void MIPS4KC::init(unsigned int phase) {
 // handle incoming memory
 void MIPS4KC::handleEvent(Interfaces::SimpleMem::Request * req)
 {
-    std::map<uint64_t, void*>::iterator i = requests.find(req->id);
+    printf("got event %llx\n", req->id);
+
+    std::map<uint64_t, PIPE_STAGE>::iterator i = requests.find(req->id);
     if (i == requests.end()) {
 	out.fatal(CALL_INFO, -1, "Request ID (%" PRIx64 ") not found in outstanding requests!\n", req->id);
     } else {
