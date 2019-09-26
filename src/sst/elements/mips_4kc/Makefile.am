@@ -16,6 +16,7 @@ libmips_4kc_la_SOURCES = \
 	cl-cache.cc \
 	cl-except.h \
 	cl-except.cc \
+	cl-mem.cc \
 	spim-utils.cc \
 	data.cc \
 	inst.cc \

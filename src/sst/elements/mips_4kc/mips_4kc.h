@@ -37,7 +37,6 @@
 #include "reg.h"
 #include "mem.h"
 
-#include "cl-mem.h"
 #include "cl-cache.h"
 #include "cl-cycle.h"
 #include "cl-tlb.h"
@@ -119,6 +118,8 @@ public:
     }
 
 protected:
+    typedef Interfaces::SimpleMem::Request memReq;
+
     void cl_run_rising();
     void cl_run_falling (mem_addr addr, int display);
     void cl_initialize_world (int run);
@@ -364,6 +365,44 @@ void print_signal_status (int sig);
     
 
     /* memory functions */
+    void CL_READ_MEM_INST(instruction* &LOC, const mem_addr ADDR,
+                          mem_addr &PADDR, int &EXPT);
+    void CL_READ_MEM(reg_word &LOC, const mem_addr ADDR,
+                     mem_addr &PADDR, int &EXPT, const memReq *req, size_t sz);
+    void CL_READ_MEM_BYTE(reg_word &LOC, const mem_addr ADDR,
+                          mem_addr &PADDR, int &EXPT, const memReq *req) {
+        CL_READ_MEM(LOC, ADDR, PADDR, EXPT, req, 1);
+    }
+    void CL_READ_MEM_HALF(reg_word &LOC, const mem_addr ADDR,
+                          mem_addr &PADDR, int &EXPT, const memReq *req) {
+        CL_READ_MEM(LOC, ADDR, PADDR, EXPT, req, 2);
+    }
+    void CL_READ_MEM_WORD(reg_word &LOC, const mem_addr ADDR,
+                          mem_addr &PADDR, int &EXPT, const memReq *req) {
+        CL_READ_MEM(LOC, ADDR, PADDR, EXPT, req, 4);
+    }
+
+    void CL_SET_MEM(const mem_addr ADDR, mem_addr &PADDR, const reg_word VALUE,
+                    int &EXPT, const memReq *req, size_t sz);
+    void CL_SET_MEM_BYTE(const mem_addr ADDR, mem_addr &PADDR, 
+                         const reg_word VALUE, int &EXPT, 
+                         const memReq *req) {
+        CL_SET_MEM(ADDR,PADDR,VALUE,EXPT,req,1);
+    }
+    void CL_SET_MEM_HALF(const mem_addr ADDR, mem_addr &PADDR, 
+                         const reg_word VALUE, int &EXPT, 
+                         const memReq *req) {
+        CL_SET_MEM(ADDR,PADDR,VALUE,EXPT,req,2);
+    }
+
+    void CL_SET_MEM_WORD(const mem_addr ADDR, mem_addr &PADDR, 
+                         const reg_word VALUE, int &EXPT, 
+                         const memReq *req) {
+        CL_SET_MEM(ADDR,PADDR,VALUE,EXPT,req,4);
+    }
+
+    
+
     void free_instructions (register instruction **inst, int n);
     mem_word read_memory_mapped_IO (mem_addr addr);
     void write_memory_mapped_IO (mem_addr addr, mem_word value);
@@ -390,9 +429,10 @@ void print_signal_status (int sig);
     int process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy);
     void process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU);
     void sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t size, 
-                            Interfaces::SimpleMem::Request::dataVec &data);
+                            memReq::dataVec &data);
     void process_rising_MEM (PIPE_STAGE ps);
-    int process_MEM (PIPE_STAGE ps);
+    memReq *check_cacheComplete(PIPE_STAGE ps); 
+    void process_MEM (PIPE_STAGE ps, memReq *req);
     int process_WB (PIPE_STAGE ps);
     void init_stage_pool (void);
     PIPE_STAGE stage_alloc (void);
@@ -413,7 +453,8 @@ private:
 
     Output out;
     Interfaces::SimpleMem * memory;
-    std::map<uint64_t, PIPE_STAGE> requests; //memory requests
+    std::map<uint64_t, PIPE_STAGE> requestsOut; //requests sent to memory 
+    std::map<PIPE_STAGE, memReq *> requestsIn; //requests recieved from memory 
 
     TimeConverter *clockTC;
     Clock::HandlerBase *clockHandler;

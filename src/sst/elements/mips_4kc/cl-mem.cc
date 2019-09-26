@@ -1,0 +1,87 @@
+/* SPIM S20 MIPS Cycle Level simulator.
+   Definitions for the SPIM S20 Cycle Level Simulator (SPIM-CL).
+   Copyright (C) 1991-1992 by Anne Rogers (amr@cs.princeton.edu) and
+   Scott Rosenberg (scottr@cs.princeton.edu)
+   ALL RIGHTS RESERVED.
+
+   SPIM-CL is distributed under the following conditions:
+
+     You may make copies of SPIM-CL for your own use and modify those copies.
+
+     All copies of SPIM-CL must retain our names and copyright notice.
+
+     You may not sell SPIM-CL or distributed SPIM-CL in conjunction with a
+     commerical product or service without the expressed written consent of
+     Anne Rogers.
+
+   THIS SOFTWARE IS PROVIDED ``AS IS'' AND WITHOUT ANY EXPRESS OR
+   IMPLIED WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED
+   WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+   PURPOSE.
+*/
+
+#include <sst_config.h>
+#include "mips_4kc.h"
+
+using namespace SST;
+using namespace SST::MIPS4KCComponent;
+
+void MIPS4KC::CL_READ_MEM_INST(instruction* &LOC, const mem_addr ADDR,
+                                   mem_addr &PADDR, 
+                                   int &EXPT) {
+    mem_addr _addr_ = (mem_addr) (ADDR); 
+    unsigned int tmp = tlb_vat(ADDR, 0, 1, &PADDR);
+    if (_addr_ >= TEXT_BOT && _addr_ < text_top && !(_addr_ & 0x3))
+        LOC = text_seg [(_addr_ - TEXT_BOT) >> 2];                 
+    else if (_addr_ >= K_TEXT_BOT && _addr_ < k_text_top && !(_addr_ & 0x3)) 
+        LOC = k_text_seg [(_addr_ - K_TEXT_BOT) >> 2];
+    else CL_RAISE_EXCEPTION(tmp, 0, EXPT);    	
+}
+
+void MIPS4KC::CL_READ_MEM(reg_word &LOC, const mem_addr ADDR,
+                          mem_addr &PADDR, int &EXPT, 
+                          const memReq *req, size_t sz) {
+    mem_addr _addr_ = (mem_addr) (ADDR);
+    unsigned int tmp = tlb_vat(ADDR, 0, 1, &PADDR);
+    if (_addr_ >= DATA_BOT && _addr_ < data_top)
+        LOC = data_seg_b [_addr_ - DATA_BOT];
+    else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
+        LOC = stack_seg_b [_addr_ - stack_bot];
+    else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)
+        LOC = k_data_seg_b [_addr_ - K_DATA_BOT];
+    else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+
+    assert(sz == req->data.size());
+
+    reg_word out = 0;
+    for (int i = 0; i < sz; ++i) {
+        out <<= 8;
+        out |= req->data[i];
+    }
+    printf("READ: %08x %08x\n", LOC, out); 
+}
+
+void MIPS4KC::CL_SET_MEM(const mem_addr ADDR, mem_addr &PADDR, 
+                         const reg_word VALUE, int &EXPT, 
+                         const memReq *req, size_t sz) {
+    mem_addr _addr_ = (mem_addr) (ADDR);
+    unsigned int tmp = tlb_vat(ADDR, 0, 0, &PADDR); 
+    data_modified = 1; //needed?
+    if (_addr_ >= DATA_BOT && _addr_ < data_top)
+        data_seg_b [_addr_ - DATA_BOT] = (unsigned char) (VALUE);
+    else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
+        stack_seg_b [_addr_ - stack_bot] = (unsigned char) (VALUE); 
+    else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)  
+        k_data_seg_b [_addr_ - K_DATA_BOT] = (unsigned char) (VALUE);
+    else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    
+    assert(sz == req->data.size());
+
+    reg_word in = 0;
+    for (int i = 0; i < sz; ++i) {
+        in <<= 8;
+        in |= req->data[i];
+    }
+    printf("WRITE: %08x %08x\n", VALUE, in); 
+ }
+

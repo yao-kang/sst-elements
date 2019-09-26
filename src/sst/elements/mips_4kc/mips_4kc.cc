@@ -109,18 +109,18 @@ void MIPS4KC::init(unsigned int phase) {
 }
 
 // handle incoming memory
-void MIPS4KC::handleEvent(Interfaces::SimpleMem::Request * req)
+void MIPS4KC::handleEvent(memReq *req)
 {
     printf("got event %llx\n", req->id);
 
-    std::map<uint64_t, PIPE_STAGE>::iterator i = requests.find(req->id);
-    if (i == requests.end()) {
+    std::map<uint64_t, PIPE_STAGE>::iterator i = requestsOut.find(req->id);
+    if (i == requestsOut.end()) {
 	out.fatal(CALL_INFO, -1, "Request ID (%" PRIx64 ") not found in outstanding requests!\n", req->id);
     } else {
         // handle event
-        // ...
+        requestsIn.insert(std::make_pair(i->second,req));
         // clean up
-        requests.erase(i);
+        requestsOut.erase(i);
     }
 }
 

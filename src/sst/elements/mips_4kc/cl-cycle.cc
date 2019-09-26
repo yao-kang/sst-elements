@@ -35,7 +35,6 @@
 
 #include "y.tab.h"
 
-#include "cl-mem.h"
 #include "cl-cache.h"
 #include "cl-cycle.h"
 #include "cl-tlb.h"
@@ -51,20 +50,23 @@ using namespace SST::MIPS4KCComponent;
 			}
 
 void MIPS4KC::sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t memSz, 
-                                 Interfaces::SimpleMem::Request::dataVec &data){
+                                 memReq::dataVec &data){
     using namespace Interfaces;
 
-    SimpleMem::Request::Command cmd;
+    memReq::Command cmd;
     if (isLoad) {
-        cmd = SimpleMem::Request::Read;
+        cmd = memReq::Read;
     } else {
-        cmd = SimpleMem::Request::Write;
+        cmd = memReq::Write;
     }
 
     SimpleMem::Request *req = 
-        new SimpleMem::Request(cmd, ADDR(ps), memSz, data);
+        new memReq(cmd, ADDR(ps), memSz, data);
+    // make all requests not cacheable for now - add TLB or cache
+    // flush later
+    req->flags |= memReq::F_NONCACHEABLE;
     memory->sendRequest(req);
-    requests.insert(std::make_pair(req->id, ps));
+    requestsOut.insert(std::make_pair(req->id, ps));
     printf(" sent id:%llx to cache\n", req->id);
 }
 
@@ -112,9 +114,9 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
             memSize = 4;
             data.resize(memSize);
             data[0] = (uint8_t)((VALUE(ps)>>24) & 0xff);
-            data[2] = (uint8_t)((VALUE(ps)>>16) & 0xff);
-            data[3] = (uint8_t)((VALUE(ps)>>8) & 0xff);
-            data[4] = (uint8_t)((VALUE(ps)>>0) & 0xff);
+            data[1] = (uint8_t)((VALUE(ps)>>16) & 0xff);
+            data[2] = (uint8_t)((VALUE(ps)>>8) & 0xff);
+            data[3] = (uint8_t)((VALUE(ps)>>0) & 0xff);
         }
         printf("store to cache: %x\n", ADDR(ps));
         sendRequestToCache(ps, false, memSize, data);  
@@ -301,12 +303,12 @@ int MIPS4KC::cycle_spim (int display)
             if (STAGE (ps_ptr) == MEM_STALL) { // waiting on cache
                 assert(ps_ptr->issued_to_cache);
                 // check for completion from cache
-#warning cache_complete() here
-                if (1) {
+                memReq *req = check_cacheComplete(ps_ptr);
+                if (req) {
                     mem_stall = FALSE;
                     if (EXCPT (ps_ptr) == 0) {
                         // complete load/store, set bypasses
-                        cmiss = process_MEM(ps_ptr);
+                        process_MEM(ps_ptr, req);
                     } 
                     
                     if (EXCPT (ps_ptr) != 0) { //exception
@@ -320,6 +322,7 @@ int MIPS4KC::cycle_spim (int display)
                         alu[WB] = ps_ptr;
                         alu[MEM] = NULL;
                     }
+                    delete req;
                 } else {
                     // still waiting
                     mem_stall = TRUE;
@@ -411,7 +414,7 @@ int MIPS4KC::cycle_spim (int display)
         } else if (ps_ptr != NULL && (STAGE(ps_ptr) == IF))  {
             /* IF Stage */
             CL_READ_MEM_INST(ps_ptr->inst, STAGE_PC(ps_ptr),
-                             PADDR(ps_ptr), cmiss, EXCPT(ps_ptr), RNUM(ps_ptr));
+                             PADDR(ps_ptr), EXCPT(ps_ptr));
             printf("IF fetch %x\n", STAGE_PC(ps_ptr));
 
             /* if exception, must be tlb, read instruction for viewing purposes */
@@ -1643,15 +1646,25 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
 }
 
-
+
+MIPS4KC::memReq *MIPS4KC::check_cacheComplete(PIPE_STAGE ps) {
+    std::map<PIPE_STAGE, memReq *>::iterator i = requestsIn.find(ps);
+    memReq *req = 0;
+    if (i != requestsIn.end()) { // found it
+        req = i->second;
+        requestsIn.erase(i);
+    }
+    return req;
+}
 
 /* process memory stage */
 /* need to handle misses and faults */
 
-int MIPS4KC::process_MEM (PIPE_STAGE ps)
+void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 {
-  instruction *inst;
-  int cmiss = -1;
+    assert(req);
+    instruction *inst;
+    int cmiss;
 
   inst = ps->inst;
 
@@ -1666,13 +1679,13 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
   switch (OPCODE (inst))
     {
     case Y_LB_OP:
-      CL_READ_MEM_BYTE(VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+        CL_READ_MEM_BYTE(VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
       break;
 
     case Y_LBU_OP:
-      CL_READ_MEM_BYTE( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_BYTE( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
       if (EXCPT (ps) == 0) {
 	/* 0xff is probably not necessary */
 	VALUE (ps) &= 0xff;
@@ -1681,13 +1694,13 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
       break;
 
     case Y_LH_OP:
-      CL_READ_MEM_HALF( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_HALF( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
       break;
 
     case Y_LHU_OP:
-      CL_READ_MEM_HALF( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_HALF( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
       if (EXCPT (ps) == 0) {
 	/* 0xffff is probably not necessary */
 	VALUE (ps) &= 0xffff;
@@ -1696,7 +1709,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
       break;
 
     case Y_LW_OP:
-      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
       printf("LW %x from %x\n", VALUE(ps), ADDR(ps));
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
@@ -1705,7 +1718,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
     case Y_LWC0_OP:
     case Y_LWC2_OP:
     case Y_LWC3_OP:
-      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
       if (EXCPT (ps) == 0)
 	set_CP_bypass((OPCODE (inst) - Y_LWC0_OP), RT (inst), VALUE (ps), 1)
       else
@@ -1717,7 +1730,7 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 
 
     case Y_LWC1_OP:
-      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), cmiss, EXCPT (ps), RNUM (ps));
+      CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
       if (EXCPT (ps) == 0)
 	set_CP_bypass((OPCODE (inst) - Y_LWC0_OP), RT (inst), VALUE (ps), 1)
       else
@@ -1736,8 +1749,8 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	   instruction. */
 	reg_word reg_val = R[RT (inst)];
 
-	CL_READ_MEM_WORD( word, addr & 0xfffffffc, PADDR (ps), cmiss,
-			 EXCPT (ps), RNUM (ps));
+	CL_READ_MEM_WORD( word, addr & 0xfffffffc, PADDR (ps), 
+			 EXCPT (ps), req);
 	/* Fix this */
 /*	if ((Cause >> 2) > LAST_REAL_EXCEPT) */
 	if (Cause == 0)
@@ -1793,8 +1806,8 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	/* is this right? */
 	reg_word reg_val = R[RT (inst)];
 
-        CL_READ_MEM_WORD( word, addr & 0xfffffffc, PADDR (ps), cmiss,
-			 EXCPT (ps), RNUM (ps));
+        CL_READ_MEM_WORD( word, addr & 0xfffffffc, PADDR (ps), 
+			 EXCPT (ps), req);
 	/* fix this */
 
 /*	if ((Cause >> 2) > LAST_REAL_EXCEPT) */
@@ -1852,20 +1865,18 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 
 
     case Y_SB_OP:
-      CL_SET_MEM_BYTE( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
-		      RNUM (ps));
+        CL_SET_MEM_BYTE( ADDR (ps), PADDR (ps), VALUE (ps), EXCPT(ps), req);
       break;
 
     case Y_SH_OP:
-      CL_SET_MEM_HALF( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
-		      RNUM (ps));
+        CL_SET_MEM_HALF( ADDR (ps), PADDR (ps), VALUE (ps), EXCPT(ps), req);
       break;
 
     case Y_SW_OP:
         printf("SW %x %x %x v:%x\n", ADDR(ps), PADDR(ps), EXCPT(ps), VALUE(ps));
-      CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
-		      RNUM (ps));
-      printf("SW %x %x %x cm:%x\n", ADDR(ps), PADDR(ps), EXCPT(ps), cmiss);
+        CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), VALUE (ps), EXCPT(ps), req);
+
+      printf("SW %x %x %x \n", ADDR(ps), PADDR(ps), EXCPT(ps));
       break;
 
     case Y_SWC1_OP:
@@ -1873,15 +1884,14 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	float val = FGR [RT (inst)];
 	reg_word *vp = (reg_word *) &val;
 
-	CL_SET_MEM_WORD ( ADDR (ps), PADDR (ps), *vp, cmiss, EXCPT (ps),
-			 RNUM (ps));
+	CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), *vp, EXCPT (ps), req);
+
 	break;
       }
 
     case Y_SWC0_OP:
     case Y_SWC3_OP:
-      CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), VALUE (ps), cmiss, EXCPT(ps),
-		      RNUM (ps));
+        CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), VALUE (ps), EXCPT(ps), req);
       break;
 
 
@@ -1896,8 +1906,8 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	reg_word reg = R[RT (inst)];
 	int byte = addr & 0x3;
 
-	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), cmiss,
-			  EXCPT (ps), RNUM (ps));
+	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), 
+			  EXCPT (ps), req);
 
 #ifdef BIGENDIAN
 	switch (byte)
@@ -1938,8 +1948,8 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	    break;
 	  }
 #endif
-	CL_SET_MEM_WORD ( addr & 0xfffffffc, PADDR (ps), data, cmiss,
-			 EXCPT(ps), RNUM (ps));
+	CL_SET_MEM_WORD ( addr & 0xfffffffc, PADDR (ps), data, 
+                          EXCPT(ps), req);
 	break;
       }
 
@@ -1950,8 +1960,8 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	reg_word reg = R[RT (inst)];
 	int byte = addr & 0x3;
 
-	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), cmiss,
-			  EXCPT (ps), RNUM (ps));
+	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), 
+                           EXCPT (ps), req);
 
 #ifdef BIGENDIAN
 	switch (byte)
@@ -1992,8 +2002,8 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	    break;
 	  }
 #endif
-	CL_SET_MEM_WORD ( addr & 0xfffffffc, PADDR (ps), data, cmiss,
-			 EXCPT(ps), RNUM (ps));
+	CL_SET_MEM_WORD ( addr & 0xfffffffc, PADDR (ps), data, 
+                          EXCPT(ps), req);
 	break;
       }
 
@@ -2066,8 +2076,6 @@ int MIPS4KC::process_MEM (PIPE_STAGE ps)
 	*/
       break;
     }
-
-  return (cmiss);
 }
 
 
