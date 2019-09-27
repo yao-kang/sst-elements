@@ -61,15 +61,18 @@ int MIPS4KC::read_aout_file (const char *file_name)
     }
 
     int fd;
-    if ((fd = open("test/a.out", O_RDONLY, 0)) < 0) 
-        out.fatal(CALL_INFO,-1, "ELF file open failed\n");
+    if ((fd = open(file_name, O_RDONLY, 0)) < 0) {
+        out.fatal(CALL_INFO,-1, "ELF file open failed: x%sx\n", file_name);
+    }
 
     Elf *e;
-    if ((e = elf_begin(fd, ELF_C_READ, NULL)) == NULL) 
+    if ((e = elf_begin(fd, ELF_C_READ, NULL)) == NULL) {
         out.fatal(CALL_INFO,-1,"elf_begin() failed: %s.",elf_errmsg(-1));
+    }
 
-    if (elf_kind(e) != ELF_K_ELF)
+    if (elf_kind(e) != ELF_K_ELF) {
         out.fatal(CALL_INFO,-1, "file is not an ELF object.");
+    }
 
     Elf32_Ehdr *ehdr;
     if ((ehdr = elf32_getehdr(e)) == NULL) {

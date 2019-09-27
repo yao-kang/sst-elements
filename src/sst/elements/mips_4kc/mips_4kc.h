@@ -107,6 +107,7 @@ public:
 
     SST_ELI_DOCUMENT_PARAMS(
             {"verbose",                 "(uint) Determine how verbose the output from the CPU is", "0"},
+            {"execFile",                   "Executable file", ""},
             {"clock",                   "(string) Clock frequency", "1GHz"}
                             )
 
@@ -187,32 +188,32 @@ protected:
     void initialize_prog_fds (void);
     void kill_prog_fds (void);
     void print_syscall_usage (void);
- void do_sigreturn (mem_addr sigptr);
- int reverse_fds (int fd);
- void setup_signal_stack (void);
- int unixsyscall (void);
- int prog_sigmask = 0;	/* Copy of sigmask passed to system */
+    void do_sigreturn (mem_addr sigptr);
+    int reverse_fds (int fd);
+    void setup_signal_stack (void);
+    int unixsyscall (void);
+    int prog_sigmask = 0;	/* Copy of sigmask passed to system */
     //mem_addr exception_address[NSIG]; /* trampoline addresses for */
 					 /* each signal handler */
- struct sigvec sighandler[NSIG]; /* Map to program handlers */
- int prog_fds[OPEN_MAX];	/* Map from program fds to simulator fds */
- int fds_initialized = 0;	/* FD map initialized? */
+    struct sigvec sighandler[NSIG]; /* Map to program handlers */
+    int prog_fds[OPEN_MAX];	/* Map from program fds to simulator fds */
+    int fds_initialized = 0;	/* FD map initialized? */
 
     /* Exceptions */
     void dosigreturn (mem_addr sigptr);
-void initialize_catch_signals (void);
-void initialize_sighandlers (void);
-void initialize_excpt_counts (void);
-int process_excpt (void);
-void print_except_stats (void);
-void print_signal_status (int sig);
- void intercept_signals (int sig, int code, struct sigcontext *scp);
- mem_addr compute_branch_target (instruction *inst);
- void psignal (int sig);
- int issig (void);
- int psig (void);
- void sendsig (void);
-
+    void initialize_catch_signals (void);
+    void initialize_sighandlers (void);
+    void initialize_excpt_counts (void);
+    int process_excpt (void);
+    void print_except_stats (void);
+    void print_signal_status (int sig);
+    void intercept_signals (int sig, int code, struct sigcontext *scp);
+    mem_addr compute_branch_target (instruction *inst);
+    void psignal (int sig);
+    int issig (void);
+    int psig (void);
+    void sendsig (void);
+    
     /* configs */
     FILE* pipe_out;
     FILE* message_out;
@@ -220,6 +221,7 @@ void print_signal_status (int sig);
     FILE* console_in;
     int quiet;		/* No warning messages */
     int mapped_io;		/* Non-zero => activate memory-mapped IO */
+    string execFile;
 
     /* signal / exception */
     static signal_desc siginfo[NSIG];

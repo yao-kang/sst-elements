@@ -50,6 +50,12 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     clockHandler = new Clock::Handler<MIPS4KC>(this, &MIPS4KC::clockTic);
     clockTC = registerClock(clockFreq, clockHandler);
 
+    // set executable file
+    string execFile = params.find<std::string>("execFile");
+    if (execFile.empty()) {
+        out.fatal(CALL_INFO, -1, "No executabel file specified");
+    } 
+
     // SPIM-CL config
     pipe_out =  stdout;
     console_out =  stdout;
@@ -86,7 +92,7 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
 
     initialize_world(0);
     cl_initialize_world(1);
-    read_aout_file("foo");
+    read_aout_file(execFile.c_str());
     PC = program_starting_address;
 }
 
