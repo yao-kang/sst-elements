@@ -182,6 +182,7 @@ int MIPS4KC::read_aout_file (const char *file_name)
                         wp = &zero;
                     }
                     store_byte(*wp, addr); // store
+                    image[addr] = *wp; // record for later storage
                     printf("store data %x to %x\n", *wp, addr);
                     addr += 1; // advance
                     n += 1;

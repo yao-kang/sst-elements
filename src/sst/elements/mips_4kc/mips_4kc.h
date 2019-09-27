@@ -156,11 +156,7 @@ protected:
     void delete_all_breakpoints (void);
 
     /* Data functions */
-    //void enable_data_alignment (void);
-    //void end_of_assembly_file (void);
-    //void extern_directive (char *name, int size);
-    //void lcomm_directive (char *name, int size);
-    //void set_data_alignment (int);
+    map<mem_addr, uint8_t> image; //data section of program
     void store_byte (int valu, const mem_addr addre);
     void store_double (double *value, const mem_addr addr);
     void store_float (double *value, const mem_addr addr);

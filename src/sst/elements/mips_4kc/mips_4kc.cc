@@ -111,7 +111,14 @@ void MIPS4KC::init(unsigned int phase) {
         return;
     }
 
-
+    // send the program image out to memory
+    for(auto i = image.begin(); i != image.end(); ++i) {
+        memReq *req = new memReq(memReq::Write, i->first, 1);
+        req->data.resize(1);
+        req->data[0] = i->second;
+        memory->sendInitData(req);
+    }
+    image.clear();
 }
 
 // handle incoming memory
