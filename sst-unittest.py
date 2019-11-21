@@ -2,9 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import sys
-#import os
-#import datetime
-#import re
+import os
 import unittest
 
 REQUIRED_PYTHON_VER_MAJOR = 2 # Required Major Version
@@ -31,9 +29,12 @@ def main():
     parsestartupargs()
     verifysstandelementsbuilt()
 
+    # Create the test output dir if necessary
+    os.system("mkdir -p ./test_outputs")
+
     # Implement Test Harness
     sstStartDir = '.'
-    sstPattern = 'testcase*.py'
+    sstPattern = 'testsuite*.py'
     sstTests = unittest.TestLoader().discover(start_dir = sstStartDir, pattern=sstPattern)
     sstTestsResults = unittest.TextTestRunner(verbosity=2).run(sstTests)
 
