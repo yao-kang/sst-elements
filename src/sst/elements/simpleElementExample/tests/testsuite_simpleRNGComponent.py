@@ -6,8 +6,7 @@ def testlog(stringtolog):
     print("\n{0}\n".format(stringtolog))
 
 
-class exampletest(unittest.TestCase):
-
+class test_simpleRNGComponent(unittest.TestCase):
 
     def setUp(self):
         pass
@@ -16,29 +15,27 @@ class exampletest(unittest.TestCase):
         pass
 
     def test_RNG_Mersenne(self):
-        self.run_RNG_Testcase("mersenne")
+        self.RNG_test_template("mersenne")
 
 
     def test_RNG_Marsaglia(self):
-        self.run_RNG_Testcase("marsaglia")
-        pass
+        self.RNG_test_template("marsaglia")
 
 
     def test_RNG_xorshift(self):
-        self.run_RNG_Testcase("xorshift")
-        pass
+        self.RNG_test_template("xorshift")
 
 ###
 
-    def run_RNG_Testcase(self, rngcase):
+    def RNG_test_template(self, testcase):
 #        testlog("")
 
         # Set all the various file paths
-        sdlfile = "./src/sst/elements/simpleElementExample/tests/test_simpleRNGComponent_{0}.py".format(rngcase)
-        outfile = "./test_outputs/test_simpleRNGComponent_{0}.out".format(rngcase)
-        tmpfile = "./test_outputs/test_simpleRNGComponent_{0}.tmp".format(rngcase)
-        cmpfile = "./test_outputs/test_simpleRNGComponent_{0}.cmp".format(rngcase)
-        reffile = "./src/sst/elements/simpleElementExample/tests/refFiles/test_simpleRNGComponent_{0}.out".format(rngcase)
+        sdlfile = "./src/sst/elements/simpleElementExample/tests/test_simpleRNGComponent_{0}.py".format(testcase)
+        outfile = "./test_outputs/test_simpleRNGComponent_{0}.out".format(testcase)
+        tmpfile = "./test_outputs/test_simpleRNGComponent_{0}.tmp".format(testcase)
+        cmpfile = "./test_outputs/test_simpleRNGComponent_{0}.cmp".format(testcase)
+        reffile = "./src/sst/elements/simpleElementExample/tests/refFiles/test_simpleRNGComponent_{0}.out".format(testcase)
 
         # Build the launch command
         # TODO: Implement a run timeout
