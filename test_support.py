@@ -38,16 +38,17 @@ class SSTUnitTest(unittest.TestCase):
 
 ###
 
-    def getTestDebugMode(self):
+    def isTestingInDebugMode(self):
         return test_globals.debugMode
-
-    def getTestOutputDir(self):
-        return test_globals.testOutputDirPath
-
-    def getTempOutputDir(self):
-        return test_globals.tempOutputDirPath
 
     def getTestSuiteDir(self):
         return os.path.dirname(test_globals.testSuiteFilePath)
+
+    def getTestOutputRunDir(self):
+        return test_globals.testOutputRunDirPath
+
+    def getTestOutputTmpDir(self):
+        return test_globals.testOutputTmpDirPath
+
 
 ###

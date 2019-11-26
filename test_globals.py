@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+import os
+
 """ This is some globals to pass data between the top level test engine
     and the lower level testscripts """
 def initTestGlobals():
@@ -10,15 +12,17 @@ def initTestGlobals():
     global numThreads
     global listOfSearchableTestPaths
     global testSuiteFilePath
-    global testOutputDirPath
-    global tempOutputDirPath
+    global testOutputTopDirPath
+    global testOutputRunDirPath
+    global testOutputTmpDirPath
 
     __TestAppDebug = False
     debugMode = False
     verbosity = 1
     numRanks = 0
     numThreads = 0
-    listOfSearchableTestPaths = ['.']
+    listOfSearchableTestPaths = [os.path.dirname(__file__)]
     testSuiteFilePath = ""
-    testOutputDirPath = "./test_outputs/run_data"
-    tempOutputDirPath = "./test_outputs/temp_data"
+    testOutputTopDirPath = "./test_outputs"
+    testOutputRunDirPath = "{0}/run_data".format(testOutputTopDirPath)
+    testOutputTmpDirPath = "{0}/tmp_data".format(testOutputTopDirPath)

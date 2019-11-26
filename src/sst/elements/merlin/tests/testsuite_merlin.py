@@ -49,7 +49,7 @@ class test_merlin_Component(SSTUnitTest):
 
         sdlfile = "{0}/{1}.py".format(self.getTestSuiteDir(), testcase)
         reffile = "{0}/refFiles/test_merlin_{1}.out".format(self.getTestSuiteDir(), testcase)
-        outfile = "{0}/{1}.out".format(self.getTestOutputDir(), testDataFileName)
+        outfile = "{0}/{1}.out".format(self.getTestOutputRunDir(), testDataFileName)
 
         # Build the launch command
         # TODO: Implement a run timeout
@@ -62,8 +62,8 @@ class test_merlin_Component(SSTUnitTest):
 
 
     def compare_sorted(self, outfile, reffile):
-       sorted_outfile = "{0}/sorted_outfile".format(self.getTestOutputDir())
-       sorted_reffile = "{0}/sorted_reffile".format(self.getTestOutputDir())
+       sorted_outfile = "{0}/test_merlin_sorted_outfile".format(self.getTestOutputTmpDir())
+       sorted_reffile = "{0}/test_merlin_sorted_reffile".format(self.getTestOutputTmpDir())
 
        os.system("sort -o {0} {1}".format(sorted_outfile, outfile))
        os.system("sort -o {0} {1}".format(sorted_reffile, reffile))

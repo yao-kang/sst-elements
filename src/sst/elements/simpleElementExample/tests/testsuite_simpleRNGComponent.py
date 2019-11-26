@@ -38,9 +38,9 @@ class test_simpleRNGComponent(SSTUnitTest):
         # Set the various file paths
         sdlfile = "{0}/test_simpleRNGComponent_{1}.py".format(self.getTestSuiteDir(), testcase)
         reffile = "{0}/refFiles/test_simpleRNGComponent_{1}.out".format(self.getTestSuiteDir(), testcase)
-        outfile = "{0}/test_simpleRNGComponent_{1}.out".format(self.getTestOutputDir(), testcase)
-        tmpfile = "{0}/test_simpleRNGComponent_{1}.tmp".format(self.getTestOutputDir(), testcase)
-        cmpfile = "{0}/test_simpleRNGComponent_{1}.cmp".format(self.getTestOutputDir(), testcase)
+        outfile = "{0}/test_simpleRNGComponent_{1}.out".format(self.getTestOutputRunDir(), testcase)
+        tmpfile = "{0}/test_simpleRNGComponent_{1}.tmp".format(self.getTestOutputRunDir(), testcase)
+        cmpfile = "{0}/test_simpleRNGComponent_{1}.cmp".format(self.getTestOutputRunDir(), testcase)
 
         # Build the launch command
         # TODO: Implement a run timeout
