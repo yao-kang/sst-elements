@@ -7,13 +7,8 @@ import filecmp
 import test_globals
 from test_support import *
 
-def testlog(stringtolog):
-    print("\n{0}\n".format(stringtolog))
-
-
-
 def setUpModule():
-    pass
+    initTestSuite(__file__)
 
 def tearDownModule():
     pass
@@ -27,9 +22,6 @@ class test_simpleRNGComponent(SSTUnitTest):
         pass
 
     def test_RNG_Mersenne(self):
-#        testlog("AARON - DEBUGMODE1 = {0}".format(test_globals.debugMode))
-#        test_globals.debugMode = False
-#        testlog("AARON - DEBUGMODE2 = {0}".format(test_globals.debugMode))
         self.RNG_test_template("mersenne")
 
 
@@ -43,14 +35,12 @@ class test_simpleRNGComponent(SSTUnitTest):
 ###
 
     def RNG_test_template(self, testcase):
-#        testlog("")
-
-        # Set all the various file paths
-        sdlfile = "./src/sst/elements/simpleElementExample/tests/test_simpleRNGComponent_{0}.py".format(testcase)
-        outfile = "./test_outputs/test_simpleRNGComponent_{0}.out".format(testcase)
-        tmpfile = "./test_outputs/test_simpleRNGComponent_{0}.tmp".format(testcase)
-        cmpfile = "./test_outputs/test_simpleRNGComponent_{0}.cmp".format(testcase)
-        reffile = "./src/sst/elements/simpleElementExample/tests/refFiles/test_simpleRNGComponent_{0}.out".format(testcase)
+        # Set the various file paths
+        sdlfile = "{0}/test_simpleRNGComponent_{1}.py".format(self.getTestSuiteDir(), testcase)
+        reffile = "{0}/refFiles/test_simpleRNGComponent_{1}.out".format(self.getTestSuiteDir(), testcase)
+        outfile = "{0}/test_simpleRNGComponent_{1}.out".format(self.getTestOutputDir(), testcase)
+        tmpfile = "{0}/test_simpleRNGComponent_{1}.tmp".format(self.getTestOutputDir(), testcase)
+        cmpfile = "{0}/test_simpleRNGComponent_{1}.cmp".format(self.getTestOutputDir(), testcase)
 
         # Build the launch command
         # TODO: Implement a run timeout

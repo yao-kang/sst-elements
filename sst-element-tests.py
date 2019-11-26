@@ -53,7 +53,8 @@ class TestEngine():
 
     def _createOutputDirectories(self):
         # Create the test output dir if necessary
-        os.system("mkdir -p ./test_outputs")
+        os.system("mkdir -p {0}".format(test_globals.testOutputDirPath))
+        os.system("mkdir -p {0}".format(test_globals.tempOutputDirPath))
 
     def runTests(self):
         self._createOutputDirectories()
