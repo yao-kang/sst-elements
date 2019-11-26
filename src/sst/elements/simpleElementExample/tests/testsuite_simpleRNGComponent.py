@@ -44,8 +44,11 @@ class test_simpleRNGComponent(SSTUnitTest):
 
         # Build the launch command
         # TODO: Implement a run timeout
-        oscmd = "sst {0} > {1}".format(sdlfile, outfile)
-        os.system(oscmd)
+#        oscmd = "sst {0} > {1}".format(sdlfile, outfile)
+#        os.system(oscmd)
+        oscmd = "sst {0}".format(sdlfile)
+        rtn = Command1(oscmd, outfile).run()
+        log("Aaron Rtn = {0}".format(rtn))
 
         # Post processing of the output data to scrub it into a format to compare
         os.system("grep Random {0} > {1}".format(outfile, tmpfile))
