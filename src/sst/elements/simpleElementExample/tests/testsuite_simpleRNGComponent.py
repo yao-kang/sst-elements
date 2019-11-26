@@ -1,12 +1,24 @@
+# -*- coding: utf-8 -*-
+
 import os
-import unittest
+import sys
 import filecmp
+
+import test_globals
+from test_support import *
 
 def testlog(stringtolog):
     print("\n{0}\n".format(stringtolog))
 
 
-class test_simpleRNGComponent(unittest.TestCase):
+
+def setUpModule():
+    pass
+
+def tearDownModule():
+    pass
+
+class test_simpleRNGComponent(SSTUnitTest):
 
     def setUp(self):
         pass
@@ -15,6 +27,9 @@ class test_simpleRNGComponent(unittest.TestCase):
         pass
 
     def test_RNG_Mersenne(self):
+#        testlog("AARON - DEBUGMODE1 = {0}".format(test_globals.debugMode))
+#        test_globals.debugMode = False
+#        testlog("AARON - DEBUGMODE2 = {0}".format(test_globals.debugMode))
         self.RNG_test_template("mersenne")
 
 
