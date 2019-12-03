@@ -23,6 +23,12 @@ class test_simpleRNGComponent(SSTUnitTest):
 
     def test_RNG_Mersenne(self):
         self.RNG_test_template("mersenne")
+        self.os_ls()
+        self.os_cat("VERSION")
+
+#        cmd = "tail".format()
+#        rtn = OSCommand(cmd).run(timeout=5)
+#        log("Aaron Tail1 Rtn = {0}".format(rtn))
 
 
     def test_RNG_Marsaglia(self):
@@ -43,12 +49,9 @@ class test_simpleRNGComponent(SSTUnitTest):
         cmpfile = "{0}/test_simpleRNGComponent_{1}.cmp".format(self.getTestOutputRunDir(), testcase)
 
         # Build the launch command
-        # TODO: Implement a run timeout
-#        oscmd = "sst {0} > {1}".format(sdlfile, outfile)
-#        os.system(oscmd)
         oscmd = "sst {0}".format(sdlfile)
-        rtn = Command1(oscmd, outfile).run()
-        log("Aaron Rtn = {0}".format(rtn))
+        rtn = OSCommand(oscmd, outfile).run()
+#        log("Aaron SST Rtn = {0}".format(rtn))
 
         # Post processing of the output data to scrub it into a format to compare
         os.system("grep Random {0} > {1}".format(outfile, tmpfile))
