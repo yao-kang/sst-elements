@@ -23,12 +23,23 @@ class test_simpleRNGComponent(SSTUnitTest):
 
     def test_RNG_Mersenne(self):
         self.RNG_test_template("mersenne")
+        log("=======================================================")
+
+        log("")
+        log("=== ls cmd")
         self.os_ls()
+
+        log("")
+        log("=== cat VERSION file")
         self.os_cat("VERSION")
 
-#        cmd = "tail".format()
-#        rtn = OSCommand(cmd).run(timeout=5)
-#        log("Aaron Tail1 Rtn = {0}".format(rtn))
+        log("")
+        log("=== Run tail and force a timeout")
+        cmd = "tail".format()
+        rtn = OSCommand(cmd).run(timeout=5)
+        log("Tail (forced Timeout) Rtn = {0}".format(rtn))
+
+        log("=======================================================")
 
 
     def test_RNG_Marsaglia(self):
@@ -48,14 +59,20 @@ class test_simpleRNGComponent(SSTUnitTest):
         tmpfile = "{0}/test_simpleRNGComponent_{1}.tmp".format(self.getTestOutputRunDir(), testcase)
         cmpfile = "{0}/test_simpleRNGComponent_{1}.cmp".format(self.getTestOutputRunDir(), testcase)
 
+        # TODO: Destroy any outfiles
+        # TODO: Validate SST is an executable file
+
         # Build the launch command
         oscmd = "sst {0}".format(sdlfile)
         rtn = OSCommand(oscmd, outfile).run()
-#        log("Aaron SST Rtn = {0}".format(rtn))
+        self.assertFalse(rtn.timeout(), "SST Timed-Out while running {0}".format(oscmd))
+        self.assertEqual(rtn.result(), 0, "SST returned {0}; while running {0}".format(rtn.result(), oscmd))
 
         # Post processing of the output data to scrub it into a format to compare
         os.system("grep Random {0} > {1}".format(outfile, tmpfile))
         os.system("tail -5 {0} > {1}".format(tmpfile, cmpfile))
 
         # Perform the test
-        self.assertTrue(filecmp.cmp(cmpfile, reffile), "Output/Compare file {0} does not match Reference File {1}".format(cmpfile, reffile))
+        testresult = filecmp.cmp(cmpfile, reffile)
+        testerror = "Output/Compare file {0} does not match Reference File {1}".format(cmpfile, reffile)
+        self.assertTrue(testresult, testerror)

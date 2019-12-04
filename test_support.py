@@ -20,11 +20,11 @@ class SSTUnitTest(unittest.TestCase):
 
 ### Logging Commands
 
+    def logForced(self, logstr):
+        logForced(logstr)
+
     def log(self, logstr):
         log(logstr)
-
-    def logDebug(self, logstr):
-        logDebug(logstr)
 
 ### Path Information
 
@@ -45,12 +45,12 @@ class SSTUnitTest(unittest.TestCase):
     def os_ls(self, directory = "."):
         cmd = "ls -lia {0}".format(directory)
         rtn = OSCommand(cmd).run()
-        logDebug("{0}".format(rtn.output()))
+        log("{0}".format(rtn.output()))
 
     def os_cat(self, filepath):
         cmd = "cat {0}".format(filepath)
         rtn = OSCommand(cmd).run()
-        logDebug("{0}".format(rtn.output()))
+        log("{0}".format(rtn.output()))
 
 ################################################################################
 
@@ -59,12 +59,12 @@ def initTestSuite(testSuiteFilePath):
 
 ###################################################
 
-def log(logstr):
+def logForced(logstr):
     print("\n{0}".format(logstr))
 
-def logDebug(logstr):
+def log(logstr):
     if test_globals.debugMode:
-        log(logstr)
+        logForced(logstr)
 
 ###################################################
 
@@ -177,7 +177,6 @@ class OSCommandResult():
     def result(self):
         return self._run_status
 
-#    @property
     def output(self):
         return self._run_output
 

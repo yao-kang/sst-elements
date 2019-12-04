@@ -51,10 +51,16 @@ class test_merlin_Component(SSTUnitTest):
         reffile = "{0}/refFiles/test_merlin_{1}.out".format(self.getTestSuiteDir(), testcase)
         outfile = "{0}/{1}.out".format(self.getTestOutputRunDir(), testDataFileName)
 
+        # TODO: Destroy any outfiles
+        # TODO: Validate SST is an executable file
+
         # Build the launch command
-        # TODO: Implement a run timeout
-        oscmd = "sst {0} > {1}".format(sdlfile, outfile)
-        os.system(oscmd)
+        # TODO: Figure out a std way to run SST in either standalone or
+        #       multirank and/or multithread
+        oscmd = "sst {0}".format(sdlfile)
+        rtn = OSCommand(oscmd, outfile).run()
+        self.assertFalse(rtn.timeout(), "SST Timed-Out while running {0}".format(oscmd))
+        self.assertEqual(rtn.result(), 0, "SST returned {0}; while running {0}".format(rtn.result(), oscmd))
 
         # Perform the test
         cmp_result = self.compare_sorted(outfile, reffile)
