@@ -151,7 +151,7 @@ void MIPS4KC::initialize_excpt_counts (void)
 int MIPS4KC::process_excpt (void)
 {
   int retval = 0;
-  int excpt_code = (Cause >> 2) & 0xf;
+  int excpt_code = (Cause.getData() >> 2) & 0xf;
 
   /* check signal pending status when entering system, process if needed */
   if (issig())
@@ -185,14 +185,14 @@ int MIPS4KC::process_excpt (void)
       break;
 
     case SYSCALL_EXCPT: {
-      if ( ! ((Cause>>31) & 1) )
-	EPC += BYTES_PER_WORD;
-      else {
-	instruction *tmp_inst = (instruction *) malloc (sizeof(instruction));
-
-	READ_MEM_INST (tmp_inst, EPC);
-	EPC = compute_branch_target (tmp_inst);
-      }
+        if ( ! ((Cause.getData()>>31) & 1) )
+            EPC += BYTES_PER_WORD;
+        else {
+            instruction *tmp_inst = (instruction *) malloc(sizeof(instruction));
+#warning check for bad syscall here
+            READ_MEM_INST (tmp_inst, EPC.getData());
+            EPC = compute_branch_target (tmp_inst);
+        }
       retval = do_syscall();
 
       if (retval == -1)
@@ -234,13 +234,13 @@ int MIPS4KC::process_excpt (void)
 
 
   /* check signal pending status before leaving system, process if needed */
-  if (issig())
+  if (issig()) {
     return (psig());
-
-  else {
-    PC = EPC;
-    nPC = EPC + BYTES_PER_WORD;
-    return (retval);
+  } else {
+#warning check for faulted PC here
+      PC = EPC.getData();
+      nPC = EPC.getData() + BYTES_PER_WORD;
+      return (retval);
   }
 }
 
@@ -250,9 +250,9 @@ int MIPS4KC::process_excpt (void)
  /* caused exception has been handled (and must therefore not be redone) */
  /* but lies in a delay slot. */
 
-mem_addr MIPS4KC::compute_branch_target (instruction *inst)
+reg_word MIPS4KC::compute_branch_target (instruction *inst)
 {
-  mem_addr tmp_PC;
+  reg_word tmp_PC;
 
   /* printf("Computing branch..."); */
   switch (OPCODE (inst)) {
