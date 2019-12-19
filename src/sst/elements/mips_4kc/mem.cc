@@ -480,8 +480,8 @@ void MIPS4KC::check_memory_mapped_IO (void)
 	  recv_control |= RECV_READY;
 	  recv_buffer_filled = RECV_LATENCY;
 	  if ((recv_control & RECV_INT_ENABLE)
-	      && INTERRUPTS_ON
-	      && (Status_Reg & RECV_INT_MASK))
+	      && INTERRUPTS_ON.getData()
+	      && (Status_Reg & RECV_INT_MASK).getData())
 	    RAISE_EXCEPTION (INT_EXCPT, Cause |= RECV_INT_MASK);
 	}
     }
@@ -497,8 +497,8 @@ void MIPS4KC::check_memory_mapped_IO (void)
 	  trans_control |= TRANS_READY;
 	  trans_buffer_filled = 0;
 	  if ((trans_control & TRANS_INT_ENABLE)
-	      && INTERRUPTS_ON
-	      && (Status_Reg & TRANS_INT_MASK))
+	      && INTERRUPTS_ON.getData()
+	      && (Status_Reg & TRANS_INT_MASK).getData())
 	    RAISE_EXCEPTION (INT_EXCPT, Cause |= TRANS_INT_MASK)
 	}
     }
@@ -517,8 +517,8 @@ void MIPS4KC::write_memory_mapped_IO (mem_addr addr, mem_word value)
 
       if ((trans_control & TRANS_READY)
 	  && (trans_control & TRANS_INT_ENABLE)
-	  && INTERRUPTS_ON
-	  && (Status_Reg & TRANS_INT_MASK))
+	  && INTERRUPTS_ON.getData()
+	  && (Status_Reg & TRANS_INT_MASK).getData())
 	/* Raise an interrupt immediately on enabling a ready xmitter */
 	RAISE_EXCEPTION (INT_EXCPT, Cause |= TRANS_INT_MASK)
       break;

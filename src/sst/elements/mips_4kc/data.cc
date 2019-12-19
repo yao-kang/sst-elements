@@ -189,7 +189,7 @@ void MIPS4KC::store_string (char *string, int length, int null_terminate)
 
 void MIPS4KC::store_byte (int value, const mem_addr addr)
 {
-  SET_MEM_BYTE (addr, value);
+    SET_MEM_BYTE(addr, value);
 }
 
 

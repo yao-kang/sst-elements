@@ -25,8 +25,543 @@
 #ifndef _REG_H
 #define _REG_H
 
-//typedef long reg_word;
+#if 0
+// original reg word
 typedef int32_t reg_word;
+#else
+// fault tracking version
+
+namespace faultTrack {
+
+    typedef enum {FAULTED, 
+                  CORRECTED_MATH,
+                  CORRECTED_MEM,
+                  CORRECTED_TMR, CORRECTED_SQUASH, 
+                  READ_ADDR_ERROR, READ_DATA_ERROR,
+                  WRITE_ADDR_ERROR, // caused an write address to be wrong
+                  WRITE_DATA_ERROR,
+                  LAST_FAULT_STATUS
+    } faultStatus_t;
+
+    typedef enum {NO_FAULT, // should not be used
+                  WRONG_ADDR_WRITTEN, // we wrote data the wrong place
+                  WRONG_ADDR_NOT_WRITTEN, // we didn't write data
+                                          // where we should have
+                  RIGHT_ADDR_WRONG_DATA} memFaults_t;
+
+    typedef int32_t location_t;  // replace with typedef
+}
+
+struct faultDesc {    
+    faultTrack::location_t where;
+    SST::Cycle_t when;
+    SST::Cycle_t whenCorrected;
+    
+    int bit;
+    faultTrack::faultStatus_t status;
+
+    faultDesc(SST::Cycle_t _when, faultTrack::faultStatus_t _stat)
+        : where(0), when(_when), whenCorrected(0), bit(0), status(_stat)
+    {;}
+};
+
+struct memFaultDesc {    
+    faultTrack::memFaults_t type;
+
+    list<faultDesc> origFaults;
+
+    memFaultDesc() : type(faultTrack::NO_FAULT) {;}
+    memFaultDesc(faultTrack::memFaults_t _type, const list<faultDesc> oFaults)
+        : type(_type), origFaults(oFaults) {;}
+};
+
+
+class reg_word {
+    int32_t origData; // the 'correct' data
+    int32_t data;    // data after potential faults
+
+    typedef list<faultDesc> faultList_t;
+    faultList_t faults;
+    static SST::Cycle_t now;
+    static uint64_t faultStats[faultTrack::LAST_FAULT_STATUS];
+    static map<int32_t, memFaultDesc> memFaults;
+    static map<int32_t, uint8_t> origMem;
+    
+    faultList_t findFaults() const {
+        faultList_t list;
+        for (auto &&i : faults) {
+            if(i.status == faultTrack::FAULTED) {
+                list.push_back(i);
+            }
+        }
+        return list;
+    }
+
+    bool checkMemCorrect() {
+        using namespace faultTrack;
+
+        if (!faults.empty()) {
+            if (data == origData) {
+                for (auto &&i : faults) {
+                    if(i.status == FAULTED) {
+                        i.status = CORRECTED_MEM;
+                            faultStats[CORRECTED_MEM]++;
+                            i.whenCorrected = now;
+                    }
+                }
+                return true;
+            }
+        }
+        return false;
+    }
+
+    void checkMathCorrect() {
+        using namespace faultTrack;
+
+        if (!faults.empty()) {
+            if (data == origData) {
+                for (auto &&i : faults) {
+                    if(i.status == FAULTED) {
+                        i.status = CORRECTED_MATH;
+                            faultStats[CORRECTED_MATH]++;
+                            i.whenCorrected = now;
+                    }
+                }
+            }
+        }
+    }
+
+    void assertOrig(const int32_t in, const int32_t addr, const size_t sz){
+        // make input data and the data in origMem match
+
+        int32_t data = 0; // origData Data
+        for (int i = 0; i < sz; ++i) {
+            data <<= 8;
+            data |= origMem[addr + i];
+            printf(" om %08x %08x\n", addr+i, origMem[addr + i]);
+        }
+
+        assert(data == in);
+    }
+
+    int32_t origMemRead(const int32_t addr, const size_t sz) {
+        int32_t data = 0; // origData Data
+        for (int i = 0; i < sz; ++i) {
+            data <<= 8;
+            auto iter = origMem.find(addr + i);
+            assert(iter != origMem.end()); // data should be in map?
+            data |= iter->second;
+        }
+
+        return data;
+    }
+
+    static void origMemWrite(const int32_t addr, int32_t val, size_t sz) {
+        for (int i = 0; i < sz; ++i) {
+            origMem[addr+i+sz-1] = val & 0xff;
+            val >>= 8;
+        }
+    }
+
+public:
+    // at top of cycle, set the current time for record keeping
+    static void setNow(SST::Cycle_t n) {
+        now = n;
+    }
+
+    static void initOrigMem(const mem_addr &addr, uint8_t data) {
+        origMem[addr] = data;
+    }
+
+    // default constructor
+    reg_word() {
+        data = origData = 0;
+    }
+
+    // conversion constructor
+    reg_word(const int &v) {
+        data = origData = v;
+    }
+
+    // copy operator
+    reg_word& operator= (const reg_word &o) {
+        // Check for self assignment 
+        if(this != &o) {
+            origData = o.origData;
+            data = o.data;
+            faults = o.faults;
+            // check for squashes?
+        }
+
+        return *this;
+    }
+
+    int32_t getData() const {
+        return data;
+    }
+    
+    // reg_word / int
+
+    // compount assignment operator
+#define MAKE_RW_INT_COMP_OP(OPNM,OP)            \
+    reg_word& OPNM(const int32_t &rhs) {        \
+    data OP rhs;                                \
+    origData OP rhs;                            \
+    checkMathCorrect();                         \
+    return *this;                               \
+    }
+
+    MAKE_RW_INT_COMP_OP(operator|=,|=);
+    MAKE_RW_INT_COMP_OP(operator&=,&=);
+    MAKE_RW_INT_COMP_OP(operator+=,+=);
+    MAKE_RW_INT_COMP_OP(operator-=,-=);
+
+
+#define MAKE_RW_INT_COMPARE_OP(OPNM,OP)                            \
+    friend bool OPNM(const reg_word& lhs, const int& rhs){      \
+    /* check for logic faults/errors check here?  */            \
+        return lhs.data OP rhs;                                 \
+    }
+
+    MAKE_RW_INT_COMPARE_OP(operator>=,>=);
+    MAKE_RW_INT_COMPARE_OP(operator==,==);
+    MAKE_RW_INT_COMPARE_OP(operator!=,!=);
+    MAKE_RW_INT_COMPARE_OP(operator<,<);
+
+
+#define MAKE_RW_INT_OP(OPNM,OP) reg_word OPNM(const int &rhs) const { \
+    reg_word newWord;                                                 \
+    newWord.data = data OP rhs;                                       \
+    newWord.origData = origData OP rhs;                               \
+    newWord.faults.insert(newWord.faults.end(),                       \
+                          newWord.faults.begin(),                     \
+                          newWord.faults.end());                      \
+    newWord.checkMathCorrect();                                       \
+    return newWord;                                                   \
+    }
+
+    MAKE_RW_INT_OP(operator>>,>>);
+    MAKE_RW_INT_OP(operator<<,<<);
+    MAKE_RW_INT_OP(operator&,&);
+
+    // return a reg_word whose value has been truncated to 16 bits and
+    // sign extended
+    reg_word truncExtend() const {
+        reg_word newWord;
+        newWord.data = (short)data;
+        newWord.origData = (short)origData;
+        newWord.faults.insert(newWord.faults.end(),  
+                              faults.begin(),   
+                              faults.end()); 
+        newWord.checkMathCorrect();
+        return newWord;
+    }
+
+
+    // reg_word / reg_word
+
+#define MAKE_RW_RW_COMPARE_OP(OPNM,OP)                                  \
+    friend bool OPNM(const reg_word& lhs, const reg_word& rhs){         \
+    /* check for logic faults/errors check here? */                     \
+        return lhs.data OP rhs.data;                                    \
+    }
+
+    MAKE_RW_RW_COMPARE_OP(operator==,==);
+    MAKE_RW_RW_COMPARE_OP(operator!=,!=);
+    MAKE_RW_RW_COMPARE_OP(operator<,<);
+
+    friend reg_word setLessThan(const reg_word &lhs, const reg_word &rhs, 
+                                bool unsignedComp = 0) {
+        reg_word newWord; 
+
+        if (unsignedComp) {
+            newWord.data = ((uint64_t)lhs.data < (uint64_t)rhs.data) ? 1 : 0;
+            newWord.origData = 
+                ((uint64_t)lhs.origData < (uint64_t)rhs.origData) ? 1 : 0;
+        } else {
+            newWord.data = (lhs.data < rhs.data) ? 1 : 0;
+            newWord.origData = (lhs.origData < rhs.origData) ? 1 : 0;
+        }
+
+        newWord.faults.insert(newWord.faults.end(),                    
+                              lhs.faults.begin(),                          
+                              lhs.faults.end());                           
+        newWord.faults.insert(newWord.faults.end(),                    
+                              rhs.faults.begin(),                      
+                              rhs.faults.end());                       
+        newWord.checkMathCorrect();     
+        return newWord;                                                                                             
+    }
+
+    reg_word shift_right_logical(const reg_word &shamt) const {
+        reg_word newWord;                                              
+        newWord.data = (uint64_t)data >> shamt.data;
+        newWord.origData = (uint64_t)origData >> shamt.origData;
+        newWord.faults.insert(newWord.faults.end(),                    
+                              faults.begin(),                          
+                              faults.end());                           
+        newWord.faults.insert(newWord.faults.end(),                    
+                              shamt.faults.begin(),                      
+                              shamt.faults.end());                       
+        newWord.checkMathCorrect();                                    
+        return newWord;    
+    }
+
+    reg_word unsigned_mod(const reg_word &rhs) const {
+        reg_word newWord;                                              
+        newWord.data = (uint64_t)data % (uint64_t)rhs.data;      
+        newWord.origData = (uint64_t)origData % (uint64_t)rhs.origData;  
+        newWord.faults.insert(newWord.faults.end(),                    
+                              faults.begin(),                          
+                              faults.end());                           
+        newWord.faults.insert(newWord.faults.end(),                    
+                              rhs.faults.begin(),                      
+                              rhs.faults.end());                       
+        newWord.checkMathCorrect();                                    
+        return newWord;                                                
+    }
+
+    reg_word unsigned_div(const reg_word &rhs) const {
+        reg_word newWord;                                              
+        newWord.data = (uint64_t)data / (uint64_t)rhs.data;      
+        newWord.origData = (uint64_t)origData / (uint64_t)rhs.origData;  
+        newWord.faults.insert(newWord.faults.end(),                    
+                              faults.begin(),                          
+                              faults.end());                           
+        newWord.faults.insert(newWord.faults.end(),                    
+                              rhs.faults.begin(),                      
+                              rhs.faults.end());                       
+        newWord.checkMathCorrect();                                    
+        return newWord;                                                
+    }
+
+    friend void long_multiply (const reg_word &v1, const reg_word &v2, 
+                               reg_word *hi, reg_word *lo)
+    {
+#define SIGN_BIT(X) ((X) & 0x80000000)
+
+#define ARITH_OVFL(RESULT, OP1, OP2) (SIGN_BIT (OP1) == SIGN_BIT (OP2) \
+                                      && SIGN_BIT (OP1) != SIGN_BIT (RESULT))
+        
+        // copy faults
+        lo->faults.insert(lo->faults.end(),
+                          v1.faults.begin(),
+                          v1.faults.end());
+        lo->faults.insert(lo->faults.end(),
+                          v2.faults.begin(),
+                          v2.faults.end());
+        hi->faults.insert(hi->faults.end(),
+                          v1.faults.begin(),
+                          v1.faults.end());
+        hi->faults.insert(hi->faults.end(),
+                          v2.faults.begin(),
+                          v2.faults.end());
+
+
+        long a, b, c, d;
+        long bd, ad, cb, ac;
+        long mid, mid2, carry_mid = 0;
+        
+        // do the multiplication on the data
+        a = (v1.data >> 16) & 0xffff;
+        b = v1.data & 0xffff;
+        c = (v2.data >> 16) & 0xffff;
+        d = v2.data & 0xffff;
+        
+        bd = b * d;
+        ad = a * d;
+        cb = c * b;
+        ac = a * c;
+        
+        mid = ad + cb;
+        if (ARITH_OVFL (mid, ad, cb))
+            carry_mid = 1;
+        
+        mid2 = mid + ((bd >> 16) & 0xffff);
+        if (ARITH_OVFL (mid2, mid, ((bd >> 16) & 0xffff)))
+            carry_mid += 1;
+        
+        lo->data = (bd & 0xffff) | ((mid2 & 0xffff) << 16);
+        hi->data = ac + (carry_mid << 16) + ((mid2 >> 16) & 0xffff);
+
+        // do the multiplication on the origData
+        if (v1.data != v1.origData || v2.data != v2.origData) {
+            a = (v1.origData >> 16) & 0xffff;
+            b = v1.origData & 0xffff;
+            c = (v2.origData >> 16) & 0xffff;
+            d = v2.origData & 0xffff;
+            
+            bd = b * d;
+            ad = a * d;
+            cb = c * b;
+            ac = a * c;
+            
+            mid = ad + cb;
+            if (ARITH_OVFL (mid, ad, cb))
+                carry_mid = 1;
+            
+            mid2 = mid + ((bd >> 16) & 0xffff);
+            if (ARITH_OVFL (mid2, mid, ((bd >> 16) & 0xffff)))
+                carry_mid += 1;
+            
+            lo->origData = (bd & 0xffff) | ((mid2 & 0xffff) << 16);
+            hi->origData = ac + (carry_mid << 16) + ((mid2 >> 16) & 0xffff);
+        }
+
+        // corret if needed
+        lo->checkMathCorrect();
+        hi->checkMathCorrect();
+    }
+
+
+#define MAKE_RW_RW_OP(OPNM,OP) reg_word OPNM(const reg_word &rhs) const { \
+        reg_word newWord;                                               \
+        /* perform the operation */                                     \
+        newWord.data = data OP rhs.data;                                \
+        newWord.origData = origData OP rhs.origData;                    \
+        /* preserve the history */                                      \
+        newWord.faults.insert(newWord.faults.end(),                     \
+                              faults.begin(),                           \
+                              faults.end());                            \
+        newWord.faults.insert(newWord.faults.end(),                     \
+                              rhs.faults.begin(),                       \
+                              rhs.faults.end());                        \
+        /* Check for math corrects */                                   \
+        newWord.checkMathCorrect();                                     \
+        return newWord;                                                 \
+    }
+
+    MAKE_RW_RW_OP(operator<<,<<);
+    MAKE_RW_RW_OP(operator>>,>>);
+    MAKE_RW_RW_OP(operator+,+);
+    MAKE_RW_RW_OP(operator-,-);
+    MAKE_RW_RW_OP(operator&,&);
+    MAKE_RW_RW_OP(operator%,%);
+    MAKE_RW_RW_OP(operator/,/);
+    MAKE_RW_RW_OP(operator^,^);
+    MAKE_RW_RW_OP(operator|,|);
+
+#define MAKE_RW_UNI_OP(OPNM,OP)                 \
+    reg_word OPNM() const {                     \
+    reg_word newWord;                           \
+    newWord.data = OP data;                     \
+    newWord.origData = OP origData;             \
+    /* needed? */                               \
+    newWord.checkMathCorrect();                 \
+    return newWord;                             \
+    }
+    
+    MAKE_RW_UNI_OP(operator-,-);
+    MAKE_RW_UNI_OP(operator~,~);
+
+    // memory faults
+
+    static void checkRecordWriteFaults(reg_word &addr, 
+                                       reg_word &val, 
+                                       size_t sz) {
+        using namespace faultTrack;
+
+        bool addrOK = (addr.data == addr.origData);
+        bool valOK = (val.data == val.origData);
+
+        // check & record addr
+        if (!addrOK) {
+            addr.faults.push_back(faultDesc(now, WRITE_ADDR_ERROR));
+            // record two errors, because we (probably) mess up the
+            // place we write and the place we _fail_ to write
+            faultStats[faultTrack::WRITE_ADDR_ERROR] += 2;
+
+            faultList_t origFaults = addr.findFaults();            
+
+            // record that the place we wrote to is (probably) wrong.
+            memFaults[addr.data] = memFaultDesc(WRONG_ADDR_WRITTEN, origFaults);
+
+            // record that the place we were _supposed_ to write to is
+            // (probably) wrong. We know what the value _should_ be
+            memFaults[addr.origData] = memFaultDesc(WRONG_ADDR_NOT_WRITTEN, 
+                                                    origFaults);
+        }
+
+        if (addrOK && !valOK) { // addr is OK, value is wrong
+
+#warning mask data to see if it is actually correct
+
+            memFaults[addr.data] = memFaultDesc(RIGHT_ADDR_WRONG_DATA,
+                                                val.findFaults());
+        }
+
+        if (addrOK && valOK) {  // both are correct
+            memFaults.erase(addr.data);
+        }
+
+        //update shadow file
+        origMemWrite(addr.origData, val.origData, sz);
+    }
+
+    void checkReadForFaults(const reg_word &addr, const int32_t &in, 
+                            size_t sz) {
+        // need to create internal shadow / 'origData'/ correct map of
+        // what memory should look like.
+
+        // add the (possibly wrong) data in
+        data = in;
+        
+        if (addr.data == addr.origData) {
+            // we are pulling from the correct address
+            auto i = memFaults.find(addr.origData);
+            if (i != memFaults.end()) {
+                // we are accessing faulty data. record this
+                origData = origMemRead(addr.origData, sz);
+                faults.insert(faults.end(),
+                              i->second.origFaults.begin(),
+                              i->second.origFaults.end());
+                bool corrected = checkMemCorrect();
+                if (corrected) {
+                    memFaults.erase(i);
+                }
+            } else {
+                // the address and data are good, no fault.
+                origData = in;
+                assertOrig(in, addr.data, sz); // make sure they match
+            }
+        } else {
+            // we are pulling from the wrong address
+            origData = origMemRead(addr.origData, sz);  // get correct data
+            // faults should copy from addr and from the memory address
+            faults.insert(faults.end(),
+                          addr.faults.begin(),
+                          addr.faults.end());
+            bool corrected = checkMemCorrect();
+            if (corrected) {
+                memFaults.erase(addr.data);
+            }
+        }
+    }
+
+
+    // Fault injection
+
+    void fault(faultDesc &f) {
+        data ^= (1 << f.bit); // flip the bit
+        faults.push_back(f);
+        faultStats[f.status]++;
+    }
+    void correct_tmr() {
+        using namespace faultTrack;
+        if (!faults.empty()) {
+            for (auto &&i : faults) {
+                if(i.status == FAULTED) {
+                    i.status= CORRECTED_TMR;
+                    faultStats[CORRECTED_TMR]++;
+                    i.whenCorrected = now;
+                }
+            }
+        }
+        data = origData;
+    }
+};
+
+#endif
 
 
 

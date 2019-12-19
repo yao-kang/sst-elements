@@ -91,7 +91,7 @@ void MIPS4KC::initialize_registers (void)
   memclr (FPR, 16 * sizeof (double));
   FGR = (float *) FPR;
   FWR = (int *) FPR;
-  memclr (R, 32 * sizeof (reg_word));
+  //memclr (R, 32 * sizeof (reg_word));
   R[29] = STACK_TOP - BYTES_PER_WORD - 4096; /* Initialize $sp */
   PC = 0;
   Cause = 0;
@@ -156,7 +156,7 @@ void MIPS4KC::initialize_run_stack (int argc, char **argv)
   R[REG_A0] = argc;
   R[29] = R[29] & ~7;		/* Round down to nearest double-word */
   R[29] = copy_int_to_stack (argc); /* Leave pointing to argc */
-  printf("stack starting at %x\n", R[29]);
+  printf("stack starting at %x\n", R[29].getData());
 }
 
 
@@ -167,11 +167,11 @@ mem_addr MIPS4KC::copy_str_to_stack (char *s)
 
   while (i >= 0)
     {
-      SET_MEM_BYTE (R[29], s[i]);
-      R[29] -= 1;
-      i -= 1;
+        SET_MEM_BYTE (R[29].getData(), s[i]);
+        R[29] -= 1;
+        i -= 1;
     }
-  str_start = (mem_addr) R[29] + 1;
+  str_start = (mem_addr) R[29].getData() + 1;
   R[29] = R[29] & 0xfffffffc;	/* Round down to word boundary */
   return (str_start);
 }
@@ -179,9 +179,9 @@ mem_addr MIPS4KC::copy_str_to_stack (char *s)
 
 mem_addr MIPS4KC::copy_int_to_stack (int n)
 {
-  SET_MEM_WORD (R[29], n);
-  R[29] -= BYTES_PER_WORD;
-  return ((mem_addr) R[29] + BYTES_PER_WORD);
+    SET_MEM_WORD (R[29].getData(), n);
+    R[29] -= BYTES_PER_WORD;
+    return ((mem_addr) R[29].getData() + BYTES_PER_WORD);
 }
 
 

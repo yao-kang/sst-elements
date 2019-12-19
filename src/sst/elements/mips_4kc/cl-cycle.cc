@@ -58,10 +58,12 @@ void MIPS4KC::sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t memSz,
         cmd = memReq::Read;
     } else {
         cmd = memReq::Write;
+        // record outoging faulted addresses
+        reg_word::checkRecordWriteFaults(ADDR(ps), VALUE(ps), memSz);
     }
 
     SimpleMem::Request *req = 
-        new memReq(cmd, ADDR(ps), memSz, data);
+        new memReq(cmd, ADDR(ps).getData(), memSz, data);
     // make all requests not cacheable for now - add TLB or cache
     // flush later
     req->flags |= memReq::F_NONCACHEABLE;
@@ -77,7 +79,7 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
     instruction *inst = ps->inst;
 
     printf("issuing ");
-    print_inst(ps->pc); printf("\n");
+    print_inst(ps->pc.getData()); printf("\n");
     
     size_t memSize = 0;
     Interfaces::SimpleMem::Request::dataVec data;
@@ -92,7 +94,7 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
         if (memSize == 0) memSize = 2;
     case Y_LW_OP:
         if (memSize == 0) memSize = 4;
-        printf("load to cache: %x\n", ADDR(ps));
+        printf("load to cache: %x\n", ADDR(ps).getData());
         sendRequestToCache(ps, true, memSize, data);    
         break;
 
@@ -100,25 +102,25 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
         if (memSize == 0) {
             memSize = 1;
             data.resize(memSize);
-            data[0] = (uint8_t)(VALUE(ps) & 0xff);
+            data[0] = (uint8_t)(VALUE(ps).getData() & 0xff);
         }
     case Y_SH_OP:
         if (memSize == 0) {
             memSize = 2;
             data.resize(memSize);
-            data[0] = (uint8_t)((VALUE(ps)>>8) & 0xff);
-            data[1] = (uint8_t)((VALUE(ps)>>0) & 0xff);
+            data[0] = (uint8_t)((VALUE(ps).getData()>>8) & 0xff);
+            data[1] = (uint8_t)((VALUE(ps).getData()>>0) & 0xff);
         }
     case Y_SW_OP:
         if (memSize == 0) {
             memSize = 4;
             data.resize(memSize);
-            data[0] = (uint8_t)((VALUE(ps)>>24) & 0xff);
-            data[1] = (uint8_t)((VALUE(ps)>>16) & 0xff);
-            data[2] = (uint8_t)((VALUE(ps)>>8) & 0xff);
-            data[3] = (uint8_t)((VALUE(ps)>>0) & 0xff);
+            data[0] = (uint8_t)((VALUE(ps).getData()>>24) & 0xff);
+            data[1] = (uint8_t)((VALUE(ps).getData()>>16) & 0xff);
+            data[2] = (uint8_t)((VALUE(ps).getData()>>8) & 0xff);
+            data[3] = (uint8_t)((VALUE(ps).getData()>>0) & 0xff);
         }
-        printf("store to cache: %x\n", ADDR(ps));
+        printf("store to cache: %x\n", ADDR(ps).getData());
         sendRequestToCache(ps, false, memSize, data);  
         break;
 
@@ -165,7 +167,7 @@ void MIPS4KC::cl_run_rising () {
  * responsible for calling cycle_spim, simulating falling edge of clock
  */
 
-void MIPS4KC::cl_run_falling (mem_addr addr, int display)
+void MIPS4KC::cl_run_falling (reg_word addr, int display)
 {
     PC = addr;
     cycle_running = 1;
@@ -258,8 +260,10 @@ int MIPS4KC::cycle_spim (int display)
 
     bus_req = bus_service();
 
+#if 0
     /* increment Random register each cycle */
     Random = (((Random >> 8) < 63) ? ((Random >> 8) + 1) : 8) << 8;
+#endif
     cmiss = 0;
 
     /* Service mult/div unit */
@@ -406,7 +410,7 @@ int MIPS4KC::cycle_spim (int display)
                     STAGE (ps_ptr) = ID;
                     alu[ID] = ps_ptr;
                     alu[IF] = NULL;
-                    PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+                    PC = (nPC.getData() ? nPC : PC + BYTES_PER_WORD);
                 }
             } else {
                 END_OF_CYCLE;
@@ -415,7 +419,7 @@ int MIPS4KC::cycle_spim (int display)
             /* IF Stage */
             CL_READ_MEM_INST(ps_ptr->inst, STAGE_PC(ps_ptr),
                              PADDR(ps_ptr), EXCPT(ps_ptr));
-            printf("IF fetch %x\n", STAGE_PC(ps_ptr));
+            printf("IF fetch %x\n", STAGE_PC(ps_ptr).getData());
 
             /* if exception, must be tlb, read instruction for viewing purposes */
             if (EXCPT(ps_ptr) != 0) {
@@ -423,7 +427,7 @@ int MIPS4KC::cycle_spim (int display)
                     alu[ID] = ps_ptr;
                     alu[IF] = NULL;
                     STAGE (ps_ptr) = ID;
-                    PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+                    PC = (nPC.getData() ? nPC : PC + BYTES_PER_WORD);
                 }
                 END_OF_CYCLE;
             } else if (cmiss == CACHE_MISS) {
@@ -435,7 +439,7 @@ int MIPS4KC::cycle_spim (int display)
                 alu[ID] = ps_ptr;
                 alu[IF] = NULL;
                 STAGE (ps_ptr) = ID;
-                PC = (nPC ? nPC : PC + BYTES_PER_WORD);
+                PC = (nPC.getData() ? nPC : PC + BYTES_PER_WORD);
             }
         }
     }
@@ -446,7 +450,8 @@ int MIPS4KC::cycle_spim (int display)
     STAGE (alu[IF]) = IF;
     STAGE_PC (alu[IF]) = PC;
     /* do a dummy read just so we can see the instruction in the pipeline */
-    READ_MEM_INST (alu[IF]->inst, PC);
+#warning check for faulted read?
+    READ_MEM_INST (alu[IF]->inst, PC.getData());
 
     END_OF_CYCLE;
 
@@ -525,9 +530,9 @@ int MIPS4KC::can_issue (short int oc)
 int MIPS4KC::process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy)
 {
   instruction *inst;
-  mem_addr tmp_PC;
+  reg_word tmp_PC;
   int excpt = -1;
-
+#warning should check for PC faulty assignments here and report
   inst = ps->inst;
   tmp_PC = PC + BYTES_PER_WORD;
 
@@ -706,9 +711,10 @@ int MIPS4KC::process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy)
 
     case Y_JALR_OP:
     case Y_JR_OP:
-        printf("JR %x\n", read_R_reg(RS (inst)));
-      if (!DSLOT (ps))
-	tmp_PC = read_R_reg(RS (inst));
+        printf("JR %x\n", read_R_reg(RS (inst)).getData());
+        if (!DSLOT (ps)) {
+          tmp_PC = read_R_reg(RS (inst)).getData();
+        }
       break;
 
     case Y_LB_OP:
@@ -1147,7 +1153,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
           reg_word sum;
 
 	vs = Operand1 (ps);
-	imm = (short) Operand2 (ps);
+	imm = Operand2(ps).truncExtend(); 
 	sum = vs + imm;
 
 	if (ARITH_OVFL (sum, vs, imm))
@@ -1158,9 +1164,9 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       }
 
     case Y_ADDIU_OP:
-      VALUE (ps) = Operand1 (ps) + (short) Operand2 (ps);
-      set_ex_bypass(RT (inst), VALUE (ps));
-      break;
+        VALUE (ps) = Operand1 (ps) + (Operand2(ps).truncExtend());
+        set_ex_bypass(RT (inst), VALUE (ps));
+        break;
 
     case Y_ADDU_OP:
       VALUE (ps) = Operand1 (ps) + Operand2 (ps);
@@ -1173,8 +1179,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       break;
 
     case Y_ANDI_OP:
-      /* why is the 0xffff necessary? */
-      VALUE (ps) = Operand1 (ps) & (0xffff & Operand2 (ps));
+      VALUE (ps) = Operand1 (ps) & (Operand2 (ps) & 0xffff);
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 
@@ -1246,8 +1251,8 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
 	if (Operand2 (ps) != 0)
 	  {
-	    hi = (long) Operand1 (ps) % (long) Operand2 (ps);
-	    lo = (long) Operand1 (ps) / (long) Operand2 (ps);
+	    hi = Operand1 (ps) % Operand2 (ps);
+	    lo = Operand1 (ps) / Operand2 (ps);
 	  }
 	else
 	  {
@@ -1271,8 +1276,10 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
        if (Operand2 (ps) != 0)
 	 {
-	   hi = (unsigned long) Operand1 (ps) % (unsigned long) Operand2 (ps);
-	   lo = (unsigned long) Operand1 (ps) / (unsigned long) Operand2 (ps);
+             //hi = (unsigned long) Operand1 (ps) % (unsigned long) Operand2 (ps);
+             //lo = (unsigned long) Operand1 (ps) / (unsigned long) Operand2 (ps);
+             hi = Operand1(ps).unsigned_mod(Operand2(ps));
+             lo = Operand1(ps).unsigned_div(Operand2(ps));
 	 }
        else
 	 {
@@ -1392,7 +1399,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	long_multiply (v1, v2, &hi, &lo);
 	if (neg_sign)
 	  {
-	    int carry = 0;
+            reg_word carry = 0;
 
 	    lo = ~ lo;
 	    hi = ~ hi;
@@ -1441,8 +1448,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       break;
 
     case Y_ORI_OP:
-      /* why is the 0xffff necessary */
-      VALUE (ps) = Operand1 (ps) | (0xffff & Operand2 (ps));
+      VALUE (ps) = Operand1 (ps) | (Operand2(ps) & 0xffff);
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 
@@ -1474,10 +1480,10 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_SLLV_OP:
       {
-	int shamt = (Operand1 (ps) & 0x1f);
+        const reg_word shamt = (Operand1(ps) & 0x1f);
 
 	if (shamt >= 0 && shamt < 32)
-	  VALUE (ps) = Operand2 (ps) << shamt;
+	  VALUE (ps) = Operand2(ps) << shamt;
 	else
 	  VALUE (ps) = Operand2 (ps);
 
@@ -1486,41 +1492,28 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       }
 
     case Y_SLT_OP:
-      if (Operand1 (ps) < Operand2 (ps))
-	VALUE (ps) = 1;
-      else
-	VALUE (ps) = 0;
+        // use special function to preserve fault tracking
+        VALUE(ps) = setLessThan(Operand1(ps),Operand2(ps));
 
-      set_ex_bypass(RD (inst), VALUE (ps));
-      break;
+        set_ex_bypass(RD (inst), VALUE (ps));
+        break;
 
     case Y_SLTI_OP:
-      if (Operand1 (ps) < (short) Operand2 (ps))
-	VALUE (ps) = 1;
-      else
-	VALUE (ps) = 0;
+      VALUE(ps) = setLessThan(Operand1(ps),(Operand2(ps).truncExtend()));
 
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 
     case Y_SLTIU_OP:
       {
-	int x = (short) Operand2 (ps);
-
-	if ((unsigned long) Operand1 (ps) < (unsigned long) x)
-	  VALUE (ps) = 1;
-	else
-	  VALUE (ps) = 0;
+        VALUE(ps) = setLessThan(Operand1(ps),(Operand2(ps).truncExtend()), 1);
 
 	set_ex_bypass(RT (inst), VALUE (ps));
 	break;
       }
 
     case Y_SLTU_OP:
-      if ((unsigned long) Operand1 (ps) < (unsigned long) Operand2 (ps))
-	VALUE (ps) = 1;
-      else
-	VALUE (ps) = 0;
+      VALUE(ps) = setLessThan(Operand1(ps),Operand2(ps), 1);
 
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
@@ -1528,7 +1521,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_SRA_OP:
       {
 	int shamt = SHAMT (inst);
-	long val = Operand2 (ps);
+	reg_word val = Operand2 (ps);
 
 	if (shamt >= 0 && shamt < 32)
 	  VALUE (ps) = val >> shamt;
@@ -1541,8 +1534,8 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_SRAV_OP:
       {
-	int shamt = Operand1 (ps) & 0x1f;
-	long val = Operand2 (ps);
+        const reg_word shamt = Operand1 (ps) & 0x1f;
+	reg_word val = Operand2 (ps);
 
 	if (shamt >= 0 && shamt < 32)
 	  VALUE (ps) = val >> shamt;
@@ -1554,28 +1547,26 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       }
 
     case Y_SRL_OP:
-      {
-	int shamt = SHAMT (inst);
-	unsigned long val = Operand2 (ps);
-
-	if (shamt >= 0 && shamt < 32)
-	  VALUE (ps) = val >> shamt;
-	else
-	  VALUE (ps) = val;
-
-	set_ex_bypass(RD (inst), VALUE (ps));
-	break;
+        {
+            int shamt = SHAMT (inst);
+                
+            if (shamt >= 0 && shamt < 32)
+                VALUE(ps) = Operand2(ps).shift_right_logical(shamt);
+            else
+                VALUE(ps) = Operand2(ps);
+            
+            set_ex_bypass(RD (inst), VALUE (ps));
+            break;
       }
 
     case Y_SRLV_OP:
       {
-	int shamt = Operand1 (ps) & 0x1f;
-	unsigned long val = Operand2 (ps);
+          const reg_word shamt = (Operand1(ps) & 0x1f);
 
 	if (shamt >= 0 && shamt < 32)
-	  VALUE (ps) = val >> shamt;
+            VALUE (ps) = Operand2(ps).shift_right_logical(shamt);
 	else
-	  VALUE (ps) = val;
+            VALUE (ps) = Operand2(ps);
 
 	set_ex_bypass(RD (inst), VALUE (ps));
 	break;
@@ -1597,10 +1588,11 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       }
 
     case Y_SUBU_OP:
-      VALUE (ps) = (unsigned long) Operand1 (ps) - (unsigned long) Operand2 (ps);
+        //VALUE (ps) = (unsigned long) Operand1 (ps) - (unsigned long) Operand2 (ps);
+        VALUE(ps) = Operand1(ps) - Operand2(ps);
 
-      set_ex_bypass(RD (inst), VALUE (ps));
-      break;
+        set_ex_bypass(RD (inst), VALUE (ps));
+        break;
 
     case Y_SW_OP:
     case Y_SWC0_OP:
@@ -1634,7 +1626,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_XORI_OP:
       /* why is the 0xffff necessary */
-      VALUE (ps) = Operand1 (ps) ^ (0xffff & Operand2 (ps));
+      VALUE (ps) = Operand1(ps) ^ (Operand2(ps) & 0xffff);
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 
@@ -1668,7 +1660,7 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 
   inst = ps->inst;
 
-  printf("process_MEM ");  print_inst(ps->pc); printf("\n");
+  printf("process_MEM ");  print_inst(ps->pc.getData()); printf("\n");
 
   /* only load instructions update the MEM bypass variables
      to something other than the values generated by the EX stage */
@@ -1710,7 +1702,7 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 
     case Y_LW_OP:
       CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
-      printf("LW %x from %x\n", VALUE(ps), ADDR(ps));
+      printf("LW %x from %x\n", VALUE(ps).getData(), ADDR(ps).getData());
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
       break;
@@ -1742,9 +1734,9 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 
     case Y_LWL_OP:
       {
-	mem_addr addr = ADDR (ps);
+        reg_word addr = ADDR (ps);
 	reg_word word;	/* Can't be register */
-	int byte = addr & 0x3;
+	int byte = addr.getData() & 0x3;
 	/* is this right? -- NO need bypass value from memory stage of previous
 	   instruction. */
 	reg_word reg_val = R[RT (inst)];
@@ -1800,9 +1792,9 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 
     case Y_LWR_OP:
       {
-	mem_addr addr = ADDR (ps);
+	reg_word addr = ADDR (ps);
 	reg_word word;	/* Can't be register */
-	int byte = addr & 0x3;
+	int byte = addr.getData() & 0x3;
 	/* is this right? */
 	reg_word reg_val = R[RT (inst)];
 
@@ -1873,10 +1865,10 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
       break;
 
     case Y_SW_OP:
-        printf("SW %x %x %x v:%x\n", ADDR(ps), PADDR(ps), EXCPT(ps), VALUE(ps));
+        printf("SW %x %x %x v:%x\n", ADDR(ps).getData(), PADDR(ps), EXCPT(ps), VALUE(ps).getData());
         CL_SET_MEM_WORD( ADDR (ps), PADDR (ps), VALUE (ps), EXCPT(ps), req);
 
-      printf("SW %x %x %x \n", ADDR(ps), PADDR(ps), EXCPT(ps));
+        printf("SW %x %x %x \n", ADDR(ps).getData(), PADDR(ps), EXCPT(ps));
       break;
 
     case Y_SWC1_OP:
@@ -1901,10 +1893,10 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 
     case Y_SWL_OP:
       {
-	mem_addr addr = ADDR (ps);
-	mem_word data;
+        reg_word addr = ADDR (ps);
+	reg_word data;
 	reg_word reg = R[RT (inst)];
-	int byte = addr & 0x3;
+	int byte = addr.getData() & 0x3;
 
 	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), 
 			  EXCPT (ps), req);
@@ -1955,10 +1947,10 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 
     case Y_SWR_OP:
       {
-	mem_addr addr = R[BASE (inst)] + IOFFSET (inst);
-	mem_word data;
+        reg_word addr = R[BASE (inst)] + IOFFSET (inst);
+	reg_word data;
 	reg_word reg = R[RT (inst)];
-	int byte = addr & 0x3;
+	int byte = addr.getData() & 0x3;
 
 	CL_READ_MEM_WORD ( data, addr & 0xfffffffc, PADDR (ps), 
                            EXCPT (ps), req);
@@ -2085,10 +2077,10 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 int MIPS4KC::process_WB (PIPE_STAGE ps)
 {
   instruction *inst;
-  int value;
 
   inst = ps->inst;
-  value = VALUE (ps);
+  const reg_word &value = VALUE (ps);
+#warning count faulted writebacks here
 
   switch (OPCODE (inst))
     {
@@ -2206,11 +2198,12 @@ void MIPS4KC::init_stage_pool (void)
   PIPE_STAGE tmp;
   int i;
 
-  head_pool = (PIPE_STAGE) malloc(12 * sizeof(struct pipe_stage));
+  //head_pool = (PIPE_STAGE) malloc(12 * sizeof(struct pipe_stage));
+  head_pool = (PIPE_STAGE) new pipe_stage[14];
   tmp = head_pool;
 
   /* chain up the pool of entries */
-  for (i=0; i < 11; i++) {
+  for (i=0; i < 13; i++) {
     tmp->next = tmp + 1;
     tmp = tmp->next;
   }
@@ -2264,33 +2257,6 @@ void MIPS4KC::pipe_dealloc (int stage, PIPE_STAGE alu[])
 
 
 
-void MIPS4KC::long_multiply (reg_word v1, reg_word v2, reg_word *hi, reg_word *lo)
-{
-  long a, b, c, d;
-  long bd, ad, cb, ac;
-  long mid, mid2, carry_mid = 0;
-
-  a = (v1 >> 16) & 0xffff;
-  b = v1 & 0xffff;
-  c = (v2 >> 16) & 0xffff;
-  d = v2 & 0xffff;
-
-  bd = b * d;
-  ad = a * d;
-  cb = c * b;
-  ac = a * c;
-
-  mid = ad + cb;
-  if (ARITH_OVFL (mid, ad, cb))
-    carry_mid = 1;
-
-  mid2 = mid + ((bd >> 16) & 0xffff);
-  if (ARITH_OVFL (mid2, mid, ((bd >> 16) & 0xffff)))
-    carry_mid += 1;
-
-  *lo = (bd & 0xffff) | ((mid2 & 0xffff) << 16);
-  *hi = ac + (carry_mid << 16) + ((mid2 >> 16) & 0xffff);
-}
 
 
 
@@ -2319,7 +2285,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
 
   sprintf (buf, "WB\t"); buf += strlen(buf);
   if (alu[WB]) {
-    buf += print_inst_internal (buf, 8*K, alu[WB]->inst, alu[WB]->pc) - 1;
+      buf += print_inst_internal (buf, 8*K, alu[WB]->inst, alu[WB]->pc.getData()) - 1;
     if (EXCPT(alu[WB])) {
       sprintf (buf, "\t[%s EXCPT]", EXCPT_STR((EXCPT(alu[WB])>>2) & 0xf));
       buf += strlen(buf);
@@ -2333,7 +2299,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
 
   sprintf (buf, "MEM\t"); buf += strlen(buf);
   if (alu[MEM]) {
-    buf += print_inst_internal (buf, 8*K, alu[MEM]->inst, alu[MEM]->pc) - 1;
+      buf += print_inst_internal (buf, 8*K, alu[MEM]->inst, alu[MEM]->pc.getData()) - 1;
     if (EXCPT(alu[MEM])) {
       sprintf (buf, "\t[%s EXCPT]", EXCPT_STR((EXCPT(alu[MEM])>>2) & 0xf));
       buf += strlen(buf);
@@ -2351,7 +2317,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
 
   sprintf (buf, "EX\t"); buf += strlen(buf);
   if (alu[EX]) {
-    buf += print_inst_internal (buf, 8*K, alu[EX]->inst, alu[EX]->pc) - 1;
+      buf += print_inst_internal (buf, 8*K, alu[EX]->inst, alu[EX]->pc.getData()) - 1;
     if (EXCPT(alu[EX])) {
       sprintf (buf, "\t[%s EXCPT]", EXCPT_STR(EXCPT(alu[EX])>>2 & 0xf));
       buf += strlen(buf);
@@ -2365,7 +2331,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
 
   sprintf (buf, "ID\t"); buf += strlen(buf);
   if (alu[ID]) {
-    buf += print_inst_internal (buf, 8*K, alu[ID]->inst, alu[ID]->pc) - 1;
+      buf += print_inst_internal (buf, 8*K, alu[ID]->inst, alu[ID]->pc.getData()) - 1;
     if (EXCPT(alu[ID])) {
       sprintf (buf, "\t[%s EXCPT]", EXCPT_STR((EXCPT(alu[ID])>>2) & 0xf));
       buf += strlen(buf);
@@ -2379,7 +2345,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
 
   sprintf (buf, "IF\t"); buf += strlen(buf);
   if (alu[IF]) {
-    buf += print_inst_internal (buf, 8*K, alu[IF]->inst, alu[IF]->pc) - 1;
+      buf += print_inst_internal (buf, 8*K, alu[IF]->inst, alu[IF]->pc.getData()) - 1;
     if (STAGE(alu[IF]) == IF_STALL) {
       sprintf(buf,"\t(STALLED)");
       buf += strlen(buf);
@@ -2459,7 +2425,7 @@ void MIPS4KC::print_pipeline_internal (char *buf)
   sprintf (buf, "*** Bypass Registers, Values\n");
   buf += strlen(buf);
 
-  sprintf (buf, "MEM %d 0x%08x   EX %d 0x%08x\n",MEM_bp_reg,  uint(MEM_bp_val), EX_bp_reg, uint(EX_bp_val));
+  sprintf (buf, "MEM %d 0x%08x   EX %d 0x%08x\n",MEM_bp_reg,  uint(MEM_bp_val.getData()), EX_bp_reg, uint(EX_bp_val.getData()));
   buf += strlen(buf);
 
   //sprintf (buf, "*** Write Back Buffer\n");

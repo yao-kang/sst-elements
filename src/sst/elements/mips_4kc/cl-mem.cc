@@ -26,11 +26,11 @@
 using namespace SST;
 using namespace SST::MIPS4KCComponent;
 
-void MIPS4KC::CL_READ_MEM_INST(instruction* &LOC, const mem_addr ADDR,
+void MIPS4KC::CL_READ_MEM_INST(instruction* &LOC, const reg_word &ADDR,
                                    mem_addr &PADDR, 
                                    int &EXPT) {
-    mem_addr _addr_ = (mem_addr) (ADDR); 
-    unsigned int tmp = tlb_vat(ADDR, 0, 1, &PADDR);
+    mem_addr _addr_ = (mem_addr) (ADDR).getData(); 
+    unsigned int tmp = tlb_vat(ADDR.getData(), 0, 1, &PADDR);
     if (_addr_ >= TEXT_BOT && _addr_ < text_top && !(_addr_ & 0x3))
         LOC = text_seg [(_addr_ - TEXT_BOT) >> 2];                 
     else if (_addr_ >= K_TEXT_BOT && _addr_ < k_text_top && !(_addr_ & 0x3)) 
@@ -38,50 +38,93 @@ void MIPS4KC::CL_READ_MEM_INST(instruction* &LOC, const mem_addr ADDR,
     else CL_RAISE_EXCEPTION(tmp, 0, EXPT);    	
 }
 
-void MIPS4KC::CL_READ_MEM(reg_word &LOC, const mem_addr ADDR,
+void MIPS4KC::CL_READ_MEM(reg_word &LOC, const reg_word &ADDR,
                           mem_addr &PADDR, int &EXPT, 
                           const memReq *req, size_t sz) {
-    mem_addr _addr_ = (mem_addr) (ADDR);
-    unsigned int tmp = tlb_vat(ADDR, 0, 1, &PADDR);
-    if (_addr_ >= DATA_BOT && _addr_ < data_top)
-        LOC = data_seg_b [_addr_ - DATA_BOT];
-    else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
-        LOC = stack_seg_b [_addr_ - stack_bot];
-    else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)
-        LOC = k_data_seg_b [_addr_ - K_DATA_BOT];
-    else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    const mem_addr &_addr_ = ADDR.getData();
+    unsigned int tmp = tlb_vat(ADDR.getData(), 0, 1, &PADDR);
+
+    if (sz == 1) {
+        if (_addr_ >= DATA_BOT && _addr_ < data_top)
+            LOC = data_seg_b [_addr_ - DATA_BOT];
+        else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
+            LOC = stack_seg_b [_addr_ - stack_bot];
+        else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)
+            LOC = k_data_seg_b [_addr_ - K_DATA_BOT];
+        else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    } else if (sz == 2) {
+        if (_addr_ >= DATA_BOT && _addr_ < data_top)
+            LOC = data_seg_h [_addr_ - DATA_BOT];
+        else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
+            LOC = stack_seg_h [_addr_ - stack_bot];
+        else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)
+            LOC = k_data_seg_h [_addr_ - K_DATA_BOT];
+        else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    } else if (sz == 4) {
+        if (_addr_ >= DATA_BOT && _addr_ < data_top)
+            LOC = data_seg [_addr_ - DATA_BOT];
+        else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
+            LOC = stack_seg [_addr_ - stack_bot];
+        else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)
+            LOC = k_data_seg [_addr_ - K_DATA_BOT];
+        else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    }
 
     assert(sz == req->data.size());
+    assert(sz <= 4);
 
-    reg_word out = 0;
+    int32_t data = 0;
     for (int i = 0; i < sz; ++i) {
-        out <<= 8;
-        out |= req->data[i];
+        data <<= 8;
+        data |= req->data[i];
     }
-    printf("READ: %08x %08x\n", LOC, out); 
+    printf("READ: %08x %08x\n", LOC.getData(), data); 
+
+    // note incoming faulted data and add in the data
+    LOC.checkReadForFaults(ADDR,data,sz);
 }
 
-void MIPS4KC::CL_SET_MEM(const mem_addr ADDR, mem_addr &PADDR, 
-                         const reg_word VALUE, int &EXPT, 
+void MIPS4KC::CL_SET_MEM(const reg_word &ADDR, mem_addr &PADDR, 
+                         const reg_word &VALUE, int &EXPT, 
                          const memReq *req, size_t sz) {
-    mem_addr _addr_ = (mem_addr) (ADDR);
-    unsigned int tmp = tlb_vat(ADDR, 0, 0, &PADDR); 
+    const mem_addr _addr_ = (mem_addr) (ADDR.getData());
+    unsigned int tmp = tlb_vat(ADDR.getData(), 0, 0, &PADDR); 
     data_modified = 1; //needed?
-    if (_addr_ >= DATA_BOT && _addr_ < data_top)
-        data_seg_b [_addr_ - DATA_BOT] = (unsigned char) (VALUE);
-    else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
-        stack_seg_b [_addr_ - stack_bot] = (unsigned char) (VALUE); 
-    else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)  
-        k_data_seg_b [_addr_ - K_DATA_BOT] = (unsigned char) (VALUE);
-    else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+
+    if (sz == 1) {
+        if (_addr_ >= DATA_BOT && _addr_ < data_top)
+            data_seg_b [_addr_ - DATA_BOT] = (unsigned char) (VALUE.getData());
+        else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
+            stack_seg_b [_addr_ - stack_bot] = (unsigned char) (VALUE.getData()); 
+        else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)  
+            k_data_seg_b [_addr_ - K_DATA_BOT] = (unsigned char) (VALUE.getData());
+        else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    } else if (sz == 2) {
+        if (_addr_ >= DATA_BOT && _addr_ < data_top)
+            data_seg_h [_addr_ - DATA_BOT] = (unsigned short) (VALUE.getData());
+        else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
+            stack_seg_h [_addr_ - stack_bot] = (unsigned short) (VALUE.getData()); 
+        else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)  
+            k_data_seg_h [_addr_ - K_DATA_BOT] = (unsigned short) (VALUE.getData());
+        else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    } else if (sz == 4) {
+        if (_addr_ >= DATA_BOT && _addr_ < data_top)
+            data_seg [_addr_ - DATA_BOT] = (VALUE.getData());
+        else if (_addr_ >= stack_bot && _addr_ < STACK_TOP) {
+            stack_seg [_addr_ - stack_bot] = (VALUE.getData()); 
+            printf("  SS: %08x\n", stack_seg[_addr_ - stack_bot] );
+        } else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)  
+            k_data_seg [_addr_ - K_DATA_BOT] = (VALUE.getData());
+        else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
+    }
     
     assert(sz == req->data.size());
 
-    reg_word in = 0;
+    int32_t in = 0;
     for (int i = 0; i < sz; ++i) {
         in <<= 8;
         in |= req->data[i];
     }
-    printf("WRITE: %08x %08x\n", VALUE, in); 
+    printf("WRITE: %08x %08x\n", VALUE.getData(), in); 
  }
 

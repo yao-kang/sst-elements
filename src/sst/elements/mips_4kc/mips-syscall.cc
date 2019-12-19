@@ -110,16 +110,17 @@ static int syscall_usage[MAX_SYSCALL]; /* Track system calls */
 
 int MIPS4KC::do_syscall (void)
 {
-  SYSCALL_COUNT(R[REG_V0]);
+#warning check for wrong syscall
+  SYSCALL_COUNT(R[REG_V0].getData());
   if (1)   {
       /* Syscalls for the source-language version of SPIM.  These are
 	 easier to use than the real syscall and are portable to non-MIPS
 	 (non-Unix?) operating systems. */
         
-      switch (R[REG_V0])
+      switch (R[REG_V0].getData())
 	{
 	case PRINT_INT_SYSCALL:
-	  write_output (console_out, "%d", R[REG_A0]);
+          write_output (console_out, "%d", R[REG_A0].getData());
 	  break;
 
 	case PRINT_FLOAT_SYSCALL:
@@ -175,7 +176,7 @@ int MIPS4KC::do_syscall (void)
 	case SBRK_SYSCALL:
 	  {
 	    mem_addr x = data_top;
-	    expand_data (R[REG_A0]);
+	    expand_data (R[REG_A0].getData());
 	    R[REG_RES] = x;
 	    break;
 	  }
@@ -188,7 +189,7 @@ int MIPS4KC::do_syscall (void)
 	default:
 	  if (cycle_level) 
 	    return (0);
-	  run_error ("Unknown system call: %d\n", R[REG_V0]);
+	  run_error ("Unknown system call: %d\n", R[REG_V0].getData());
 	  break;
 	}
     }
@@ -550,6 +551,7 @@ int MIPS4KC::do_syscall (void)
 int MIPS4KC::unixsyscall (void)
 {
   fatal_error("syscall not implemented\n");
+  return -1;
 #if 0
   int *arg0, *arg1, *arg2, *arg3;
 
@@ -557,7 +559,6 @@ int MIPS4KC::unixsyscall (void)
   arg1 = SYSCALL_ARG (REG_V0,arg1, REG_A1);
   arg2 = SYSCALL_ARG (REG_V0,arg2, REG_A2);
   arg3 = SYSCALL_ARG (REG_V0,arg3, REG_A3);
-#endif
   //R[REG_RES] = syscall (R[REG_V0], arg0, arg1, arg2, arg3);
 
   /* See if an error has occurred during the system call. If so, the
@@ -576,6 +577,7 @@ int MIPS4KC::unixsyscall (void)
       R[REG_ERR] = 0;
       return (R[REG_RES]);
     }
+#endif
 }
 
 
@@ -632,13 +634,14 @@ void MIPS4KC::kill_prog_fds (void)
 
 void MIPS4KC::handle_exception (void)
 {
+#warning check for faulted exception here
   if (!quiet && ((Cause >> 2) & 0xf) != INT_EXCPT)
-    error ("Exception occurred at PC=0x%08x\n", EPC);
+      error ("Exception occurred at PC=0x%08x\n", EPC.getData());
 
   exception_occurred = 0;
   PC = EXCEPTION_ADDR;
 
-  switch ((Cause >> 2) & 0xf)
+  switch (((Cause >> 2) & 0xf).getData())
     {
     case INT_EXCPT:
 	R[REG_A0] = SIGINT;
@@ -647,25 +650,25 @@ void MIPS4KC::handle_exception (void)
     case ADDRL_EXCPT:
 	R[REG_A0] = SIGSEGV;
       if (!quiet)
-	error ("  Unaligned address in inst/data fetch: 0x%08x\n",BadVAddr);
+          error ("  Unaligned address in inst/data fetch: 0x%08x\n",BadVAddr.getData());
       break;
 
     case ADDRS_EXCPT:
 	R[REG_A0] = SIGSEGV;
       if (!quiet)
-	error ("  Unaligned address in store: 0x%08x\n", BadVAddr);
+          error ("  Unaligned address in store: 0x%08x\n", BadVAddr.getData());
       break;
 
     case IBUS_EXCPT:
 	R[REG_A0] = SIGBUS;
       if (!quiet)
-	error ("  Bad address in text read: 0x%08x\n", BadVAddr);
+          error ("  Bad address in text read: 0x%08x\n", BadVAddr.getData());
       break;
 
     case DBUS_EXCPT:
 	R[REG_A0] = SIGBUS;
       if (!quiet)
-	error ("  Bad address in data/stack read: 0x%08x\n", BadVAddr);
+          error ("  Bad address in data/stack read: 0x%08x\n", BadVAddr.getData());
       break;
 
     case BKPT_EXCPT:
@@ -690,7 +693,7 @@ void MIPS4KC::handle_exception (void)
 
     default:
       if (!quiet)
-	error ("Unknown exception: %d\n", Cause >> 2);
+          error ("Unknown exception: %d\n", Cause.getData() >> 2);
       break;
     }
 

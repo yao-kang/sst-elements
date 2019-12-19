@@ -24,6 +24,11 @@
 using namespace SST;
 using namespace SST::MIPS4KCComponent;
 
+Cycle_t reg_word::now = 0;
+uint64_t reg_word::faultStats[faultTrack::LAST_FAULT_STATUS] = {};
+map<int32_t, memFaultDesc> reg_word::memFaults;
+map<int32_t, uint8_t> reg_word::origMem;
+
 MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     Component(id), 
     break_inst(NULL), program_break(0), 
@@ -117,6 +122,8 @@ void MIPS4KC::init(unsigned int phase) {
         req->data.resize(1);
         req->data[0] = i->second;
         memory->sendInitData(req);
+        // record for the origMem - the known good data
+        reg_word::initOrigMem(i->first, i->second);
     }
     image.clear();
 }
@@ -141,6 +148,7 @@ bool MIPS4KC::clockTic( Cycle_t c)
 {
     bool isFalling = (c & 0x1);
     Cycle_t pipeCycle = c >> 1;
+    reg_word::setNow(pipeCycle);  // for fault record keeping
     printf("CYCLE %llu: %llu.%u\n", c, pipeCycle, isFalling);
 
     if (isFalling) {

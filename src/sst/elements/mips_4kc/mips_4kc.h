@@ -48,8 +48,8 @@ namespace MIPS4KCComponent {
 struct pipe_stage {
     instruction *inst;
     int stage;
-    mem_addr pc;
-    reg_word op1, op2, op3;
+    reg_word pc;
+    reg_word op1, op2, op3;  // Note: op2 sometimes used for immediate val
     reg_word value;
     reg_word value1;
     double fop1, fop2;
@@ -122,7 +122,7 @@ protected:
     typedef Interfaces::SimpleMem::Request memReq;
 
     void cl_run_rising();
-    void cl_run_falling (mem_addr addr, int display);
+    void cl_run_falling (reg_word addr, int display);
     void cl_initialize_world (int run);
     void cycle_init (void);
     void mdu_and_fp_init (void);
@@ -204,7 +204,7 @@ protected:
     void print_except_stats (void);
     void print_signal_status (int sig);
     void intercept_signals (int sig, int code, struct sigcontext *scp);
-    mem_addr compute_branch_target (instruction *inst);
+    reg_word compute_branch_target (instruction *inst);
     void psignal (int sig);
     int issig (void);
     int psig (void);
@@ -325,7 +325,7 @@ protected:
     reg_word R[32] = {};
     reg_word HI=0, LO=0;
     int HI_present=0, LO_present=0;
-    mem_addr PC=0, nPC=0;
+    reg_word PC=0, nPC=0;
 
     /* Floating Point Coprocessor (1) registers :*/
     double *FPR=0;		/* Dynamically allocate so overlay */
@@ -363,38 +363,39 @@ protected:
     
 
     /* memory functions */
-    void CL_READ_MEM_INST(instruction* &LOC, const mem_addr ADDR,
+    void CL_READ_MEM_INST(instruction* &LOC, const reg_word &ADDR,
                           mem_addr &PADDR, int &EXPT);
-    void CL_READ_MEM(reg_word &LOC, const mem_addr ADDR,
+    void CL_READ_MEM(reg_word &LOC, const reg_word &ADDR,
                      mem_addr &PADDR, int &EXPT, const memReq *req, size_t sz);
-    void CL_READ_MEM_BYTE(reg_word &LOC, const mem_addr ADDR,
+    void CL_READ_MEM_BYTE(reg_word &LOC, const reg_word &ADDR,
                           mem_addr &PADDR, int &EXPT, const memReq *req) {
         CL_READ_MEM(LOC, ADDR, PADDR, EXPT, req, 1);
     }
-    void CL_READ_MEM_HALF(reg_word &LOC, const mem_addr ADDR,
+    void CL_READ_MEM_HALF(reg_word &LOC, const reg_word &ADDR,
                           mem_addr &PADDR, int &EXPT, const memReq *req) {
         CL_READ_MEM(LOC, ADDR, PADDR, EXPT, req, 2);
     }
-    void CL_READ_MEM_WORD(reg_word &LOC, const mem_addr ADDR,
+    void CL_READ_MEM_WORD(reg_word &LOC, const reg_word &ADDR,
                           mem_addr &PADDR, int &EXPT, const memReq *req) {
         CL_READ_MEM(LOC, ADDR, PADDR, EXPT, req, 4);
     }
 
-    void CL_SET_MEM(const mem_addr ADDR, mem_addr &PADDR, const reg_word VALUE,
+    void CL_SET_MEM(const reg_word &ADDR, mem_addr &PADDR, 
+                    const reg_word &VALUE,
                     int &EXPT, const memReq *req, size_t sz);
-    void CL_SET_MEM_BYTE(const mem_addr ADDR, mem_addr &PADDR, 
-                         const reg_word VALUE, int &EXPT, 
+    void CL_SET_MEM_BYTE(const reg_word &ADDR, mem_addr &PADDR, 
+                         const reg_word &VALUE, int &EXPT, 
                          const memReq *req) {
         CL_SET_MEM(ADDR,PADDR,VALUE,EXPT,req,1);
     }
-    void CL_SET_MEM_HALF(const mem_addr ADDR, mem_addr &PADDR, 
-                         const reg_word VALUE, int &EXPT, 
+    void CL_SET_MEM_HALF(const reg_word &ADDR, mem_addr &PADDR, 
+                         const reg_word &VALUE, int &EXPT, 
                          const memReq *req) {
         CL_SET_MEM(ADDR,PADDR,VALUE,EXPT,req,2);
     }
 
-    void CL_SET_MEM_WORD(const mem_addr ADDR, mem_addr &PADDR, 
-                         const reg_word VALUE, int &EXPT, 
+    void CL_SET_MEM_WORD(const reg_word &ADDR, mem_addr &PADDR, 
+                         const reg_word &VALUE, int &EXPT, 
                          const memReq *req) {
         CL_SET_MEM(ADDR,PADDR,VALUE,EXPT,req,4);
     }
@@ -436,8 +437,8 @@ protected:
     PIPE_STAGE stage_alloc (void);
     void stage_dealloc (PIPE_STAGE ps);
     void pipe_dealloc (int stage, PIPE_STAGE alu[]);
-    void long_multiply (reg_word v1, reg_word v2, reg_word *hi, reg_word
-                        *lo);
+    /*void long_multiply (reg_word v1, reg_word v2, reg_word *hi, reg_word
+     *lo); moved to reg_word */
 
 
 private:

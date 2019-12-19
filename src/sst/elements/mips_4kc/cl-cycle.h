@@ -92,7 +92,7 @@
 
 
 /* CU0 at bit 28, CU2 at bit 30, CU3 at bit 31 */
-#define COP_Available(cp) 	((Status_Reg >> (28 + cp)) & 0x1)
+#define COP_Available(cp) 	((Status_Reg.getData() >> (28 + cp)) & 0x1)
 
 #define IS_BRANCH(oc) \
    ((oc ==  Y_BC0F_OP)  || (oc == Y_BC2F_OP) || \

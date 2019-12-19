@@ -125,7 +125,7 @@ typedef struct inst_s
 
 #define RAISE_EXCEPTION(CAUSE, MISC)					\
 	{								\
-	  if (((CAUSE)<= LAST_REAL_EXCEPT) || (Status_Reg & 0x1))	\
+            if (((CAUSE)<= LAST_REAL_EXCEPT) || (Status_Reg & 0x1).getData()) \
 	    {								\
 	      Cause = (CAUSE) << 2;					\
 	      exception_occurred = 1;					\
