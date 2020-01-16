@@ -122,6 +122,20 @@ int MIPS4KC::read_aout_file (const char *file_name)
             printf("Detected INIT section %lx\n", shdr.sh_addr);
             program_starting_address = shdr.sh_addr;
         }
+
+        // if reginfo section, get the $gp
+        if (strncmp(name,".reginfo",8) == 0) {
+            printf(" Detected .reginfo section %lx\n", shdr.sh_addr);
+            Elf_Data *data = NULL;
+            while((data = elf_getdata(scn, data)) != NULL) {
+                printf(" .reginfo Data: align %lu, off %llu, size %lu\n", 
+                       data->d_align, data->d_off, data->d_size);
+                assert(data->d_size == 24);
+                uint32_t* wp = (uint32_t*)(data->d_buf) + 5;
+                R[REG_GP] = *wp; // set $gp
+                printf(" Setting $gp to 0x%x\n", R[REG_GP].getData());
+            }
+        }
         
         // load executable sections
         if (shdr.sh_flags & SHF_EXECINSTR) {
@@ -157,7 +171,7 @@ int MIPS4KC::read_aout_file (const char *file_name)
                               "start of data segment already set\n"); 
                 }
                 printf("setting start of data section to %x\n", addr);
-                R[REG_GP] = addr+32752; // set $gp NOT SURE IF THIS IS RIGHT?
+                //R[REG_GP] = addr+32752; // set $gp
                 DATA_BOT = addr; // set bottom of the text 
                 data_top = DATA_BOT + initial_data_size;
                 lowData = addr;
