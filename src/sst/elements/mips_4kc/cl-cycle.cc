@@ -108,17 +108,17 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
         if (memSize == 0) {
             memSize = 2;
             data.resize(memSize);
-            data[0] = (uint8_t)((VALUE(ps).getData()>>8) & 0xff);
-            data[1] = (uint8_t)((VALUE(ps).getData()>>0) & 0xff);
+            data[1] = (uint8_t)((VALUE(ps).getData()>>8) & 0xff);
+            data[0] = (uint8_t)((VALUE(ps).getData()>>0) & 0xff);
         }
     case Y_SW_OP:
         if (memSize == 0) {
             memSize = 4;
             data.resize(memSize);
-            data[0] = (uint8_t)((VALUE(ps).getData()>>24) & 0xff);
-            data[1] = (uint8_t)((VALUE(ps).getData()>>16) & 0xff);
-            data[2] = (uint8_t)((VALUE(ps).getData()>>8) & 0xff);
-            data[3] = (uint8_t)((VALUE(ps).getData()>>0) & 0xff);
+            data[3] = (uint8_t)((VALUE(ps).getData()>>24) & 0xff);
+            data[2] = (uint8_t)((VALUE(ps).getData()>>16) & 0xff);
+            data[1] = (uint8_t)((VALUE(ps).getData()>>8) & 0xff);
+            data[0] = (uint8_t)((VALUE(ps).getData()>>0) & 0xff);
         }
         printf("store to cache: %x\n", ADDR(ps).getData());
         sendRequestToCache(ps, false, memSize, data);  

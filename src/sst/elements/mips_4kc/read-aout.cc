@@ -157,7 +157,7 @@ int MIPS4KC::read_aout_file (const char *file_name)
                               "start of data segment already set\n"); 
                 }
                 printf("setting start of data section to %x\n", addr);
-                R[REG_GP] = addr; // set $gp NOT SURE IF THIS IS RIGHT?x
+                R[REG_GP] = addr+32752; // set $gp NOT SURE IF THIS IS RIGHT?
                 DATA_BOT = addr; // set bottom of the text 
                 data_top = DATA_BOT + initial_data_size;
                 lowData = addr;

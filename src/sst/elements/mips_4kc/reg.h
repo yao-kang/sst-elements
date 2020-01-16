@@ -135,10 +135,13 @@ class reg_word {
         // make input data and the data in origMem match
 
         int32_t data = 0; // origData Data
-        for (int i = 0; i < sz; ++i) {
+        for (int i = sz-1; i >= 0; --i) {
             data <<= 8;
             data |= origMem[addr + i];
-            printf(" om %08x %08x\n", addr+i, origMem[addr + i]);
+        }
+
+        if (data != in) {
+            printf("SHADOW MISMATCH data %x in %x\n", data, in);
         }
 
         assert(data == in);
@@ -146,7 +149,7 @@ class reg_word {
 
     int32_t origMemRead(const int32_t addr, const size_t sz) {
         int32_t data = 0; // origData Data
-        for (int i = 0; i < sz; ++i) {
+        for (int i = sz-1; i >= 0; --i) {
             data <<= 8;
             auto iter = origMem.find(addr + i);
             assert(iter != origMem.end()); // data should be in map?
@@ -158,7 +161,7 @@ class reg_word {
 
     static void origMemWrite(const int32_t addr, int32_t val, size_t sz) {
         for (int i = 0; i < sz; ++i) {
-            origMem[addr+i+sz-1] = val & 0xff;
+            origMem[addr+i] = val & 0xff;
             val >>= 8;
         }
     }
