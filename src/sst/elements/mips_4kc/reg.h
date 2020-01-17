@@ -25,6 +25,8 @@
 #ifndef _REG_H
 #define _REG_H
 
+#include<list>
+
 #if 0
 // original reg word
 typedef int32_t reg_word;
@@ -49,7 +51,23 @@ namespace faultTrack {
                                           // where we should have
                   RIGHT_ADDR_WRONG_DATA} memFaults_t;
 
-    typedef int32_t location_t;  // replace with typedef
+    typedef enum {
+        NO_LOC_FAULT = 0x0,
+        RF_FAULT = 0x1, // at random cycle, flip a random bit in a
+                        // random register
+        ID_FAULT = 0x2,
+        MDU_FAULT = 0x4, // Multiply-divide: at a random mult/div
+                         // instruction, flip a random bit in the
+                         // output of the Mult/Div unit
+        MEM_PRE_FAULT = 0x8, // Memory Stage "pre": at a random
+                             // load/store, flip a random bit in the
+                             // address or store value
+        MEM_POST_FAULT = 0x10, // Memory Stage "post": at a random
+                               // load/store, flip a random bit in the
+                               // output of the memory stage
+        WB_FAULT = 0x20 //Writeback: at a random cycle, flip a random
+                        //bit in a random value being written back
+    } location_t; 
 }
 
 struct faultDesc {    
@@ -67,7 +85,7 @@ struct faultDesc {
     {;}
 
     faultDesc(SST::Cycle_t _when, faultTrack::faultStatus_t _stat)
-        : where(0), when(_when), whenCorrected(0), bit(0), status(_stat)
+        : where(faultTrack::NO_LOC_FAULT), when(_when), whenCorrected(0), bit(0), status(_stat)
     {;}
 };
 
@@ -180,8 +198,13 @@ public:
         now = n;
     }
 
+    static SST::Cycle_t getNow() {
+        return now;
+    }
+
     // print stats at end
     static void printStats() {
+#warning should make SST stats
         printf("Fault Stats:\n");
 #define PF(STR) printf("%s : %llu\n", #STR, faultStats[faultTrack::STR]);
 
@@ -540,9 +563,6 @@ public:
 
     void checkReadForFaults(const reg_word &addr, const int32_t &in, 
                             size_t sz) {
-        // need to create internal shadow / 'origData'/ correct map of
-        // what memory should look like.
-
         // add the (possibly wrong) data in
         data = in;
         
@@ -581,7 +601,7 @@ public:
 
     // Fault injection
 
-    void fault(faultDesc &f) {
+    void fault(faultDesc f) {
         data ^= (1 << f.bit); // flip the bit
         f.when = now;
         faults.push_back(f);

@@ -1,8 +1,8 @@
-// Copyright 2019 NTESS. Under the terms
+// Copyright 2019,2020 NTESS. Under the terms
 // of Contract DE-NA0003525 with NTESS, the U.S.
 // Government retains certain rights in this software.
 //
-// Copyright (c) 2019, NTESS
+// Copyright (c) 2019,2020 NTESS
 // All rights reserved.
 //
 // Portions are copyright of other developers:
@@ -36,6 +36,7 @@
 #include "inst.h"
 #include "reg.h"
 #include "mem.h"
+#include "faults.h"
 
 #include "cl-cache.h"
 #include "cl-cycle.h"
@@ -108,7 +109,10 @@ public:
     SST_ELI_DOCUMENT_PARAMS(
             {"verbose",                 "(uint) Determine how verbose the output from the CPU is", "0"},
             {"execFile",                   "Executable file", ""},
-            {"clock",                   "(string) Clock frequency", "1GHz"}
+            {"clock",                   "(string) Clock frequency", "1GHz"},
+            {"fault_locations", "Where should faults be injected (mask)", "0"},
+            {"fault_period", "(uint64) Over what period (cycles or instructions) should faults be injected", "100"},
+            {"fault_rng_seed", "RNG seed for fault injection (0 for system clock)", "0"}
                             )
 
     SST_ELI_DOCUMENT_PORTS( {"mem_link", "Connection to memory", { "memHierarchy.MemEventBase" } } )
@@ -353,6 +357,9 @@ protected:
     /* Memory-mapped IO routines: */
     long recv_control=0, recv_buffer=0, recv_buffer_filled=0;
     long trans_control=0, trans_buffer=0, trans_buffer_filled=0;
+
+    /*Fault Injection */
+    faultChecker_t faultChecker;
 
     /* CL cache functions */
     unsigned int bus_service ();

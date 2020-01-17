@@ -61,6 +61,12 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
         out.fatal(CALL_INFO, -1, "No executabel file specified");
     } 
 
+    // init fault injection
+    uint32_t fault_locations = params.find<uint32_t>("fault_locations", 0);
+    uint64_t fault_period = params.find<uint64_t>("fault_period", 100);
+    uint32_t fault_rng_seed = params.find<uint32_t>("fault_rng_seed", 0);
+    faultChecker.init((faultTrack::location_t)fault_locations, fault_period, fault_rng_seed);
+
     // SPIM-CL config
     pipe_out =  stdout;
     console_out =  stdout;

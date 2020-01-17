@@ -53,6 +53,8 @@ void MIPS4KC::sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t memSz,
                                  memReq::dataVec &data){
     using namespace Interfaces;
 
+    faultChecker.checkAndInject_MEM_PRE(ADDR(ps), VALUE(ps), isLoad);
+
     memReq::Command cmd;
     if (isLoad) {
         cmd = memReq::Read;
@@ -78,8 +80,8 @@ void MIPS4KC::sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t memSz,
 void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {    
     instruction *inst = ps->inst;
 
-    printf("issuing ");
-    print_inst(ps->pc.getData()); printf("\n");
+    printf("rising_MEM issuing ");
+    print_inst(ps->pc.getData()); 
     
     size_t memSize = 0;
     Interfaces::SimpleMem::Request::dataVec data;
@@ -94,7 +96,6 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
         if (memSize == 0) memSize = 2;
     case Y_LW_OP:
         if (memSize == 0) memSize = 4;
-        printf("load to cache: %x\n", ADDR(ps).getData());
         sendRequestToCache(ps, true, memSize, data);    
         break;
 
@@ -169,6 +170,14 @@ void MIPS4KC::cl_run_rising () {
 
 int MIPS4KC::cl_run_falling (reg_word addr, int display)
 {
+    // check for register file faults
+    if(faultChecker.checkForFault(faultTrack::RF_FAULT)) {
+        unsigned int reg = faultChecker.getRand1_31();
+        printf("INJECTING RF FAULT reg %d\n", reg);
+        R[reg].fault(faultChecker.getFault(faultTrack::RF_FAULT));
+    }
+
+
     PC = addr;
     cycle_running = 1;
 
@@ -185,7 +194,7 @@ int MIPS4KC::cl_run_falling (reg_word addr, int display)
             /* exception processed ok, but stop execution */
 	case 1:
             cycle_init ();
-            return false;
+            return true;
             
             /* bad exception, signal, or exit; reinit for next time */
 	case -1:
@@ -193,9 +202,8 @@ int MIPS4KC::cl_run_falling (reg_word addr, int display)
             nPC = 0;
             cycle_init ();
             kill_prog_fds ();
-            cycle_running = 0;
-            
-            return false;
+            cycle_running = 0;            
+            return true;
 	}
     } else if (ret == 2) {
         // we're done
@@ -309,7 +317,7 @@ int MIPS4KC::cycle_spim (int display)
     if (alu[WB] == NULL) {
         ps_ptr = alu[MEM];
         if (ps_ptr != NULL) {
-            printf("MEM: %s\n", (STAGE(ps_ptr)==MEM_STALL) ? "MEM_STALL" : "MEM");
+            //printf("MEM: %s\n", (STAGE(ps_ptr)==MEM_STALL) ? "MEM_STALL" : "MEM");
             if (STAGE (ps_ptr) == MEM_STALL) { // waiting on cache
                 assert(ps_ptr->issued_to_cache);
                 // check for completion from cache
@@ -430,7 +438,7 @@ int MIPS4KC::cycle_spim (int display)
 
             CL_READ_MEM_INST(ps_ptr->inst, STAGE_PC(ps_ptr),
                              PADDR(ps_ptr), EXCPT(ps_ptr));
-            printf("IF fetch %x\n", STAGE_PC(ps_ptr).getData());
+            //printf("IF fetch %x\n", STAGE_PC(ps_ptr).getData());
 
             /* if exception, must be tlb, read instruction for viewing purposes */
             if (EXCPT(ps_ptr) != 0) {
@@ -1298,6 +1306,8 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	   lo = LO;
 	 }
 
+       faultChecker.checkAndInject_MDU(hi,lo);
+
        HI_present = 0;
        LO_present = 0;
        pMDU->hi_val = hi;
@@ -1420,16 +1430,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	      hi += 1;
 	  }
 
-        {
-            static int hc=0;
-            if (hc % 30 == 0) {
-                printf("PRINT FAULT %x|%x", lo.getData(), lo.getOrigData());
-                faultDesc f(0,0);
-                lo.fault(f);
-                printf(" %x|%x\n", lo.getData(), lo.getOrigData());
-            }
-            hc++;
-        }
+        faultChecker.checkAndInject_MDU(hi,lo);
 
 	HI_present = 0;
 	LO_present = 0;
@@ -1446,6 +1447,8 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       {reg_word hi, lo;
 
        long_multiply (Operand1 (ps), Operand2 (ps), &hi, &lo);
+
+       faultChecker.checkAndInject_MDU(hi,lo);
 
        HI_present = 0;
        LO_present = 0;
@@ -1724,7 +1727,6 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 
     case Y_LW_OP:
       CL_READ_MEM_WORD( VALUE(ps), ADDR (ps), PADDR (ps), EXCPT (ps), req);
-      printf("LW %x from %x\n", VALUE(ps).getData(), ADDR(ps).getData());
       if (EXCPT (ps) == 0)
 	set_mem_bypass(RT (inst), VALUE (ps));
       break;
@@ -2090,6 +2092,9 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
 	*/
       break;
     }
+
+  // possibly add other faults
+  faultChecker.checkAndInject_MEM_POST(VALUE(ps));
 }
 
 

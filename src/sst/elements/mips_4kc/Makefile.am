@@ -23,6 +23,8 @@ libmips_4kc_la_SOURCES = \
 	mem.cc \
 	read-aout.cc \
 	reg.h \
+	faults.h \
+	faults.cc \
 	mips-syscall.cc 
 
 

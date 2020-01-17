@@ -11,8 +11,9 @@ op.add_option("-c", "--cacheSz", action="store", type="int", dest="cacheSz", def
 comp_mips = sst.Component("MIPS4KC", "mips_4kc.MIPS4KC")
 comp_mips.addParams({
     "verbose" : 1,
-    "execFile" : "test/a.out",
+    "execFile" : "test/matmat.out",
     "clock" : "1GHz",
+    "fault_locations" : 0x08
 })
 
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")

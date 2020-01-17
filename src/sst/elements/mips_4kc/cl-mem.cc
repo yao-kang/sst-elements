@@ -43,6 +43,7 @@ void MIPS4KC::CL_READ_MEM(reg_word &LOC, const reg_word &ADDR,
                           const memReq *req, size_t sz) {
     const mem_addr &_addr_ = ADDR.getData();
     unsigned int tmp = tlb_vat(ADDR.getData(), 0, 1, &PADDR);
+    tmp = DBUS_EXCPT; // exception to use if needed
 
     if (sz == 1) {
         if (_addr_ >= DATA_BOT && _addr_ < data_top)
@@ -90,6 +91,8 @@ void MIPS4KC::CL_SET_MEM(const reg_word &ADDR, mem_addr &PADDR,
                          const memReq *req, size_t sz) {
     const mem_addr _addr_ = (mem_addr) (ADDR.getData());
     unsigned int tmp = tlb_vat(ADDR.getData(), 0, 0, &PADDR); 
+    tmp = DBUS_EXCPT; // exception to use if needed
+    
     data_modified = 1; //needed?
 
     if (sz == 1) {
