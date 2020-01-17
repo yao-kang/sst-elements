@@ -120,8 +120,8 @@ int MIPS4KC::do_syscall (void)
       switch (R[REG_V0].getData())
 	{
 	case PRINT_INT_SYSCALL:
-          write_output (console_out, "PRINT_INT_SYSCALL: %d\n", 
-                        R[REG_A0].getData());
+          write_output (console_out, "PRINT_INT_SYSCALL: %d %u %x\n", 
+                        R[REG_A0].getData(), R[REG_A0].getData(), R[REG_A0].getData());
 	  break;
 
 	case PRINT_FLOAT_SYSCALL:

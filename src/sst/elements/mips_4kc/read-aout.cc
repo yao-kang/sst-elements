@@ -154,6 +154,8 @@ int MIPS4KC::read_aout_file (const char *file_name)
                     addr += 4; // advance
                     n += 4;
                 }
+                printf(" Last text %x address\n", addr-4);
+                last_text_addr = addr-4;
             }
         } else if (shdr.sh_flags & SHF_ALLOC) {
             if ((strncmp(name,".MIPS.abiflags",14) == 0) ||

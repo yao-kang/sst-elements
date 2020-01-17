@@ -116,13 +116,14 @@ public:
     /* Begin class definiton */
     MIPS4KC(SST::ComponentId_t id, SST::Params& params);
     void finish() {
+        reg_word::printStats();
     }
 
 protected:
     typedef Interfaces::SimpleMem::Request memReq;
 
     void cl_run_rising();
-    void cl_run_falling (reg_word addr, int display);
+    int cl_run_falling (reg_word addr, int display);
     void cl_initialize_world (int run);
     void cycle_init (void);
     void mdu_and_fp_init (void);
@@ -229,6 +230,7 @@ protected:
 
     /* The text segment and boundaries. */
     instruction **text_seg;
+    reg_word last_text_addr;
     int text_modified;	/* Non-zero means text segment was written */
     mem_addr text_top;
     mem_word *data_seg;

@@ -167,13 +167,14 @@ void MIPS4KC::cl_run_rising () {
  * responsible for calling cycle_spim, simulating falling edge of clock
  */
 
-void MIPS4KC::cl_run_falling (reg_word addr, int display)
+int MIPS4KC::cl_run_falling (reg_word addr, int display)
 {
     PC = addr;
     cycle_running = 1;
 
-    if (cycle_spim (display)) {
-        
+    int ret = cycle_spim (display);
+
+    if (ret == 1) {        
 	switch (process_excpt ()) {
             
             /* exception processed ok, continue execution */
@@ -184,7 +185,7 @@ void MIPS4KC::cl_run_falling (reg_word addr, int display)
             /* exception processed ok, but stop execution */
 	case 1:
             cycle_init ();
-            return;
+            return false;
             
             /* bad exception, signal, or exit; reinit for next time */
 	case -1:
@@ -194,9 +195,14 @@ void MIPS4KC::cl_run_falling (reg_word addr, int display)
             kill_prog_fds ();
             cycle_running = 0;
             
-            return;
+            return false;
 	}
+    } else if (ret == 2) {
+        // we're done
+        return true;
     }
+
+    return false;
 }
 
 
@@ -417,6 +423,11 @@ int MIPS4KC::cycle_spim (int display)
             }
         } else if (ps_ptr != NULL && (STAGE(ps_ptr) == IF))  {
             /* IF Stage */
+            if (STAGE_PC(ps_ptr).getData() == last_text_addr) {
+                // we are done with the program
+                return 2;
+            }
+
             CL_READ_MEM_INST(ps_ptr->inst, STAGE_PC(ps_ptr),
                              PADDR(ps_ptr), EXCPT(ps_ptr));
             printf("IF fetch %x\n", STAGE_PC(ps_ptr).getData());
@@ -1408,6 +1419,17 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	    if ((lo ^ carry) == 1)
 	      hi += 1;
 	  }
+
+        {
+            static int hc=0;
+            if (hc % 30 == 0) {
+                printf("PRINT FAULT %x|%x", lo.getData(), lo.getOrigData());
+                faultDesc f(0,0);
+                lo.fault(f);
+                printf(" %x|%x\n", lo.getData(), lo.getOrigData());
+            }
+            hc++;
+        }
 
 	HI_present = 0;
 	LO_present = 0;

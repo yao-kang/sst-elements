@@ -285,7 +285,6 @@ void MIPS4KC::print_inst (mem_addr addr)
   if (exception_occurred)
     {
       error ("Can't print instruction not in text segment (0x%08x)\n", addr);
-      printf("%x %x\n", TEXT_BOT, text_top);
       return;
     }
   print_inst_internal (buf, 128, inst, addr);

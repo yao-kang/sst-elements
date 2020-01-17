@@ -38,7 +38,7 @@ namespace faultTrack {
                   CORRECTED_MEM,
                   CORRECTED_TMR, CORRECTED_SQUASH, 
                   READ_ADDR_ERROR, READ_DATA_ERROR,
-                  WRITE_ADDR_ERROR, // caused an write address to be wrong
+                  WRITE_ADDR_ERROR, // caused a write address to be wrong
                   WRITE_DATA_ERROR,
                   LAST_FAULT_STATUS
     } faultStatus_t;
@@ -59,6 +59,12 @@ struct faultDesc {
     
     int bit;
     faultTrack::faultStatus_t status;
+
+    // for injecting
+    faultDesc(faultTrack::location_t _where, int _bit) 
+        : where(_where), when(-1), whenCorrected(0), bit(_bit), 
+          status(faultTrack::FAULTED)
+    {;}
 
     faultDesc(SST::Cycle_t _when, faultTrack::faultStatus_t _stat)
         : where(0), when(_when), whenCorrected(0), bit(0), status(_stat)
@@ -82,6 +88,7 @@ class reg_word {
 
     typedef list<faultDesc> faultList_t;
     faultList_t faults;
+#warning should move from being statics to structure created by proc core
     static SST::Cycle_t now;
     static uint64_t faultStats[faultTrack::LAST_FAULT_STATUS];
     static map<int32_t, memFaultDesc> memFaults;
@@ -125,6 +132,7 @@ class reg_word {
                         i.status = CORRECTED_MATH;
                             faultStats[CORRECTED_MATH]++;
                             i.whenCorrected = now;
+                            printf("PRINT Math Correct\n");
                     }
                 }
             }
@@ -172,6 +180,24 @@ public:
         now = n;
     }
 
+    // print stats at end
+    static void printStats() {
+        printf("Fault Stats:\n");
+#define PF(STR) printf("%s : %llu\n", #STR, faultStats[faultTrack::STR]);
+
+        PF(FAULTED);
+        PF(CORRECTED_MATH);
+        PF(CORRECTED_MEM);
+        PF(CORRECTED_TMR);
+        PF(CORRECTED_SQUASH);
+        PF(READ_ADDR_ERROR);
+        PF(READ_DATA_ERROR);
+        PF(WRITE_ADDR_ERROR);
+        PF(WRITE_DATA_ERROR);
+
+#undef PF
+    }
+
     static void initOrigMem(const mem_addr &addr, uint8_t data) {
         origMem[addr] = data;
     }
@@ -201,6 +227,10 @@ public:
 
     int32_t getData() const {
         return data;
+    }
+
+    int32_t getOrigData() const {
+        return origData;
     }
     
     // reg_word / int
@@ -409,6 +439,9 @@ public:
             
             lo->origData = (bd & 0xffff) | ((mid2 & 0xffff) << 16);
             hi->origData = ac + (carry_mid << 16) + ((mid2 >> 16) & 0xffff);
+        } else {
+            lo->origData = lo->data;
+            hi->origData = hi->data;
         }
 
         // corret if needed
@@ -422,6 +455,10 @@ public:
         /* perform the operation */                                     \
         newWord.data = data OP rhs.data;                                \
         newWord.origData = origData OP rhs.origData;                    \
+        if (!faults.empty() || !rhs.faults.empty()) {                   \
+            printf("d: %x = %x # %x\n", newWord.data, data, rhs.data); \
+            printf("o: %x = %x # %x\n", newWord.origData, origData, rhs.origData); \
+        }                                                               \
         /* preserve the history */                                      \
         newWord.faults.insert(newWord.faults.end(),                     \
                               faults.begin(),                           \
@@ -546,6 +583,7 @@ public:
 
     void fault(faultDesc &f) {
         data ^= (1 << f.bit); // flip the bit
+        f.when = now;
         faults.push_back(f);
         faultStats[f.status]++;
     }

@@ -54,19 +54,19 @@ void MIPS4KC::CL_READ_MEM(reg_word &LOC, const reg_word &ADDR,
         else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
     } else if (sz == 2) {
         if (_addr_ >= DATA_BOT && _addr_ < data_top)
-            LOC = data_seg_h [_addr_ - DATA_BOT];
+            LOC = data_seg_h [(_addr_ - DATA_BOT)>>1];
         else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
-            LOC = stack_seg_h [_addr_ - stack_bot];
+            LOC = stack_seg_h [(_addr_ - stack_bot)>>1];
         else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)
-            LOC = k_data_seg_h [_addr_ - K_DATA_BOT];
+            LOC = k_data_seg_h [(_addr_ - K_DATA_BOT)>>1];
         else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
     } else if (sz == 4) {
         if (_addr_ >= DATA_BOT && _addr_ < data_top)
-            LOC = data_seg [_addr_ - DATA_BOT];
+            LOC = data_seg [(_addr_ - DATA_BOT)>>2];
         else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
-            LOC = stack_seg [_addr_ - stack_bot];
+            LOC = stack_seg [(_addr_ - stack_bot)>>2];
         else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)
-            LOC = k_data_seg [_addr_ - K_DATA_BOT];
+            LOC = k_data_seg [(_addr_ - K_DATA_BOT)>>2];
         else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
     }
 
@@ -102,20 +102,19 @@ void MIPS4KC::CL_SET_MEM(const reg_word &ADDR, mem_addr &PADDR,
         else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
     } else if (sz == 2) {
         if (_addr_ >= DATA_BOT && _addr_ < data_top)
-            data_seg_h [_addr_ - DATA_BOT] = (unsigned short) (VALUE.getData());
+            data_seg_h [(_addr_ - DATA_BOT)>>1] = (unsigned short) (VALUE.getData());
         else if (_addr_ >= stack_bot && _addr_ < STACK_TOP)
-            stack_seg_h [_addr_ - stack_bot] = (unsigned short) (VALUE.getData()); 
+            stack_seg_h [(_addr_ - stack_bot)>>1] = (unsigned short) (VALUE.getData()); 
         else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)  
-            k_data_seg_h [_addr_ - K_DATA_BOT] = (unsigned short) (VALUE.getData());
+            k_data_seg_h [(_addr_ - K_DATA_BOT)>>1] = (unsigned short) (VALUE.getData());
         else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
     } else if (sz == 4) {
         if (_addr_ >= DATA_BOT && _addr_ < data_top)
-            data_seg [_addr_ - DATA_BOT] = (VALUE.getData());
+            data_seg [(_addr_ - DATA_BOT)>>2] = (VALUE.getData());
         else if (_addr_ >= stack_bot && _addr_ < STACK_TOP) {
-            stack_seg [_addr_ - stack_bot] = (VALUE.getData()); 
-            printf("  SS: %08x\n", stack_seg[_addr_ - stack_bot] );
+            stack_seg [(_addr_ - stack_bot)>>2] = (VALUE.getData()); 
         } else if (_addr_ >= K_DATA_BOT && _addr_ < k_data_top)  
-            k_data_seg [_addr_ - K_DATA_BOT] = (VALUE.getData());
+            k_data_seg [(_addr_ - K_DATA_BOT)>>2] = (VALUE.getData());
         else CL_RAISE_EXCEPTION(tmp, 0, EXPT);
     }
     

@@ -152,7 +152,10 @@ bool MIPS4KC::clockTic( Cycle_t c)
     printf("CYCLE %llu: %llu.%u\n", c, pipeCycle, isFalling);
 
     if (isFalling) {
-        cl_run_falling (PC, 1);
+        if (cl_run_falling (PC, 1)) {
+            primaryComponentOKToEndSim();
+            return true; // stop
+        }
     } else {
         cl_run_rising(); // issue memory requests
     }
