@@ -53,8 +53,6 @@ void MIPS4KC::sendRequestToCache(PIPE_STAGE ps, bool isLoad, size_t memSz,
                                  memReq::dataVec &data){
     using namespace Interfaces;
 
-    faultChecker.checkAndInject_MEM_PRE(ADDR(ps), VALUE(ps), isLoad);
-
     memReq::Command cmd;
     if (isLoad) {
         cmd = memReq::Read;
@@ -96,17 +94,20 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
         if (memSize == 0) memSize = 2;
     case Y_LW_OP:
         if (memSize == 0) memSize = 4;
+        faultChecker.checkAndInject_MEM_PRE(ADDR(ps), VALUE(ps), 1);
         sendRequestToCache(ps, true, memSize, data);    
         break;
 
     case Y_SB_OP:
         if (memSize == 0) {
+            faultChecker.checkAndInject_MEM_PRE(ADDR(ps), VALUE(ps), 0);
             memSize = 1;
             data.resize(memSize);
             data[0] = (uint8_t)(VALUE(ps).getData() & 0xff);
         }
     case Y_SH_OP:
         if (memSize == 0) {
+            faultChecker.checkAndInject_MEM_PRE(ADDR(ps), VALUE(ps), 0);
             memSize = 2;
             data.resize(memSize);
             data[1] = (uint8_t)((VALUE(ps).getData()>>8) & 0xff);
@@ -114,6 +115,7 @@ void MIPS4KC::process_rising_MEM (PIPE_STAGE ps) {
         }
     case Y_SW_OP:
         if (memSize == 0) {
+            faultChecker.checkAndInject_MEM_PRE(ADDR(ps), VALUE(ps), 0);
             memSize = 4;
             data.resize(memSize);
             data[3] = (uint8_t)((VALUE(ps).getData()>>24) & 0xff);
