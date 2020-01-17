@@ -45,14 +45,15 @@ namespace MIPS4KCComponent {
                                             // injected
         int64_t MDU_count;
         int64_t MEM_count;
+        bool checkForFault(faultTrack::location_t); // should we inject?
+        unsigned int getRand1_31(); // generate # from 1 to 31
     public:
         faultChecker_t() {rng=0;}
         void init(faultTrack::location_t loc, uint64_t period, uint32_t seed);
-        bool checkForFault(faultTrack::location_t); // should we inject?
 
         // convenience functions
-        unsigned int getRand1_31(); // generate # from 1 to 31
         faultDesc getFault(faultTrack::location_t);
+        void checkAndInject_RF(reg_word R[32]);
         void checkAndInject_MDU(reg_word &hi, reg_word &lo);
         void checkAndInject_MEM_PRE(reg_word &addr, reg_word &value, bool isLoad);
         void checkAndInject_MEM_POST(reg_word &data);

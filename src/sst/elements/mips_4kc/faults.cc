@@ -104,6 +104,15 @@ faultDesc faultChecker_t::getFault(faultTrack::location_t loc) {
     return faultDesc(loc, bit);
 }
 
+void faultChecker_t::checkAndInject_RF(reg_word R[32]) {
+    if(checkForFault(faultTrack::RF_FAULT)) {
+        unsigned int reg = getRand1_31();
+        printf("INJECTING RF FAULT reg %d\n", reg);
+        R[reg].fault(getFault(RF_FAULT));
+    }
+}
+
+
 void faultChecker_t::checkAndInject_MDU(reg_word &hi, reg_word &lo) {
     if (checkForFault(MDU_FAULT)) {
         uint32_t roll = rng->generateNextUInt32();

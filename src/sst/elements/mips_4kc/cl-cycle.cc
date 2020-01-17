@@ -171,12 +171,7 @@ void MIPS4KC::cl_run_rising () {
 int MIPS4KC::cl_run_falling (reg_word addr, int display)
 {
     // check for register file faults
-    if(faultChecker.checkForFault(faultTrack::RF_FAULT)) {
-        unsigned int reg = faultChecker.getRand1_31();
-        printf("INJECTING RF FAULT reg %d\n", reg);
-        R[reg].fault(faultChecker.getFault(faultTrack::RF_FAULT));
-    }
-
+    faultChecker.checkAndInject_RF(R);
 
     PC = addr;
     cycle_running = 1;
