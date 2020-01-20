@@ -57,6 +57,7 @@ namespace MIPS4KCComponent {
         void checkAndInject_MDU(reg_word &hi, reg_word &lo);
         void checkAndInject_MEM_PRE(reg_word &addr, reg_word &value, bool isLoad);
         void checkAndInject_MEM_POST(reg_word &data);
+        void checkAndInject_WB(reg_word &data);
     };
     
 };

@@ -160,7 +160,15 @@ void faultChecker_t::checkAndInject_MEM_PRE(reg_word &addr,
 // value
 void faultChecker_t::checkAndInject_MEM_POST(reg_word &data) {
     if(checkForFault(MEM_POST_FAULT)) {
-        printf("INJECTING MEM_POST Faults\n");
+        printf("INJECTING MEM_POST Fault\n");
         data.fault(getFault(MEM_POST_FAULT));
+    }
+}
+
+void faultChecker_t::checkAndInject_WB(reg_word &data) {
+    if(checkForFault(WB_FAULT)) {
+        printf("INJECTING WB Fault\n");
+        data.fault(getFault(WB_FAULT));
+
     }
 }

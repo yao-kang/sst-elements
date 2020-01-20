@@ -2094,7 +2094,6 @@ void MIPS4KC::process_MEM (PIPE_STAGE ps, memReq *req)
   faultChecker.checkAndInject_MEM_POST(VALUE(ps));
 }
 
-
 /* Simulate WB stage */
 /* when sure it's right combine cases that have the same code. */
 
@@ -2103,7 +2102,9 @@ int MIPS4KC::process_WB (PIPE_STAGE ps)
   instruction *inst;
 
   inst = ps->inst;
-  const reg_word &value = VALUE (ps);
+  reg_word &value = VALUE (ps);
+
+  faultChecker.checkAndInject_WB(value);
 #warning count faulted writebacks here
 
   switch (OPCODE (inst))
