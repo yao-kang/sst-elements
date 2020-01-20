@@ -79,7 +79,7 @@ void MIPS4KC::CL_READ_MEM(reg_word &LOC, const reg_word &ADDR,
         data <<= 8;
         data |= req->data[i];
     }
-    printf("READ: %08x %08x\n", LOC.getData(), data); 
+    //printf("READ: %08x %08x\n", LOC.getData(), data); 
     assert(LOC.getData() == data); 
 
     // note incoming faulted data and add in the data
@@ -129,6 +129,6 @@ void MIPS4KC::CL_SET_MEM(const reg_word &ADDR, mem_addr &PADDR,
         in |= req->data[i];
     }
     assert( VALUE.getData() == in);
-    printf("WRITE: %08x %08x\n", VALUE.getData(), in); 
+    //printf("WRITE: %08x %08x\n", VALUE.getData(), in); 
  }
 

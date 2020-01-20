@@ -13,7 +13,7 @@ comp_mips.addParams({
     "verbose" : 1,
     "execFile" : "test/matmat.out",
     "clock" : "1GHz",
-    "fault_locations" : 0x08
+    "fault_locations" : 0x20
 })
 
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")

@@ -36,7 +36,7 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     data_seg(0), data_modified(0), data_seg_h(0), data_seg_b(0), 
     data_top(0), DATA_BOT(0), cycle_level(0), cycle_running(0)
 {
-    uint32_t outputLevel = params.find<uint32_t>("verbose", 0);
+    outputLevel = params.find<uint32_t>("verbose", 0);
     out.init("MIPS4KC:@p:@l: ", outputLevel, 0, Output::STDOUT);
 
     // tell the simulator not to end without us
@@ -137,7 +137,7 @@ void MIPS4KC::init(unsigned int phase) {
 // handle incoming memory
 void MIPS4KC::handleEvent(memReq *req)
 {
-    printf("got event %llx\n", req->id);
+    //printf("got event %llx\n", req->id);
 
     std::map<uint64_t, PIPE_STAGE>::iterator i = requestsOut.find(req->id);
     if (i == requestsOut.end()) {
@@ -155,10 +155,16 @@ bool MIPS4KC::clockTic( Cycle_t c)
     bool isFalling = (c & 0x1);
     Cycle_t pipeCycle = c >> 1;
     reg_word::setNow(pipeCycle);  // for fault record keeping
-    printf("CYCLE %llu: %llu.%u\n", c, pipeCycle, isFalling);
-
+    if (outputLevel > 0) {
+        printf("CYCLE %llu: %llu.%u\n", c, pipeCycle, isFalling);
+    } else {
+        if ((pipeCycle & 0xfff) == 1 && isFalling) {
+            printf("CYCLE %llu: %llu.%u\n", c, pipeCycle, isFalling);
+        }
+    }
+    
     if (isFalling) {
-        if (cl_run_falling (PC, 1)) {
+        if (cl_run_falling (PC, outputLevel)) {
             primaryComponentOKToEndSim();
             return true; // stop
         }
@@ -171,3 +177,7 @@ bool MIPS4KC::clockTic( Cycle_t c)
 }
 
 
+void MIPS4KC::finish() {
+#warning should make SST stats
+    reg_word::printStats();
+}

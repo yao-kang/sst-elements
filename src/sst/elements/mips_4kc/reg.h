@@ -42,6 +42,9 @@ namespace faultTrack {
                   READ_ADDR_ERROR, READ_DATA_ERROR,
                   WRITE_ADDR_ERROR, // caused a write address to be wrong
                   WRITE_DATA_ERROR,
+
+                  WB_ERROR, // we write a fauled value to the RF
+
                   LAST_FAULT_STATUS
     } faultStatus_t;
 
@@ -130,8 +133,8 @@ class reg_word {
                 for (auto &&i : faults) {
                     if(i.status == FAULTED) {
                         i.status = CORRECTED_MEM;
-                            faultStats[CORRECTED_MEM]++;
-                            i.whenCorrected = now;
+                        faultStats[CORRECTED_MEM]++;
+                        i.whenCorrected = now;
                     }
                 }
                 return true;
@@ -202,9 +205,14 @@ public:
         return now;
     }
 
+    static void countWBFaults(const reg_word &value) {
+        if (value.data != value.origData) {
+            faultStats[faultTrack::WB_ERROR]++;
+        }
+    }
+
     // print stats at end
     static void printStats() {
-#warning should make SST stats
         printf("Fault Stats:\n");
 #define PF(STR) printf("%s : %llu\n", #STR, faultStats[faultTrack::STR]);
 
@@ -215,6 +223,7 @@ public:
         PF(CORRECTED_SQUASH);
         PF(READ_ADDR_ERROR);
         PF(READ_DATA_ERROR);
+        PF(WB_ERROR);
         PF(WRITE_ADDR_ERROR);
         PF(WRITE_DATA_ERROR);
 
@@ -519,13 +528,32 @@ public:
 
     // memory faults
 
+    static bool checkDataOK(const reg_word &val, size_t sz) {
+        // mask data to see if it is actually correct
+        uint32_t maskedCorrectVal = val.origData;
+        if (sz == 2) {
+            maskedCorrectVal &= 0xffff;
+        } else if (sz == 1) {
+            maskedCorrectVal &= 0xff;
+        }
+
+        uint32_t maskedVal = val.data;
+        if (sz == 2) {
+            maskedVal &= 0xffff;
+        } else if (sz == 1) {
+            maskedVal &= 0xff;
+        }
+
+        return maskedVal == maskedCorrectVal;        
+    }
+
     static void checkRecordWriteFaults(reg_word &addr, 
                                        reg_word &val, 
                                        size_t sz) {
         using namespace faultTrack;
 
         bool addrOK = (addr.data == addr.origData);
-        bool valOK = (val.data == val.origData);
+        bool valOK = checkDataOK(val, sz);
 
         // check & record addr
         if (!addrOK) {
@@ -546,11 +574,8 @@ public:
         }
 
         if (addrOK && !valOK) { // addr is OK, value is wrong
-
-#warning mask data to see if it is actually correct
-
             memFaults[addr.data] = memFaultDesc(RIGHT_ADDR_WRONG_DATA,
-                                                val.findFaults());
+                                                    val.findFaults());
         }
 
         if (addrOK && valOK) {  // both are correct
@@ -563,6 +588,8 @@ public:
 
     void checkReadForFaults(const reg_word &addr, const int32_t &in, 
                             size_t sz) {
+        // NOTE: probably doens't handle unaligned correctly
+
         // add the (possibly wrong) data in
         data = in;
         
@@ -571,6 +598,7 @@ public:
             auto i = memFaults.find(addr.origData);
             if (i != memFaults.end()) {
                 // we are accessing faulty data. record this
+                // should check for unaligned errors?
                 origData = origMemRead(addr.origData, sz);
                 faults.insert(faults.end(),
                               i->second.origFaults.begin(),

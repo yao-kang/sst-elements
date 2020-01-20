@@ -119,9 +119,7 @@ public:
 
     /* Begin class definiton */
     MIPS4KC(SST::ComponentId_t id, SST::Params& params);
-    void finish() {
-        reg_word::printStats();
-    }
+    void finish();
 
 protected:
     typedef Interfaces::SimpleMem::Request memReq;
@@ -223,6 +221,7 @@ protected:
     int quiet;		/* No warning messages */
     int mapped_io;		/* Non-zero => activate memory-mapped IO */
     string execFile;
+    uint32_t outputLevel;
 
     /* signal / exception */
     static signal_desc siginfo[NSIG];
