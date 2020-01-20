@@ -1157,6 +1157,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	vs = Operand1 (ps);
 	vt = Operand2 (ps);
 	sum = vs + vt;
+        faultChecker.checkAndInject_ALU(sum);
 
 	if (ARITH_OVFL (sum, vs, vt))
 	  CL_RAISE_EXCEPTION (OVF_EXCPT, 0, EXCPT(ps));
@@ -1173,6 +1174,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	vs = Operand1 (ps);
 	imm = Operand2(ps).truncExtend(); 
 	sum = vs + imm;
+        faultChecker.checkAndInject_ALU(sum);
 
 	if (ARITH_OVFL (sum, vs, imm))
 	  CL_RAISE_EXCEPTION (OVF_EXCPT, 0, EXCPT(ps));
@@ -1183,21 +1185,25 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_ADDIU_OP:
         VALUE (ps) = Operand1 (ps) + (Operand2(ps).truncExtend());
+        faultChecker.checkAndInject_ALU(VALUE(ps));
         set_ex_bypass(RT (inst), VALUE (ps));
         break;
 
     case Y_ADDU_OP:
       VALUE (ps) = Operand1 (ps) + Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
     case Y_AND_OP:
       VALUE (ps) = Operand1 (ps) & Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
     case Y_ANDI_OP:
       VALUE (ps) = Operand1 (ps) & (Operand2 (ps) & 0xffff);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 
@@ -1218,6 +1224,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
       VALUE (ps) = STAGE_PC(ps) + 2 * BYTES_PER_WORD;
       /* where is the link value computed and stored?  should it be
 	 available through bypass?  */
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(31, VALUE (ps));
       break;
 
@@ -1229,6 +1236,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_BLTZAL_OP:
       VALUE (ps) = STAGE_PC(ps) + 2 * BYTES_PER_WORD;
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(31, VALUE (ps));
       break;
 
@@ -1244,6 +1252,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_CFC2_OP:
     case Y_CFC3_OP:
       VALUE (ps) = Operand1 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(0, 0);
       break;
 
@@ -1252,6 +1261,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_COP2_OP:
     case Y_COP3_OP:
       VALUE (ps) = Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       /* bypass? */
       set_ex_bypass(0, 0);
       break;
@@ -1260,6 +1270,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_CTC2_OP:
     case Y_CTC3_OP:
       VALUE (ps) = Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       /* bypass? */
       set_ex_bypass(0, 0);
       break;
@@ -1323,11 +1334,13 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_JAL_OP:
       VALUE (ps) = STAGE_PC(ps) + 2 * BYTES_PER_WORD;
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(31, VALUE (ps));
       break;
 
     case Y_JALR_OP:
       VALUE (ps) =  STAGE_PC(ps) + 2 * BYTES_PER_WORD;
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
@@ -1346,17 +1359,20 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_LWL_OP:
     case Y_LWR_OP:
       ADDR (ps) = read_R_reg(BASE (inst)) + IOFFSET (inst);
+      faultChecker.checkAndInject_ALU(ADDR(ps));
       set_ex_bypass(0, 0);
       break;
 
     case Y_LWC1_OP:
       clr_single_present(FT (inst));
       ADDR (ps) = read_R_reg(BASE (inst)) + IOFFSET (inst);
+      faultChecker.checkAndInject_ALU(ADDR(ps));
       set_ex_bypass(0, 0);
       break;
 
     case Y_LUI_OP:
       VALUE (ps) = (Operand2 (ps) << 16) & 0xffff0000;
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 
@@ -1364,6 +1380,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_MFC2_OP:
     case Y_MFC3_OP:
       VALUE (ps) = Operand1 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(0, 0);
       break;
 
@@ -1374,11 +1391,13 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_MFHI_OP:
       VALUE (ps) = Operand1 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
     case Y_MFLO_OP:
       VALUE (ps) = Operand1 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
@@ -1386,21 +1405,25 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_MTC2_OP:
     case Y_MTC3_OP:
       VALUE (ps) = Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(0, 0);
       break;
 
     case Y_MTC1_OP:
       VALUE (ps) = Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(0, 0);
       break;
 
     case Y_MTHI_OP:
       HI = Operand1 (ps);
+      faultChecker.checkAndInject_ALU(HI);
       set_ex_bypass(0, 0);
       break;
 
     case Y_MTLO_OP:
       LO = Operand1 (ps);
+      faultChecker.checkAndInject_ALU(LO);
       set_ex_bypass(0, 0);
       break;
 
@@ -1462,29 +1485,34 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_NOR_OP:
       VALUE (ps) = ~ (Operand1 (ps) | Operand2 (ps));
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
 
     case Y_OR_OP:
       VALUE (ps) = Operand1 (ps) | Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
     case Y_ORI_OP:
       VALUE (ps) = Operand1 (ps) | (Operand2(ps) & 0xffff);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 
     case Y_RFE_OP:
       /* but without kernel code, this should never occur */
       Status_Reg = (Status_Reg & 0xfffffff0) | ((Status_Reg & 0x3c) >> 2);
+      faultChecker.checkAndInject_ALU(Status_Reg);
       set_ex_bypass(0, 0);
       break;
 
     case Y_SB_OP:
     case Y_SH_OP:
       ADDR (ps) = Operand2 (ps) + Operand3 (ps);
+      faultChecker.checkAndInject_ALU(ADDR(ps));
       VALUE (ps) = Operand1 (ps);
       set_ex_bypass(0, 0);
       break;
@@ -1498,6 +1526,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	else
 	  VALUE (ps) = Operand2 (ps);
 
+        faultChecker.checkAndInject_ALU(VALUE(ps));
 	set_ex_bypass(RD (inst), VALUE (ps));
 	break;
       }
@@ -1511,6 +1540,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	else
 	  VALUE (ps) = Operand2 (ps);
 
+        faultChecker.checkAndInject_ALU(VALUE(ps));
 	set_ex_bypass(RD (inst), VALUE (ps));
 	break;
       }
@@ -1518,27 +1548,28 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_SLT_OP:
         // use special function to preserve fault tracking
         VALUE(ps) = setLessThan(Operand1(ps),Operand2(ps));
-
+        faultChecker.checkAndInject_ALU(VALUE(ps));
         set_ex_bypass(RD (inst), VALUE (ps));
         break;
 
     case Y_SLTI_OP:
-      VALUE(ps) = setLessThan(Operand1(ps),(Operand2(ps).truncExtend()));
-
-      set_ex_bypass(RT (inst), VALUE (ps));
-      break;
+        faultChecker.checkAndInject_ALU(VALUE(ps));
+        VALUE(ps) = setLessThan(Operand1(ps),(Operand2(ps).truncExtend()));
+        
+        set_ex_bypass(RT (inst), VALUE (ps));
+        break;
 
     case Y_SLTIU_OP:
       {
         VALUE(ps) = setLessThan(Operand1(ps),(Operand2(ps).truncExtend()), 1);
-
+        faultChecker.checkAndInject_ALU(VALUE(ps));
 	set_ex_bypass(RT (inst), VALUE (ps));
 	break;
       }
 
     case Y_SLTU_OP:
       VALUE(ps) = setLessThan(Operand1(ps),Operand2(ps), 1);
-
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
@@ -1552,6 +1583,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	else
 	  VALUE (ps) = val;
 
+        faultChecker.checkAndInject_ALU(VALUE(ps));
 	set_ex_bypass(RD (inst), VALUE (ps));
 	break;
       }
@@ -1566,6 +1598,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	else
 	  VALUE (ps) = val;
 
+        faultChecker.checkAndInject_ALU(VALUE(ps));
 	set_ex_bypass(RD (inst), VALUE (ps));
 	break;
       }
@@ -1579,6 +1612,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
             else
                 VALUE(ps) = Operand2(ps);
             
+            faultChecker.checkAndInject_ALU(VALUE(ps));
             set_ex_bypass(RD (inst), VALUE (ps));
             break;
       }
@@ -1592,6 +1626,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 	else
             VALUE (ps) = Operand2(ps);
 
+        faultChecker.checkAndInject_ALU(VALUE(ps));
 	set_ex_bypass(RD (inst), VALUE (ps));
 	break;
       }
@@ -1607,6 +1642,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
 	VALUE (ps) = diff;
 
+        faultChecker.checkAndInject_ALU(VALUE(ps));
 	set_ex_bypass(RD (inst), diff);
 	break;
       }
@@ -1614,7 +1650,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_SUBU_OP:
         //VALUE (ps) = (unsigned long) Operand1 (ps) - (unsigned long) Operand2 (ps);
         VALUE(ps) = Operand1(ps) - Operand2(ps);
-
+        faultChecker.checkAndInject_ALU(VALUE(ps));
         set_ex_bypass(RD (inst), VALUE (ps));
         break;
 
@@ -1625,6 +1661,7 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
     case Y_SWL_OP:
     case Y_SWR_OP:
       ADDR (ps) = Operand2 (ps) + Operand3 (ps);
+      faultChecker.checkAndInject_ALU(ADDR(ps));
       VALUE (ps) = Operand1 (ps);
       set_ex_bypass(0, 0);
       break;
@@ -1645,12 +1682,14 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
 
     case Y_XOR_OP:
       VALUE (ps) = Operand1 (ps) ^ Operand2 (ps);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RD (inst), VALUE (ps));
       break;
 
     case Y_XORI_OP:
       /* why is the 0xffff necessary */
       VALUE (ps) = Operand1(ps) ^ (Operand2(ps) & 0xffff);
+      faultChecker.checkAndInject_ALU(VALUE(ps));
       set_ex_bypass(RT (inst), VALUE (ps));
       break;
 

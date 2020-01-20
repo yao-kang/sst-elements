@@ -54,6 +54,7 @@ void faultChecker_t::init(faultTrack::location_t loc, uint64_t period,
     GEN_F_TIME(MEM_PRE_FAULT);
     GEN_F_TIME(MEM_POST_FAULT);
     GEN_F_TIME(WB_FAULT);
+    GEN_F_TIME(ALU_FAULT);
 
 #undef GEN_F_TIME
 
@@ -81,6 +82,9 @@ bool faultChecker_t::checkForFault(faultTrack::location_t loc) {
         break;
     case WB_FAULT:
         if (reg_word::getNow() == faultTime[WB_FAULT_IDX]) {return true;}
+        break;
+    case ALU_FAULT:
+        if (reg_word::getNow() == faultTime[ALU_FAULT_IDX]) {return true;}
         break;
     default:
         printf("Unknown fault location\n");
@@ -169,6 +173,12 @@ void faultChecker_t::checkAndInject_WB(reg_word &data) {
     if(checkForFault(WB_FAULT)) {
         printf("INJECTING WB Fault\n");
         data.fault(getFault(WB_FAULT));
-
     }
+}
+
+void faultChecker_t::checkAndInject_ALU(reg_word &data) {
+    if(checkForFault(ALU_FAULT)) { 
+        printf("INJECTING ALU Fault\n");
+        data.fault(getFault(ALU_FAULT));
+    } 
 }

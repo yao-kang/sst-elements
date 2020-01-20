@@ -35,6 +35,7 @@ namespace MIPS4KCComponent {
             MEM_PRE_FAULT_IDX,
             MEM_POST_FAULT_IDX,
             WB_FAULT_IDX,
+            ALU_FAULT_IDX,
             LAST_FAULT_IDX
         } location_idx_t; 
 
@@ -58,6 +59,7 @@ namespace MIPS4KCComponent {
         void checkAndInject_MEM_PRE(reg_word &addr, reg_word &value, bool isLoad);
         void checkAndInject_MEM_POST(reg_word &data);
         void checkAndInject_WB(reg_word &data);
+        void checkAndInject_ALU(reg_word &data);
     };
     
 };

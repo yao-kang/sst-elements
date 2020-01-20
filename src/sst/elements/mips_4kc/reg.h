@@ -68,8 +68,10 @@ namespace faultTrack {
         MEM_POST_FAULT = 0x10, // Memory Stage "post": at a random
                                // load/store, flip a random bit in the
                                // output of the memory stage
-        WB_FAULT = 0x20 //Writeback: at a random cycle, flip a random
-                        //bit in a random value being written back
+        WB_FAULT = 0x20, //Writeback: at a random cycle, flip a random
+                         //bit in a random value being written back
+        ALU_FAULT = 0x40 // non-mult/div ALU error: at random cycle,
+                         // fault ALU output
     } location_t; 
 }
 
