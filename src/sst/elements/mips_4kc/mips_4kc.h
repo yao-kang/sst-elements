@@ -109,10 +109,11 @@ public:
     SST_ELI_DOCUMENT_PARAMS(
             {"verbose",                 "(uint) Determine how verbose the output from the CPU is", "0"},
             {"execFile",                   "Executable file", ""},
-            {"clock",                   "(string) Clock frequency", "1GHz"},
+            {"clock",                   "(string) Clock frequency. Note: the processor has a 'clock' on both the rising and falling edge, so this should actually be double the 'true' clock speed.", "1GHz"},
             {"fault_locations", "Where should faults be injected (mask)", "0"},
             {"fault_period", "(uint64) Over what period (cycles or instructions) should faults be injected", "100"},
-            {"fault_rng_seed", "RNG seed for fault injection (0 for system clock)", "0"}
+            {"fault_rng_seed", "RNG seed for fault injection (0 for system clock)", "0"},
+            {"timeout", "Timeout. Period (in cycles) after which the processor will automatically cease processing and print timeout message", "-1"}
                             )
 
     SST_ELI_DOCUMENT_PORTS( {"mem_link", "Connection to memory", { "memHierarchy.MemEventBase" } } )
@@ -222,6 +223,7 @@ protected:
     int mapped_io;		/* Non-zero => activate memory-mapped IO */
     string execFile;
     uint32_t outputLevel;
+    int64_t timeout;
 
     /* signal / exception */
     static signal_desc siginfo[NSIG];

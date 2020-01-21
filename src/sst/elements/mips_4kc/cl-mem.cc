@@ -79,7 +79,9 @@ void MIPS4KC::CL_READ_MEM(reg_word &LOC, const reg_word &ADDR,
         data <<= 8;
         data |= req->data[i];
     }
-    //printf("READ: %08x %08x\n", LOC.getData(), data); 
+    if (LOC.getData() != data) {
+        printf("READ: %08x %08x\n", LOC.getData(), data); 
+    }
     assert(LOC.getData() == data); 
 
     // note incoming faulted data and add in the data

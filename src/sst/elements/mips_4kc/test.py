@@ -5,15 +5,26 @@ from optparse import OptionParser
 # options
 op = OptionParser()
 op.add_option("-c", "--cacheSz", action="store", type="int", dest="cacheSz", default=2)
+op.add_option("-f", "--faultLoc", action="store", type="int", dest="faultLoc", default=0)
+op.add_option("-e", "--execFile", action="store", type="string", dest="execFile", default="test/matmat.out")
 (options, args) = op.parse_args()
+
+faultPeriod = 100000
+
+if options.faultLoc == 0x4:
+    faultPeriod = 1500   #ensure we get at least one MDU insert
+elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+    faultPeriod = 20000
 
 # Define the simulation components
 comp_mips = sst.Component("MIPS4KC", "mips_4kc.MIPS4KC")
 comp_mips.addParams({
-    "verbose" : 1,
-    "execFile" : "test/matmat.out",
+    "verbose" : 0,
+    "execFile" : options.execFile,
     "clock" : "1GHz",
-    "fault_locations" : 0x20
+    "fault_locations" : options.faultLoc,
+    "fault_period" : faultPeriod,
+    "timeout" : 1000000
 })
 
 comp_l1cache = sst.Component("l1cache", "memHierarchy.Cache")
@@ -45,7 +56,7 @@ comp_memory.addParams({
 # Enable statistics
 sst.setStatisticLoadLevel(7)
 sst.setStatisticOutput("sst.statOutputConsole")
-sst.enableAllStatisticsForComponentType("memHierarchy.Cache")
+#sst.enableAllStatisticsForComponentType("memHierarchy.Cache")
 
 
 # Define the simulation links

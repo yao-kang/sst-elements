@@ -63,7 +63,9 @@ void MIPS4KC::user_kernel_text_segment (int to_kernel)
 void MIPS4KC::store_instruction (instruction *inst, const mem_addr addr) {
   exception_occurred = 0;
   SET_MEM_INST (addr, inst);
-  printf("storing %lx to %x\n", inst->encoding, addr);
+  if (outputLevel > 0) {
+    printf("storing %lx to %x\n", inst->encoding, addr);
+  }
   if (exception_occurred)
       error ("Invalid address (0x%08x) for instruction\n", addr);
 

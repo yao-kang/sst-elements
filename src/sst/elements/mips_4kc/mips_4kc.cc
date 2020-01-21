@@ -50,6 +50,9 @@ MIPS4KC::MIPS4KC(ComponentId_t id, Params& params) :
     }
     memory->initialize("mem_link", new Interfaces::SimpleMem::Handler<MIPS4KC> (this, &MIPS4KC::handleEvent));
 
+    // set timeout
+    timeout = params.find<int64_t>("timeout", -1);
+
     //set our clock
     std::string clockFreq = params.find<std::string>("clock", "1GHz");
     clockHandler = new Clock::Handler<MIPS4KC>(this, &MIPS4KC::clockTic);
@@ -161,6 +164,12 @@ bool MIPS4KC::clockTic( Cycle_t c)
         if ((pipeCycle & 0xfff) == 1 && isFalling) {
             printf("CYCLE %llu: %llu.%u\n", c, pipeCycle, isFalling);
         }
+    }
+
+    if ((timeout != -1) && (c > timeout)) {
+        printf("Timeout Reached.\n");
+        primaryComponentOKToEndSim();
+        return true;
     }
     
     if (isFalling) {
