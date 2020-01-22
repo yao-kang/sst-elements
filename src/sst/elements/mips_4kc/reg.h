@@ -490,8 +490,8 @@ public:
         newWord.data = data OP rhs.data;                                \
         newWord.origData = origData OP rhs.origData;                    \
         if (!faults.empty() || !rhs.faults.empty()) {                   \
-            printf("d: %x = %x # %x\n", newWord.data, data, rhs.data); \
-            printf("o: %x = %x # %x\n", newWord.origData, origData, rhs.origData); \
+            if (0) printf("d: %x = %x # %x\n", newWord.data, data, rhs.data); \
+            if (0) printf("o: %x = %x # %x\n", newWord.origData, origData, rhs.origData); \
         }                                                               \
         /* preserve the history */                                      \
         newWord.faults.insert(newWord.faults.end(),                     \

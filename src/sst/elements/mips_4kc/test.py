@@ -4,7 +4,7 @@ from optparse import OptionParser
 
 # options
 op = OptionParser()
-op.add_option("-c", "--cacheSz", action="store", type="int", dest="cacheSz", default=2)
+op.add_option("-c", "--cacheSz", action="store", type="int", dest="cacheSz", default=4)
 op.add_option("-f", "--faultLoc", action="store", type="int", dest="faultLoc", default=0)
 op.add_option("-e", "--execFile", action="store", type="string", dest="execFile", default="test/matmat.out")
 (options, args) = op.parse_args()
