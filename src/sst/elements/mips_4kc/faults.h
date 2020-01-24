@@ -44,8 +44,7 @@ namespace MIPS4KCComponent {
         faultTrack::location_t locations;
         int64_t faultTime[LAST_FAULT_IDX]; // when a fault should be
                                             // injected
-        int64_t MDU_count;
-        int64_t MEM_count;
+        int64_t event_count[LAST_FAULT_IDX];
         bool checkForFault(faultTrack::location_t); // should we inject?
         unsigned int getRand1_31(); // generate # from 1 to 31
     public:
@@ -60,6 +59,8 @@ namespace MIPS4KCComponent {
         void checkAndInject_MEM_POST(reg_word &data);
         void checkAndInject_WB(reg_word &data);
         void checkAndInject_ALU(reg_word &data);
+
+        void printStats();
     };
     
 };

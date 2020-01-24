@@ -1607,9 +1607,9 @@ void MIPS4KC::process_EX (PIPE_STAGE ps, struct mult_div_unit *pMDU)
         {
             int shamt = SHAMT (inst);
                 
-            if (shamt >= 0 && shamt < 32)
+            if (shamt >= 0 && shamt < 32) {
                 VALUE(ps) = Operand2(ps).shift_right_logical(shamt);
-            else
+            } else
                 VALUE(ps) = Operand2(ps);
             
             faultChecker.checkAndInject_ALU(VALUE(ps));

@@ -189,4 +189,5 @@ bool MIPS4KC::clockTic( Cycle_t c)
 void MIPS4KC::finish() {
 #warning should make SST stats
     reg_word::printStats();
+    faultChecker.printStats();
 }

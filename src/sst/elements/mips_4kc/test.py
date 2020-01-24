@@ -7,14 +7,71 @@ op = OptionParser()
 op.add_option("-c", "--cacheSz", action="store", type="int", dest="cacheSz", default=4)
 op.add_option("-f", "--faultLoc", action="store", type="int", dest="faultLoc", default=0)
 op.add_option("-e", "--execFile", action="store", type="string", dest="execFile", default="test/matmat.out")
+
+op.add_option("-n", "--foo", action="store", type="string", dest="foo", default="test/matmat.out")
 (options, args) = op.parse_args()
 
-faultPeriod = 100000
+execSplit = options.execFile.split('/')
+baseExec = execSplit[len(execSplit)-1]
 
-if options.faultLoc == 0x4:
-    faultPeriod = 1500   #ensure we get at least one MDU insert
-elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
-    faultPeriod = 20000
+#figure out fault periods
+if baseExec == "dmr_matmat.out":
+    faultPeriod = 255000
+    if options.faultLoc == 0x4:
+        faultPeriod = 3456
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 57000
+elif baseExec == "dmr_matmatO3.out":
+    faultPeriod = 64600
+    if options.faultLoc == 0x4:
+        faultPeriod = 3456
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 17850
+elif baseExec == "matmat.out":
+    faultPeriod = 102600
+    if options.faultLoc == 0x4:
+        faultPeriod = 1728
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 21873
+elif baseExec == "matmatO3.out":
+    faultPeriod = 27540
+    if options.faultLoc == 0x4:
+        faultPeriod = 1728
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 2711
+elif baseExec == "rd_matmat.out":
+    faultPeriod = 102800
+    if options.faultLoc == 0x4:
+        faultPeriod = 1728
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 21870
+elif baseExec == "rd_matmatO3.out":
+    faultPeriod = 28000
+    if options.faultLoc == 0x4:
+        faultPeriod = 1728
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 2711
+elif baseExec == "tmr_matmat.out":
+    faultPeriod = 370200
+    if options.faultLoc == 0x4:
+        faultPeriod = 5184
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 81779
+elif baseExec == "tmr_matmatO3.out":
+    faultPeriod = 90550
+    if options.faultLoc == 0x4:
+        faultPeriod = 5184
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 25018
+else:
+    print("Unrecognized executable. Using default faultPeriod")
+    faultPeriod = 100000
+    if options.faultLoc == 0x4:
+        faultPeriod = 1500   #ensure we get at least one MDU insert
+    elif (options.faultLoc == 0x8 or options.faultLoc == 0x10):
+        faultPeriod = 20000
+
+print("Using faultPeriod of %s" % faultPeriod)
 
 # Define the simulation components
 comp_mips = sst.Component("MIPS4KC", "mips_4kc.MIPS4KC")

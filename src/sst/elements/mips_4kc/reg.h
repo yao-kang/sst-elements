@@ -239,11 +239,13 @@ public:
     // default constructor
     reg_word() {
         data = origData = 0;
+        faults.clear();
     }
 
     // conversion constructor
     reg_word(const int &v) {
         data = origData = v;
+        faults.clear();
     }
 
     // copy operator
@@ -252,7 +254,15 @@ public:
         if(this != &o) {
             origData = o.origData;
             data = o.data;
-            faults = o.faults;
+            if (o.faults.size() < 20) { // only bother with first 20 faults
+                faults = o.faults;  
+            } else {
+                faults.clear();
+                auto oi = o.faults.begin();
+                for(int i = 0; i < 20; ++i) {
+                    faults.push_back(*oi);
+                }
+            }
             // check for squashes?
         }
 
@@ -362,8 +372,8 @@ public:
 
     reg_word shift_right_logical(const reg_word &shamt) const {
         reg_word newWord;                                              
-        newWord.data = (uint64_t)data >> shamt.data;
-        newWord.origData = (uint64_t)origData >> shamt.origData;
+        newWord.data = ((uint32_t)data) >> shamt.data;
+        newWord.origData = ((uint32_t)origData) >> shamt.origData;
         newWord.faults.insert(newWord.faults.end(),                    
                               faults.begin(),                          
                               faults.end());                           
