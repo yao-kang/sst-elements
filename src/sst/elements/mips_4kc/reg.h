@@ -155,7 +155,7 @@ class reg_word {
                         i.status = CORRECTED_MATH;
                             faultStats[CORRECTED_MATH]++;
                             i.whenCorrected = now;
-                            printf("PRINT Math Correct\n");
+                            //printf("PRINT Math Correct\n");
                     }
                 }
             }
@@ -183,7 +183,8 @@ class reg_word {
         for (int i = sz-1; i >= 0; --i) {
             data <<= 8;
             auto iter = origMem.find(addr + i);
-            assert(iter != origMem.end()); // data should be in map?
+#warning make sure hadling if address is wrong
+            //assert(iter != origMem.end()); // data should be in map?
             data |= iter->second;
         }
 

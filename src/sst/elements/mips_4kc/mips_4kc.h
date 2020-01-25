@@ -43,6 +43,12 @@
 #include "cl-tlb.h"
 #include "cl-except.h"
 
+#ifndef mips
+#ifndef OPEN_MAX
+#define OPEN_MAX 20
+#endif
+#endif
+
 namespace SST {
 namespace MIPS4KCComponent {
 

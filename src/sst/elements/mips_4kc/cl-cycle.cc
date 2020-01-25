@@ -729,7 +729,6 @@ int MIPS4KC::process_ID (PIPE_STAGE ps, int *stall, int mult_div_busy)
 
     case Y_JALR_OP:
     case Y_JR_OP:
-        printf("JR %x\n", read_R_reg(RS (inst)).getData());
         if (!DSLOT (ps)) {
           tmp_PC = read_R_reg(RS (inst)).getData();
         }

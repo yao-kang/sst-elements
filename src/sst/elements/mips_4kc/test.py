@@ -8,7 +8,7 @@ op.add_option("-c", "--cacheSz", action="store", type="int", dest="cacheSz", def
 op.add_option("-f", "--faultLoc", action="store", type="int", dest="faultLoc", default=0)
 op.add_option("-e", "--execFile", action="store", type="string", dest="execFile", default="test/matmat.out")
 
-op.add_option("-n", "--foo", action="store", type="string", dest="foo", default="test/matmat.out")
+op.add_option("-n", "--foo", action="store", type="string", dest="foo", default="test/matmat.out") #unused
 (options, args) = op.parse_args()
 
 execSplit = options.execFile.split('/')
