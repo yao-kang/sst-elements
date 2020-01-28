@@ -341,11 +341,14 @@ void MemController::handleEvent(SST::Event* event) {
     notifyListeners( ev );
 
     switch (cmd) {
-        case Command::PutM:
+        case Command::PutM:     // Memory write
             ev->setFlag(MemEvent::F_NORESPONSE);
-        case Command::GetS:
-        case Command::GetX:
-        case Command::GetSX:
+        case Command::GetS:     // Memory read
+        case Command::GetX:     // Memory read (unless NONCACHEABLE, then this is a write)
+        case Command::GetSX:    // Memory read
+        case Command::PrRead:   // Memory read
+        case Command::PrLock:   // Memory read
+        case Command::PrWrite:  // Memory write
             outstandingEvents_.insert(std::make_pair(ev->getID(), ev));
             memBackendConvertor_->handleMemEvent( ev );
             break;
@@ -445,7 +448,7 @@ void MemController::handleMemResponse( Event::id_type id, uint32_t flags ) {
     bool noncacheable  = ev->queryFlag(MemEvent::F_NONCACHEABLE);
     
     /* Write data. Here instead of receive to try to match backing access order to backend execute order */
-    if (backing_ && (ev->getCmd() == Command::PutM || (ev->getCmd() == Command::GetX && noncacheable)))
+    if (backing_ && (ev->getCmd() == Command::PutM || (ev->getCmd() == Command::GetX && noncacheable) || ev->getCmd() == Command::PrWrite))
         writeData(ev);
 
     if (ev->queryFlag(MemEvent::F_NORESPONSE)) {
@@ -505,11 +508,11 @@ void MemController::finish(void) {
 }
 
 void MemController::writeData(MemEvent* event) {
-    /* Noncacheable events occur on byte addresses, others on line addresses */
-    bool noncacheable = event->queryFlag(MemEvent::F_NONCACHEABLE);
-    Addr addr = noncacheable ? event->getAddr() : event->getBaseAddr();
+    /* Noncacheable & PrWrite events occur on byte addresses, others on line addresses */
+    Addr addr;
 
     if (event->getCmd() == Command::PutM) { /* Write request to memory */
+        addr = event->getBaseAddr();
         if (is_debug_event(event)) { Debug(_L4_, "\tUpdate backing. Addr = %" PRIx64 ", Size = %i\n", addr, event->getSize()); }
             
         backing_->set(addr, event->getSize(), event->getPayload());
@@ -517,14 +520,14 @@ void MemController::writeData(MemEvent* event) {
         return;
     }
     
-    if (noncacheable && event->getCmd() == Command::GetX) {
+    if ((event->queryFlag(MemEvent::F_NONCACHEABLE) && event->getCmd() == Command::GetX) || event->getCmd() == Command::PrWrite) {
+        addr = event->getAddr();
         if (is_debug_event(event)) { Debug(_L4_, "\tUpdate backing. Addr = %" PRIx64 ", Size = %i\n", addr, event->getSize()); }
         
         backing_->set(addr, event->getSize(), event->getPayload());
         
         return;
     }
-
 }
 
 

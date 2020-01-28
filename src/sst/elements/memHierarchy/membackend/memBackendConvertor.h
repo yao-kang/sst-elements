@@ -113,7 +113,7 @@ class MemBackendConvertor : public SubComponent {
         uint32_t processed()    { return m_offset; }
         uint64_t id()           { return ((uint64_t)m_reqId << 32) | m_offset; }
         MemEvent* getMemEvent() { return m_event; }
-        bool isWrite()          { return (m_event->getCmd() == Command::PutM || (m_event->queryFlag(MemEvent::F_NONCACHEABLE) && m_event->getCmd() == Command::GetX)) ? true : false; }
+        bool isWrite()          { return (m_event->getCmd() == Command::PutM || (m_event->queryFlag(MemEvent::F_NONCACHEABLE) && m_event->getCmd() == Command::GetX) || m_event->getCmd() == Command::PrWrite) ? true : false; }
         uint32_t size()         { return m_event->getSize(); }
         const std::string getRqstr() override { return m_event->getRqstr(); }
 

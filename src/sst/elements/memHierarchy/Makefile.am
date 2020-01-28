@@ -82,6 +82,8 @@ libmemHierarchy_la_SOURCES = \
 	coherencemgr/coherenceController.cc \
 	memHierarchyInterface.cc \
 	memHierarchyInterface.h \
+	procIface.cc \
+	procIface.h \
 	memHierarchyScratchInterface.cc \
 	memHierarchyScratchInterface.h \
 	coherencemgr/MESI_L1.h \

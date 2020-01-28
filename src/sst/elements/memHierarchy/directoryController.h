@@ -228,6 +228,9 @@ public:
 
 /* Coherence portion */
 public:
+    bool handlePrRead(MemEvent* event, bool inMSHR);
+    bool handlePrWrite(MemEvent* event, bool inMSHR);
+    bool handlePrLock(MemEvent* event, bool inMSHR);
     bool handleGetS(MemEvent* event, bool inMSHR);
     bool handleGetX(MemEvent* event, bool inMSHR);
     bool handleGetSX(MemEvent* event, bool inMSHR);

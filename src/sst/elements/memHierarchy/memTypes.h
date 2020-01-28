@@ -42,7 +42,11 @@ enum class MemEventType { Cache, Move, Custom };                    // For parsi
  *****************************************************************************************/
 #define X_CMDS \
     X(NULLCMD,          NULLCMD,        Request,    Request,        1, 0,   Cache)   /* Dummy command */\
-    /* Requests */ \
+    /* Processor Requests */ \
+    X(PrRead,           GetSResp,       Request,    Request,        1, 0,   Cache)   /* Processor Read: Request to get data (no split cachelines!) */\
+    X(PrWrite,          GetXResp,       Request,    Request,        1, 0,   Cache)   /* Processor Write: Request to write some data (no split cachelines!) */\
+    X(PrLock,           GetSResp,       Request,    Request,        1, 0,   Cache)   /* Processor Lock: Request to lock (prevent invalidation of) a cacheline; a subsequent PrWrite will unlock the line */\
+    /* Memory System Requests */ \
     X(GetS,             GetSResp,       Request,    Request,        1, 0,   Cache)   /* Read:  Request to get cache line in S state */\
     X(GetX,             GetXResp,       Request,    Request,        1, 0,   Cache)   /* Write: Request to get cache line in M state */\
     X(GetSX,            GetSResp,       Request,    Request,        1, 0,   Cache)   /* Read:  Request to get cache line in M state with a LOCK flag. Invalidates will block until LOCK flag is lifted */\
@@ -161,6 +165,7 @@ static const std::vector<ElementInfoStatistic> networkMemoryInspector_statistics
     X(E,        E)  /* Exclusive, clean */\
     X(O,        O)  /* Owned, dirty */\
     X(M,        M)  /* Exclusive, dirty */\
+    X(L,        M)  /* Locked, waiting for a write */\
     X(IS,       S)  /* Invalid, have issued read request */\
     X(IM,       M)  /* Invalid, have issued write request */\
     X(SM,       M)  /* Shared, have issued upgrade request */\

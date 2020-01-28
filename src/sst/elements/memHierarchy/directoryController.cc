@@ -63,7 +63,9 @@ DirectoryController::DirectoryController(ComponentId_t id, Params &params) :
         DEBUG_ADDR.insert(*it);
     }
 
-    registerTimeBase("1 ns", true); // TODO eliminate this
+    // Establishes our default time base so links can inherit it without a problem
+    clockHandler = new Clock::Handler<DirectoryController>(this, &DirectoryController::clock);
+    defaultTimeBase = registerClock(params.find<std::string>("clock", "1GHz"), clockHandler);
 
     std::string net_bw = params.find<std::string>("network_bw", "80GiB/s");
 
@@ -225,8 +227,6 @@ DirectoryController::DirectoryController(ComponentId_t id, Params &params) :
         if (memLink) memLink->setName(getName());
     }
 
-    clockHandler = new Clock::Handler<DirectoryController>(this, &DirectoryController::clock);
-    defaultTimeBase = registerClock(params.find<std::string>("clock", "1GHz"), clockHandler);
     clockOn = true;
     if (memLink)
         clockMemLink = memLink->isClocked();
@@ -453,6 +453,15 @@ bool DirectoryController::processPacket(MemEvent * ev, bool replay) {
     }
 
     switch (cmd) {
+        case Command::PrRead:
+            retval = handlePrRead(ev, replay);
+            break;
+        case Command::PrWrite:
+            retval = handlePrWrite(ev, replay);
+            break;
+        case Command::PrLock:
+            retval = handlePrLock(ev, replay);
+            break;
         case Command::GetS:
             retval = handleGetS(ev, replay);
             break;
@@ -813,6 +822,98 @@ bool DirectoryController::handleGetS(MemEvent * event, bool inMSHR) {
 }
 
 
+bool DirectoryController::handlePrRead(MemEvent * event, bool inMSHR) {
+    Addr addr = event->getBaseAddr();
+    DirEntry * entry = getDirEntry(addr);
+    State state = entry->getState();
+    bool cached = entry->isCached();
+    MemEventStatus status = MemEventStatus::OK;
+    vector<uint8_t> data;
+    
+    if (is_debug_addr(addr))
+        eventDI.prefill(event->getID(), Command::PrRead, false, addr, state);
+
+    if (!cached)
+        return retrieveDirEntry(entry, event, inMSHR);
+    
+    if (!inMSHR)    
+        stat_cacheHits->addData(1);
+
+    switch (state) {
+        case I:
+            if (mshr->hasData(addr)) {
+                if (!inMSHR)
+                    out.output("ALERT (%s): mshr should NOT have data for 0x%" PRIx64 " but it does...\n", getName().c_str(), addr);
+                else {
+                    data.assign(mshr->getData(addr).begin() + (event->getAddr() - event->getBaseAddr()), mshr->getData(addr).begin() + (event->getAddr() - event->getBaseAddr() + event->getSize()));
+                    sendDataResponse(event, entry, data, Command::GetSResp);
+                    if (mshr->getDataDirty(addr)) {
+                        writebackDataFromMSHR(addr);
+                    }
+                    mshr->clearData(addr);
+                    
+                    if (is_debug_event(event)) {
+                        eventDI.reason = "hit";
+                        eventDI.action = "Done";
+                    }
+                    cleanUpAfterRequest(event, inMSHR);
+                    break;
+                }
+            }
+            // Miss, get data from memory
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                issueMemoryRequest(event, entry);
+                entry->setState(IS);
+                if (is_debug_event(event))
+                    eventDI.reason = "miss";
+            }
+            break;
+        case S:
+            if (mshr->hasData(addr)) { // saved from earlier request
+                data.assign(mshr->getData(addr).begin() + (event->getAddr() - event->getBaseAddr()), mshr->getData(addr).begin() + (event->getAddr() - event->getBaseAddr() + event->getSize()));
+                sendDataResponse(event, entry, mshr->getData(addr), Command::GetSResp);
+                if (is_debug_event(event)) {
+                    eventDI.reason = "hit";
+                    eventDI.action = "Done";
+                }
+                cleanUpAfterRequest(event, inMSHR);
+                break;
+            }
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                issueMemoryRequest(event, entry);
+                entry->setState(S_D);
+            }
+            if (is_debug_event(event))
+                eventDI.reason = "hit";
+            break;
+        case M:
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (is_debug_event(event))
+                eventDI.reason = "hit";
+            if (status == MemEventStatus::OK) {
+                issueFetch(event, entry, Command::FetchInvX);
+                entry->setState(M_InvX);
+            }
+            break;
+        default:
+            if (!inMSHR)
+                status = allocateMSHR(event, false);
+    }
+
+    if (status == MemEventStatus::Reject)
+        sendNACK(event);
+    
+    if (is_debug_addr(addr)) {
+        eventDI.newst = entry->getState();
+        eventDI.verboseline = entry->getString();
+    }
+
+    return true;
+}
+
+
 bool DirectoryController::handleGetSX(MemEvent * event, bool inMSHR) { 
     return handleGetX(event, inMSHR);
 }
@@ -906,6 +1007,189 @@ bool DirectoryController::handleGetX(MemEvent * event, bool inMSHR) {
                     if (is_debug_event(event)) {
                         eventDI.reason = "miss";
                     }
+                }
+            }
+            break;
+        case M:
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                entry->setState(M_Inv);
+                issueFetch(event, entry, Command::FetchInv);
+                if (is_debug_event(event)) {
+                    eventDI.reason = "miss";
+                }
+            }
+            break;
+        default:
+            if (!inMSHR)
+                status = allocateMSHR(event, false);
+            break;
+    }
+
+    if (is_debug_addr(addr)) {
+        eventDI.newst = entry->getState();
+        eventDI.verboseline = entry->getString();
+    }
+    
+    if (status == MemEventStatus::Reject)
+        sendNACK(event);
+
+    return true;
+}
+
+bool DirectoryController::handlePrWrite(MemEvent * event, bool inMSHR) { 
+    Addr addr = event->getBaseAddr();
+    DirEntry * entry = getDirEntry(addr);
+    State state = entry->getState();
+    bool cached = entry->isCached();
+    MemEventStatus status = MemEventStatus::OK;
+    std::vector<uint8_t> data;
+
+    if (is_debug_addr(addr))
+        eventDI.prefill(event->getID(), event->getCmd(), false, addr, state);
+
+    if (!cached)
+        return retrieveDirEntry(entry, event, inMSHR);
+
+    if (!inMSHR)
+        stat_cacheHits->addData(1);
+
+    if (mshr->hasData(addr) && mshr->getDataDirty(addr)) // Data was temporarily buffered here due to racing accesses
+        writebackDataFromMSHR(addr);
+
+    switch (state) {
+        case I:
+            if (mshr->hasData(addr)) {
+                if (!inMSHR)
+                    out.output("ALERT (%s): mshr should NOT have data for 0x%" PRIx64 " but it does...\n", getName().c_str(), addr);
+                else {
+                    mshr->clearData(addr);
+                }
+            }
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                entry->setState(IM);
+                issueMemoryRequest(event, entry);
+                if (is_debug_event(event))
+                    eventDI.reason = "miss";
+            }
+            break;
+        case S:
+            // Sharers exist -> invalidate other sharers & then do write
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                if (mshr->hasData(addr))
+                    mshr->clearData(addr);
+                entry->setState(S_Inv);
+                issueInvalidations(event, entry, Command::Inv);
+                if (is_debug_event(event)) {
+                    eventDI.reason = "miss";
+                }
+            }
+            break;
+        case M:
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                entry->setState(M_Inv);
+                issueFetch(event, entry, Command::FetchInv);
+                if (is_debug_event(event)) {
+                    eventDI.reason = "miss";
+                }
+            }
+            break;
+        case L:
+            if (entry->getOwner() == event->getSrc()) { // Unlock
+                event->setFlag(MemEventBase::F_NORESPONSE); // Post the write, in order network means we won't have a problem with ordering
+                issueMemoryRequest(event, entry);
+                entry->setState(I);
+                entry->removeOwner();
+                if (is_debug_event(event))
+                    eventDI.reason = "miss";
+                cleanUpAfterRequest(event, inMSHR);
+            } else {                                    // From another entity
+                status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+                if (is_debug_event(event)) {
+                    eventDI.reason = "stall";
+                }
+            }
+            break;
+        default:
+            if (!inMSHR)
+                status = allocateMSHR(event, false);
+            break;
+    }
+
+    if (is_debug_addr(addr)) {
+        eventDI.newst = entry->getState();
+        eventDI.verboseline = entry->getString();
+    }
+    
+    if (status == MemEventStatus::Reject)
+        sendNACK(event);
+
+    return true;
+}
+
+bool DirectoryController::handlePrLock(MemEvent * event, bool inMSHR) { 
+    Addr addr = event->getBaseAddr();
+    DirEntry * entry = getDirEntry(addr);
+    State state = entry->getState();
+    bool cached = entry->isCached();
+    MemEventStatus status = MemEventStatus::OK;
+    std::vector<uint8_t> data;
+
+    if (is_debug_addr(addr))
+        eventDI.prefill(event->getID(), event->getCmd(), false, addr, state);
+
+    if (!cached)
+        return retrieveDirEntry(entry, event, inMSHR);
+
+    if (!inMSHR)
+        stat_cacheHits->addData(1);
+
+    if (mshr->hasData(addr) && mshr->getDataDirty(addr)) // Data was temporarily buffered here due to racing accesses
+        writebackDataFromMSHR(addr);
+
+    switch (state) {
+        case I:
+            if (mshr->hasData(addr)) {
+                if (!inMSHR)
+                    out.output("ALERT (%s): mshr should NOT have data for 0x%" PRIx64 " but it does...\n", getName().c_str(), addr);
+                else {
+                    entry->setState(L);
+                    entry->setOwner(event->getSrc());
+                    data.assign(mshr->getData(addr).begin() + (event->getAddr() - event->getBaseAddr()), mshr->getData(addr).begin() + (event->getAddr() - event->getBaseAddr() + event->getSize()));
+                    sendDataResponse(event, entry, data, Command::GetXResp);
+                    mshr->clearData(addr);
+                    if (is_debug_event(event)) {
+                        eventDI.reason = "hit";
+                        eventDI.action = "Done";
+                    }
+                    cleanUpAfterRequest(event, inMSHR);
+                    break;
+                }
+            }
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                entry->setState(IM);
+                issueMemoryRequest(event, entry);
+                if (is_debug_event(event))
+                    eventDI.reason = "miss";
+            }
+            break;
+        case S:
+            // Invalidate sharers & lock the line
+            status = inMSHR ? MemEventStatus::OK : allocateMSHR(event, false);
+            if (status == MemEventStatus::OK) {
+                if (mshr->hasData(addr)) {
+                    entry->setState(S_Inv);
+                } else {
+                    entry->setState(SM_Inv);
+                    issueMemoryRequest(event, entry);
+                }
+                issueInvalidations(event, entry, Command::Inv);
+                if (is_debug_event(event)) {
+                    eventDI.reason = "miss";
                 }
             }
             break;
@@ -1623,10 +1907,17 @@ bool DirectoryController::handleGetSResp(MemEvent * event, bool inMSHR) {
                 getName().c_str(), StateString[state], event->getVerboseString().c_str(), getCurrentSimTimeNano());
     }
     
-    entry->setState(S);
-    entry->addSharer(reqEv->getSrc());
-   
-    sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
+    if (reqEv->getCmd() == Command::PrRead) {
+        entry->setState(I);
+        std::vector<uint8_t> data;
+        data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
+        sendDataResponse(reqEv, entry, data, Command::GetSResp);
+    } else {
+        entry->setState(S);
+        entry->addSharer(reqEv->getSrc());
+        sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
+    }
+
     mshr->setData(addr, event->getPayload(), false); // Save data for a subsequent GetS
     cleanUpAfterResponse(event, inMSHR);
     
@@ -1642,6 +1933,7 @@ bool DirectoryController::handleGetXResp(MemEvent * event, bool inMSHR) {
     Addr addr = event->getBaseAddr();
     DirEntry* entry = getDirEntry(addr);
     State state = entry ? entry->getState() : NP;
+    std::vector<uint8_t> data;
     
     if (is_debug_addr(addr))
         eventDI.prefill(event->getID(), Command::GetXResp, false, addr, state);
@@ -1650,7 +1942,13 @@ bool DirectoryController::handleGetXResp(MemEvent * event, bool inMSHR) {
 
     switch (state) {
         case IS:
-            if (protocol == CoherenceProtocol::MESI) {
+            if (reqEv->getCmd() == Command::PrRead) {
+                entry->setState(I);
+                data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
+                sendDataResponse(reqEv, entry, data, Command::GetSResp);
+                mshr->setData(addr, event->getPayload(), false); // So subsequent GetS can get data
+                break;
+            } else if (protocol == CoherenceProtocol::MESI) {
                 entry->setState(M);
                 entry->setOwner(reqEv->getSrc());
                 sendDataResponse(reqEv, entry, event->getPayload(), Command::GetXResp);
@@ -1658,14 +1956,29 @@ bool DirectoryController::handleGetXResp(MemEvent * event, bool inMSHR) {
             }
         case S_D:
             entry->setState(S);
-            entry->addSharer(reqEv->getSrc());
-            sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
+            if (reqEv->getCmd() == Command::PrRead) {
+                data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
+                sendDataResponse(reqEv, entry, data, Command::GetSResp);
+            } else {
+                entry->addSharer(reqEv->getSrc());
+                sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
+            }
             mshr->setData(addr, event->getPayload(), false); // So subsequent GetS can get data
             break;
         case IM:
-            entry->setState(M);
-            entry->setOwner(reqEv->getSrc());
-            sendDataResponse(reqEv, entry, event->getPayload(), Command::GetXResp);
+            if (reqEv->getCmd() == Command::PrWrite) {
+                entry->setState(I);
+                data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
+                sendDataResponse(reqEv, entry, data, Command::GetXResp);
+            } else if (reqEv->getCmd() == Command::PrLock) {
+                entry->setState(L);
+                data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
+                sendDataResponse(reqEv, entry, data, Command::GetXResp);
+            } else {
+                entry->setState(M);
+                entry->setOwner(reqEv->getSrc());
+                sendDataResponse(reqEv, entry, event->getPayload(), Command::GetXResp);
+            }
             break;
         case SM_Inv:
             entry->setState(S_Inv);
@@ -2168,14 +2481,15 @@ void DirectoryController::issueInvalidation(std::string dst, MemEvent* event, Di
     uint64_t deliveryTime = timestamp + accessLatency;
     cpuMsgQueue.insert(std::make_pair(deliveryTime, inv));
 }
-    
+
 void DirectoryController::sendDataResponse(MemEvent* event, DirEntry* entry, std::vector<uint8_t>& data, Command cmd, uint32_t flags) {
     MemEvent * respEv = event->makeResponse(cmd);
-    respEv->setSize(lineSize);
+    respEv->setSize(data.size());
     respEv->setPayload(data);
     respEv->setMemFlags(flags);
     cpuMsgQueue.insert(std::make_pair(timestamp+mshrLatency, respEv));
 }
+    
 
 void DirectoryController::sendResponse(MemEvent* event, uint32_t flags, uint32_t memflags) {
     MemEvent * respEv = event->makeResponse();
