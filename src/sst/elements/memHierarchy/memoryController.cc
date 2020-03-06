@@ -532,8 +532,8 @@ void MemController::writeData(MemEvent* event) {
 
 
 void MemController::readData(MemEvent* event) { 
-    bool noncacheable = event->queryFlag(MemEvent::F_NONCACHEABLE);
-    Addr localAddr = noncacheable ? event->getAddr() : event->getBaseAddr();
+    bool byteaddr = event->queryFlag(MemEvent::F_NONCACHEABLE) || event->getCmd() == Command::PrRead || event->getCmd() == Command::PrWrite;
+    Addr localAddr = byteaddr ? event->getAddr() : event->getBaseAddr();
 
     vector<uint8_t> payload;
     payload.resize(event->getSize(), 0);
