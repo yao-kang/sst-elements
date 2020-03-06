@@ -1909,16 +1909,14 @@ bool DirectoryController::handleGetSResp(MemEvent * event, bool inMSHR) {
     
     if (reqEv->getCmd() == Command::PrRead) {
         entry->setState(I);
-        std::vector<uint8_t> data;
-        data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
-        sendDataResponse(reqEv, entry, data, Command::GetSResp);
+        sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
     } else {
         entry->setState(S);
         entry->addSharer(reqEv->getSrc());
         sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
+        mshr->setData(addr, event->getPayload(), false); // Save data for a subsequent GetS
     }
 
-    mshr->setData(addr, event->getPayload(), false); // Save data for a subsequent GetS
     cleanUpAfterResponse(event, inMSHR);
     
     if (is_debug_addr(addr)) {
@@ -1944,9 +1942,7 @@ bool DirectoryController::handleGetXResp(MemEvent * event, bool inMSHR) {
         case IS:
             if (reqEv->getCmd() == Command::PrRead) {
                 entry->setState(I);
-                data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
-                sendDataResponse(reqEv, entry, data, Command::GetSResp);
-                mshr->setData(addr, event->getPayload(), false); // So subsequent GetS can get data
+                sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
                 break;
             } else if (protocol == CoherenceProtocol::MESI) {
                 entry->setState(M);
@@ -1957,8 +1953,8 @@ bool DirectoryController::handleGetXResp(MemEvent * event, bool inMSHR) {
         case S_D:
             entry->setState(S);
             if (reqEv->getCmd() == Command::PrRead) {
-                data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
-                sendDataResponse(reqEv, entry, data, Command::GetSResp);
+                sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
+                break;
             } else {
                 entry->addSharer(reqEv->getSrc());
                 sendDataResponse(reqEv, entry, event->getPayload(), Command::GetSResp);
@@ -1968,8 +1964,7 @@ bool DirectoryController::handleGetXResp(MemEvent * event, bool inMSHR) {
         case IM:
             if (reqEv->getCmd() == Command::PrWrite) {
                 entry->setState(I);
-                data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
-                sendDataResponse(reqEv, entry, data, Command::GetXResp);
+                sendDataResponse(reqEv, entry, event->getPayload(), Command::GetXResp);
             } else if (reqEv->getCmd() == Command::PrLock) {
                 entry->setState(L);
                 data.assign(event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr()), event->getPayload().begin() + (reqEv->getAddr() - reqEv->getBaseAddr() + reqEv->getSize()));
