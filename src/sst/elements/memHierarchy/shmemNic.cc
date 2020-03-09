@@ -24,10 +24,9 @@ using namespace SST::MemHierarchy;
 int ShmemNicNetworkEvent::maxSize = 64;
 
 ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocalCmdQSize(64), m_clockWork(0), m_maxRemoteCmdQSize(64),
-        m_localCmdQ(2), m_remoteCmdQ(2), m_nextInVc(0), m_nextOutVc(0), m_cmdCnt(0),m_finishLocalCmdCnt(0),m_finishRemoteCmdCnt(0), m_pendingCmdCnt(2,0)
+        m_localCmdQ(2), m_remoteCmdQ(2), m_nextInVc(0), m_nextOutVc(0), m_cmdCnt(0),m_finishLocalCmdCnt(0),m_finishRemoteCmdCnt(0), m_pendingCmdCnt(2,0),
+        m_cacheLineSize(0)
 {
-    printf("%s() sizeof( NicCmd ) %zu sizeof(NicResp) %zu\n", __func__, sizeof( NicCmd ), sizeof(NicResp) );
-
     m_nicId = params.find<int>("nicId", -1);
     m_pesPerNode = params.find<int>("pesPerNode", 0);
 
@@ -37,26 +36,21 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
     uint64_t hostQueueInfoBaseAddr  = params.find<uint64_t>("hostQueueInfoBaseAddr", 0 );
     size_t   hostQueueInfoSizePerPe = params.find<size_t>("hostQueueInfoSizePerPe", 64 );
 
-    uint64_t hostQueueBaseAddr   = params.find<uint64_t>("hostQueueBaseAddr", 0x10000 );
+    m_hostQueueBaseAddr   = params.find<uint64_t>("hostQueueBaseAddr", 0x10000 );
     size_t   hostQueueSizePerPe  = params.find<size_t>("hostQueueSizePerPe", 4096 );
 
     uint64_t shmemBaseAddr = params.find<uint64_t>("shmemBaseAddr", 1048576 );
     size_t   shmemMemPerPe = params.find<size_t>("shmemMemPerPe", 0x100000 );
-
-    int cacheLineSize = params.find<int>("cache_line_size",64); 
 
     m_maxHostCmdQSize = params.find<int>("maxCmdQSize",256);
     m_cmdQSize = params.find<int>("cmdQSize", 64);
     m_respQSize = params.find<int>("respQSize", m_cmdQSize);
     m_maxPendingCmds = params.find<size_t>("maxPendingCmds", m_pesPerNode ); 
 
-    assert( hostQueueBaseAddr >= hostQueueInfoBaseAddr + hostQueueInfoSizePerPe * m_pesPerNode );
-    assert( shmemBaseAddr >= hostQueueBaseAddr + hostQueueSizePerPe * m_pesPerNode );
+    assert( m_hostQueueBaseAddr >= hostQueueInfoBaseAddr + hostQueueInfoSizePerPe * m_pesPerNode );
+    assert( shmemBaseAddr >= m_hostQueueBaseAddr + hostQueueSizePerPe * m_pesPerNode );
     assert( sizeof(NicResp) * m_respQSize <= hostQueueSizePerPe );
     assert( sizeof(NicCmd) * m_cmdQSize <= m_perPeMemSize + 64 );// last 64 bytes of this block of memory is for queue info
-    assert( cacheLineSize % sizeof(NicCmd) == 0 );  
-    assert( cacheLineSize % sizeof(NicResp) == 0 );  
-    assert( hostQueueBaseAddr % cacheLineSize == 0 );
 
     // Output for debug
     char buffer[100];
@@ -76,7 +70,7 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
         dbg.debug(CALL_INFO,1,0,"nicId=%d cmdQSize=%d respQSize=%d pesPerNode=%d\n", m_nicId, m_cmdQSize, m_respQSize, m_pesPerNode );
         dbg.debug(CALL_INFO,1,0,"nicBaseAddr=%#" PRIx64 " sizerPerThread=%zu\n",  m_ioBaseAddr, m_perPeMemSize ); 
         dbg.debug(CALL_INFO,1,0,"hostQueueInfoBaseAddr=%#" PRIx64 " hostQueueInfoSizePerPe=%zu\n", hostQueueInfoBaseAddr, hostQueueInfoSizePerPe ); 
-        dbg.debug(CALL_INFO,1,0,"hostQueueBaseAddr=%#" PRIx64 " hostQueueSizePerPe=%zu\n",  hostQueueBaseAddr, hostQueueSizePerPe);
+        dbg.debug(CALL_INFO,1,0,"hostQueueBaseAddr=%#" PRIx64 " hostQueueSizePerPe=%zu\n",  m_hostQueueBaseAddr, hostQueueSizePerPe);
         dbg.debug(CALL_INFO,1,0,"shmemBaseAddr=%#" PRIx64 " shmemMemPerPe=%zu\n", shmemBaseAddr, shmemMemPerPe );
     }
 
@@ -95,7 +89,7 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
         m_hostCmdQueueV.push_back( HostCmdQueueInfo( tailAddr ) );
 
         uint32_t* tailPtr = (uint32_t*) (m_backing.data() + m_perPeMemSize * i  + 4); 
-        uint64_t queueAddr = hostQueueBaseAddr + i * hostQueueSizePerPe;
+        uint64_t queueAddr = m_hostQueueBaseAddr + i * hostQueueSizePerPe;
         uint64_t headAddr =  hostQueueInfoBaseAddr + i * hostQueueInfoSizePerPe + 4;
         m_hostRespQueueV.push_back( HostRespQueueInfo( tailPtr, queueAddr, headAddr ) );
     }
@@ -196,6 +190,14 @@ void ShmemNic::handleTargetEvent(SST::Event* event) {
         // write non-cacheable
         case Command::GetX: {
             int thread = ( ev->getAddr() - m_ioBaseAddr ) / m_perPeMemSize;
+
+#if 0
+            std::ostringstream tmp(std::ostringstream::ate);
+            tmp << std::hex;
+            for ( int i = 0; i < ev->getSize(); i++ ) {
+                tmp << "0x" << (int) ev->getPayload().at(i)  << ",";
+            }
+#endif
 
             dbg.debug( CALL_INFO,1,0,"Write size=%zu addr=%" PRIx64 " offset=%llu thread=%d\n",
                     ev->getPayload().size(), ev->getAddr(), ev->getAddr() - m_ioBaseAddr, thread );
@@ -432,7 +434,7 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
 
 ShmemNic::ShmemCmd* ShmemNic::createCmd( NicCmd& cmd, int thread ) {
 
-    dbg.debug( CALL_INFO,1,0,"type=%d handle=%d\n",cmd.type, cmd.handle);
+    dbg.debug( CALL_INFO,1,0,"thread=%d type=%d handle=%d\n", thread, cmd.type, cmd.handle);
 
     if ( cmd.type == NicCmd::Type::Shmem ) {
         switch ( cmd.data.shmem.op ) {
@@ -612,7 +614,8 @@ void ShmemNic::processThreadCmdQs( ) {
 
             HostCmdQueueInfo& info = m_hostCmdQueueV[thread]; 
 
-            dbg.debug( CALL_INFO,1,0,"core %d cmd available tail=%d\n",thread,info.localTailIndex);
+            dbg.debug( CALL_INFO,1,0,"thread %d cmd available tail=%d\n",thread,info.localTailIndex);
+
             ShmemCmd* cmd = createCmd( thread, info.localTailIndex );
             if ( cmd ) {
                 m_hostCmdQ.push( cmd ); 
@@ -629,6 +632,7 @@ void ShmemNic::processThreadCmdQs( ) {
 void ShmemNic::processHostRespQ( ) {
     if ( ! m_memReqQ->full( m_respQueueMemChannel ) ) {
         if ( ! m_hostRespQ.empty() ) {    
+            assert(0);
 #if  0
             int thread = cmd->getDestPid();
 #endif
@@ -643,19 +647,11 @@ void ShmemNic::sendRespToHost( NicResp& resp, int thread )
     if ( *info.tailPtr != ( info.localHeadIndex + 1 ) % m_respQSize ) {
 
          dbg.debug( CALL_INFO,1,0,"good\n" );
-#if 1 
          m_memReqQ->write( m_respQueueMemChannel, info.cmdAddr(info.localHeadIndex), sizeof(resp), reinterpret_cast<uint8_t*>(&resp) );
-#else
-         m_memReqQ->write( m_respQueueMemChannel, info.cmdAddr(info.localHeadIndex) + 64, sizeof(resp), reinterpret_cast<uint8_t*>(&resp) );
-#endif
          m_memReqQ->fence( m_respQueueMemChannel );
          ++info.localHeadIndex;
          info.localHeadIndex %= m_respQSize;		
-#if 1 
          m_memReqQ->write( m_respQueueMemChannel, info.headAddr, 4, info.localHeadIndex );
-#else
-         m_memReqQ->write( m_respQueueMemChannel, info.cmdAddr(0), 4, info.localHeadIndex );
-#endif
      }
 }
 
@@ -822,11 +818,18 @@ void ShmemNic::init(unsigned int phase) {
     }
 
     while (MemEventInit *ev = m_link->recvInitData()) {
-        MemEventBase *meb = static_cast<MemEventBase*>(ev);
-        if ( Command::NULLCMD != meb->getCmd() ) {
+        if (ev->getCmd() == Command::NULLCMD) {
+            if (ev->getInitCmd() == MemEventInit::InitCommand::Coherence) {
+                MemEventInitCoherence * mEv = static_cast<MemEventInitCoherence*>(ev);
+                if ( m_cacheLineSize == 0 ) {
+                    m_cacheLineSize = mEv->getLineSize();
+                }
+                assert( m_cacheLineSize == mEv->getLineSize() ); 
+            }
+            delete ev;
+        } else {
             assert(0);
         }
-        delete ev;
     }
 
     m_linkControl->init(phase);
@@ -834,6 +837,9 @@ void ShmemNic::init(unsigned int phase) {
 
 void ShmemNic::setup(void) {
     m_link->setup();
+    assert( m_cacheLineSize % sizeof(NicCmd) == 0 );  
+    assert( m_cacheLineSize % sizeof(NicResp) == 0 );  
+    assert( m_hostQueueBaseAddr % m_cacheLineSize == 0 );
 }
 
 

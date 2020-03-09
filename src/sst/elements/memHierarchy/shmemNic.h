@@ -220,7 +220,7 @@ class ShmemNic : public SST::Component {
         void print( Cycle_t cycle ) {
             printf("%" PRIu64 " %d:  pendingReq=%zu :",cycle, Nic().m_nicId, m_pendingReq.size() );
             for ( int i = 0; i < m_reqSrcQs.size(); i++) {
-                printf("src=%d %zu %zu %zu :",i,m_reqSrcQs[i].queue.size(), m_reqSrcQs[i].waiting.size(), m_reqSrcQs[i].ready.size() );
+                printf("src=%d queue=%zu waiting=%zu ready=%zu, ",i,m_reqSrcQs[i].queue.size(), m_reqSrcQs[i].waiting.size(), m_reqSrcQs[i].ready.size() );
             }
             printf("\n");
         }
@@ -232,7 +232,7 @@ class ShmemNic : public SST::Component {
         ShmemNic& Nic() { return *m_nic; }
 
         void reserve( int srcNum, void* key ) {
-            return  m_reqSrcQs[srcNum].waiting.push(key);
+            return m_reqSrcQs[srcNum].waiting.push(key);
         }
 
         bool reservationReady( int srcNum, void* key ) {
@@ -249,23 +249,25 @@ class ShmemNic : public SST::Component {
             std::vector<uint8_t> payload;
             req->reqTime=Simulation::getSimulation()->getCurrentSimCycle();
 
+            uint64_t baseAddr = req->addr & ~(Nic().m_cacheLineSize - 1);
+
             switch ( req->m_op ) {
               case MemRequest::Read:
-                Nic().dbg.debug(CALL_INFO,1,0,"read addr=%#" PRIx64 "\n",req->addr);
-                ev = new MemEvent(Nic().getName(), req->addr, req->addr, Command::PrRead, req->dataSize);
+                Nic().dbg.debug(CALL_INFO,1,0,"read addr=%#" PRIx64 " baseAddr=%#" PRIx64 "\n",req->addr,baseAddr);
+                ev = new MemEvent(Nic().getName(), req->addr, baseAddr, Command::PrRead, req->dataSize);
                 break;
 
               case MemRequest::Write:
 
                 if ( req->buf.empty() ) {
-                    Nic().dbg.debug(CALL_INFO,1,0,"write addr=%#" PRIx64 " data=%llu dataSize=%d\n",req->addr,req->data,req->dataSize);
+                    Nic().dbg.debug(CALL_INFO,1,0,"write addr=%#" PRIx64 " baseAddr=%#" PRIx64 " data=%llu dataSize=%d\n",req->addr,baseAddr,req->data,req->dataSize);
                     for ( int i = 0; i < req->dataSize; i++ ) {
                         payload.push_back( (req->data >> i*8) & 0xff );
                     }
-                    ev = new MemEvent(Nic().getName(), req->addr, req->addr, Command::PrWrite, payload);
+                    ev = new MemEvent(Nic().getName(), req->addr, baseAddr, Command::PrWrite, payload);
                 } else {
-                    Nic().dbg.debug(CALL_INFO,1,0,"write addr=%#" PRIx64 " dataSize=%d\n",req->addr,req->dataSize);
-                    ev = new MemEvent(Nic().getName(), req->addr, req->addr, Command::PrWrite, req->buf);
+                    Nic().dbg.debug(CALL_INFO,1,0,"write addr=%#" PRIx64 " baseAddr=%#" PRIx64 " dataSize=%d\n",req->addr,baseAddr,req->dataSize);
+                    ev = new MemEvent(Nic().getName(), req->addr, baseAddr, Command::PrWrite, req->buf);
                 }
                 break;
 
@@ -325,11 +327,15 @@ class ShmemNic : public SST::Component {
 
                     if ( event->getCmd() == Command::NACK ) {
                         if ( req->m_op == MemRequest::Read || q.size() == pos ) {
+#if 0
                             printf("retry request for 0x%" PRIx64 "\n", req->addr );
+#endif
                             m_retryQ.push( std::make_pair(event, req) );
                         } else {
                             drop = true;
+#if 0
                             printf("drop request for 0x%" PRIx64 " %d %zu\n", req->addr, pos, q.size() );
+#endif
                         }
                     } 
 
@@ -359,7 +365,9 @@ class ShmemNic : public SST::Component {
             if ( ! m_retryQ.empty() ) {
                 auto entry = m_retryQ.front(); 
 
+#if 0
                 printf("%s() handle retry %" PRIx64 " \n",__func__,entry.second->addr);
+#endif
 
                 Nic().m_link->send( entry.first->getNACKedEvent() );
                 delete entry.first;
@@ -391,6 +399,11 @@ class ShmemNic : public SST::Component {
            //             printf("%d:%s() addr 0x%" PRIx64 " %s\n",Nic().m_nicId,__func__,req->addr,req->m_op == MemRequest::Read ? "Read": "Write" );
                         m_pendingMap[q.front()->addr].push_back( q.front() );
                         q.pop();
+                        auto& w = m_reqSrcQs[pos].waiting;
+                        if ( ! w.empty() ) {
+                            m_reqSrcQs[pos].ready.insert( w.front() ); 
+                            w.pop();
+                        }
                         break;
                     }
                 }
@@ -449,6 +462,9 @@ class ShmemNic : public SST::Component {
     std::vector<uint8_t> m_backing;
     int m_pesPerNode;
     size_t m_perPeMemSize;
+
+    size_t m_cacheLineSize;
+    uint64_t m_hostQueueBaseAddr;
 
     enum DataType { Int64 }; 
 
@@ -692,6 +708,7 @@ class ShmemNic : public SST::Component {
 
     ShmemCmd* createCmd( int thread, int pos ) {
         NicCmd* cmd = (NicCmd*) (m_backing.data() + thread * m_perPeMemSize);
+        dbg.debug( CALL_INFO,1,0,"thread=%d pos=%d addr=%#lx\n", thread, pos, thread * m_perPeMemSize );
         return createCmd( cmd[pos], thread );
     }
 
