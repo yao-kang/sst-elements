@@ -50,8 +50,10 @@ class GupsCpu : public SST::Component {
 public:
 
 	GupsCpu(SST::ComponentId_t id, SST::Params& params);
-	void finish();
-	void init(unsigned int phase);
+	void finish(){ }
+	void init(unsigned int phase) {
+        cache_link->init(phase);
+    }
 
 	SST_ELI_REGISTER_COMPONENT(
         	GupsCpu,
@@ -89,9 +91,13 @@ private:
 	GupsCpu();  // for serialization only
 	GupsCpu(const GupsCpu&); // do not implement
 	void operator=(const GupsCpu&); // do not implement
-	~GupsCpu();
+	~GupsCpu() {
+         delete out;
+    }
 
-	void handleEvent( SimpleMem::Request* ev );
+	void handleEvent( SimpleMem::Request* ev ) {
+        m_shmemQ->handleEvent( ev );
+    }
 	bool clockTick( SST::Cycle_t );
 
  	Output* out;
@@ -191,11 +197,13 @@ private:
     int m_myPe;
     int m_numPes;
     int m_numNodes;
+    int m_threadsPerNode;
     int m_activeThreadsPerNode;
     uint64_t seed_a;
     uint64_t seed_b;
     RNG::SSTRandom* rng;
     size_t m_gupsMemSize;
+
 #if 0
 	enum State { Init, ReadHeadTail, WaitRead, CheckHeadTail, Fence, WriteHead, Quiet, WaitReadQuiet, Finish } m_state;
     State m_nextState;
