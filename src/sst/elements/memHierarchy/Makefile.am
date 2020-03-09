@@ -111,6 +111,13 @@ libmemHierarchy_la_SOURCES = \
 	testcpu/scratchCPU.h \
 	testcpu/scratchCPU.cc \
 	util.h \
+	spmvCpu.h \
+	spmvCpu.cc \
+	gupsCpu.h \
+	gupsCpu.cc \
+	shmemNic.h \
+	shmemNic.cc \
+	shmemCmdQ.h \
 	memTypes.h \
 	dmaEngine.h \
 	dmaEngine.cc \
