@@ -6,17 +6,16 @@ GupsCpu::ShmemQueue<T>::ShmemQueue( T* cpu, int qSize, int respQsize,
                     uint64_t hostQueueBaseAddr, size_t hostQueueSizePerPe ) :
 	m_cpu(cpu), m_qSize(qSize), m_respQsize(respQsize), 
     nicBaseAddr(nicBaseAddr), nicMemLength(nicMemLength), 
-    hostQueueInfoBaseAddr(hostQueueInfoBaseAddr), hostQueueInfoSizePerPe(hostQueueInfoSizePerPe), 
-    hostQueueBaseAddr(hostQueueBaseAddr), hostQueueSizePerPe(hostQueueSizePerPe),
     m_head(0),m_respHead(0),m_state(ReadHeadTail),m_activeReq(NULL), m_handle(0),m_respRead(NULL)
 {
-    nicCmdQAddr = nicBaseAddr;
-    if ( 0 == m_cpu->m_myPe ) {
-        m_cpu->m_dbg.debug(CALL_INFO,1,0,"cmdQSize=%d respQSize=%d\n", m_qSize, m_respQsize );
-        m_cpu->m_dbg.debug(CALL_INFO,1,0,"nicBaseAddr=%#" PRIx64 " sizerPerThread=%zu\n",  nicBaseAddr, nicMemLength );
-        m_cpu->m_dbg.debug(CALL_INFO,1,0,"hostQueueInfoBaseAddr=%#" PRIx64 " hostQueueInfoSizePerPe=%zu\n", hostQueueInfoBaseAddr, hostQueueInfoSizePerPe );
-        m_cpu->m_dbg.debug(CALL_INFO,1,0,"hostQueueBaseAddr=%#" PRIx64 " hostQueueSizePerPe=%zu\n",  hostQueueBaseAddr, hostQueueSizePerPe);
-    }
+    nicCmdQAddr = nicBaseAddr  + ( m_cpu->m_myPe % m_cpu->m_threadsPerNode ) * nicMemLength;
+    hostQueueInfoAddr = hostQueueInfoBaseAddr + ( m_cpu->m_myPe % m_cpu->m_threadsPerNode ) * hostQueueInfoSizePerPe;
+    hostQueueAddr = hostQueueBaseAddr + ( m_cpu->m_myPe % m_cpu->m_threadsPerNode ) *  hostQueueSizePerPe;
+
+    m_cpu->m_dbg.debug(CALL_INFO,1,0,"cmdQSize=%d respQSize=%d\n", m_qSize, m_respQsize );
+    m_cpu->m_dbg.debug(CALL_INFO,1,0,"nicCmdQAddr=%#" PRIx64 " sizerPerThread=%zu\n",  nicCmdQAddr, nicMemLength );
+    m_cpu->m_dbg.debug(CALL_INFO,1,0,"hostQueueInfoAddr=%#" PRIx64 " hostQueueInfoSizePerPe=%zu\n", hostQueueInfoAddr, hostQueueInfoSizePerPe );
+    m_cpu->m_dbg.debug(CALL_INFO,1,0,"hostQueueAddr=%#" PRIx64 " hostQueueSizePerPe=%zu\n",  hostQueueAddr, hostQueueSizePerPe);
 }
 
 template< class T>
@@ -108,7 +107,7 @@ bool GupsCpu::ShmemQueue<T>::process( Cycle_t cycle ){
 
       case ReadHeadTail:
         m_cpu->m_dbg.debug(CALL_INFO,1,0,"ReadHeadTail\n");
-        m_cmdTailRead = read( hostQueueInfoBaseAddr, 4 );
+        m_cmdTailRead = read( hostQueueInfoAddr, 4 );
         m_state = WaitRead;	
 		break;	
 
@@ -161,11 +160,7 @@ template< class T>
 void GupsCpu::ShmemQueue<T>::checkForResp(  ){
     if ( NULL == m_respRead  ) {
         m_cpu->m_dbg.debug(CALL_INFO,1,0,"read response Q head\n");
-#if 1 
-        m_respRead = read( hostQueueInfoBaseAddr + 4, 4 );
-#else
-        m_respRead = read( 0x10000, 4 );
-#endif
+        m_respRead = read( hostQueueInfoAddr + 4, 4 );
         m_respState = RespState::WaitReadHead;
     } else {
 
@@ -178,21 +173,13 @@ void GupsCpu::ShmemQueue<T>::checkForResp(  ){
                 delete m_respRead;
                 if ( head != m_respHead ) {
                     m_cpu->m_dbg.debug(CALL_INFO,1,0,"head has changed %d\n",head);
-#if 1 
-                    m_respRead = read( hostQueueBaseAddr + sizeof(NicResp) * m_respHead, sizeof(NicResp) );
-#else
-                    m_respRead = read( 0x10040 + sizeof(NicResp) * m_respHead, sizeof(NicResp) );
-#endif
+                    m_respRead = read( hostQueueAddr + sizeof(NicResp) * m_respHead, sizeof(NicResp) );
                     ++m_respHead; 
                     m_respHead %= m_respQsize;
 
                     m_respState = RespState::WaitReadCmd;
                 } else {
-#if 1 
-                     m_respRead = read( hostQueueInfoBaseAddr + 4, 4 );
-#else
-                    m_respRead = read( 0x10000, 4 );
-#endif
+                     m_respRead = read( hostQueueAddr + 4, 4 );
                     break;
                 }
             }
