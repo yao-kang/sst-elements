@@ -44,7 +44,7 @@ cmdQsize =64
 gupsMemSize=0x100000
 
 ep = KingsleyNode.Endpoint( numNodes, pesPerNode, nicAddr, cmdQsize, gupsMemSize, 
-	networkParams['link_bw'], networkParams['input_buf_size'], networkParams['output_buf_size'], 1 )
+	networkParams['link_bw'], networkParams['input_buf_size'], networkParams['output_buf_size'], 36 )
 
 def setNode( nodeId ):
     print 'setNode', nodeId

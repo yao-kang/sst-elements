@@ -61,15 +61,15 @@ cpu_params = {
     "verbose" : 0,
     "clock" : core_clock,
     "printStats" : 1,
-    "iterations": 1,
+    "iterations": 1000,
     "debug": 1,
-    "debug_level": 10,
+    "debug_level": 0,
 }
 
 nic_params = {
     "clock" : "8GHz",
     "debug":1,
-    "debug_level": 10,
+    "debug_level": 0,
     "maxPendingCmds" : 128,
     "maxMemReqs" : 256,
     "maxCmdQSize" : 128,
@@ -589,9 +589,10 @@ class Endpoint():
 
         cpu_params['numPes'] = self.numPes
         cpu_params['cmdQSize'] = cmdQsize
-        cpu_params['gupsMemSize'] = gupsMemSize;
-        cpu_params['numNodes'] = numNodes;
-        cpu_params['activeThreadsPerNode'] = activeThreadPerNode;
+        cpu_params['gupsMemSize'] = gupsMemSize
+        cpu_params['numNodes'] = numNodes
+        cpu_params['activeThreadsPerNode'] = activeThreadPerNode
+        cpu_params['threadsPerNode'] = pesPerNode 
 
     def prepParams( self ):
         pass
