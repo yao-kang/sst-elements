@@ -701,6 +701,7 @@ void ShmemNic::feedTheNetwork() {
 
         if ( ! m_remoteCmdQ[pos].empty() ) {
             if ( sendRemoteCmd( pos, static_cast<ShmemCmd*>( m_remoteCmdQ[pos].front() ) ) ) {
+                delete m_remoteCmdQ[pos].front();
                 m_remoteCmdQ[pos].pop();
                 break;
             }

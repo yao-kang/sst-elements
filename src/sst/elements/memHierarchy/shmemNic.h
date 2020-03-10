@@ -389,6 +389,7 @@ class ShmemNic : public SST::Component {
                             if ( m_reqSrcQs[pos].pendingCnts ) {
                                 continue;
                             } else {
+								delete q.front();
                                 q.pop();
                             }
                         }
@@ -503,7 +504,7 @@ class ShmemNic : public SST::Component {
 
       public:
         ShmemCmd( ShmemNic* nic, DataType dataType, uint32_t handle = 0 ) :
-			m_nic(nic), m_dataType(dataType), m_srcNode(-1), m_memEvent(NULL), m_state(GetUnit), m_netEvent(NULL), m_handle(handle)
+			m_nic(nic), m_dataType(dataType), m_srcNode(-1), m_memEvent(NULL), m_state(GetUnit), m_netEvent(NULL), m_handle(handle), m_callback(NULL)
         {
             m_callback = new MemRequest::Callback;
             *m_callback = std::bind( &ShmemNic::ShmemCmd::setMemEvent, this, std::placeholders::_1 );
@@ -511,22 +512,28 @@ class ShmemNic : public SST::Component {
 
         ShmemCmd( ShmemNic* nic, ShmemOp op, DataType dataType, int srcNode, int srcPid, int destNode, uint64_t addr ) :
             m_nic(nic), m_addr(addr), m_memEvent( NULL ), m_op(op), m_dataType(dataType), m_srcNode( srcNode ), m_srcPid(srcPid), 
-            m_destNode(destNode), m_state( GetUnit), m_type( NicCmd::Type::Fam ), m_netEvent(NULL), m_handle(0)
+            m_destNode(destNode), m_state( GetUnit), m_type( NicCmd::Type::Fam ), m_netEvent(NULL), m_handle(0), m_callback(NULL)
         {
-            m_callback = new MemRequest::Callback;
-            *m_callback = std::bind( &ShmemNic::ShmemCmd::setMemEvent, this, std::placeholders::_1 );
+			if ( nic->m_nicId == m_destNode ) {
+            	m_callback = new MemRequest::Callback;
+            	*m_callback = std::bind( &ShmemNic::ShmemCmd::setMemEvent, this, std::placeholders::_1 );
+			}
         }
 
         ShmemCmd( ShmemNic* nic, ShmemOp op, DataType dataType, int srcNode, int srcPid, int destNode, int destPid, uint64_t addr ) :
             m_nic(nic), m_addr(addr), m_memEvent( NULL ), m_op(op), m_dataType(dataType), m_srcNode( srcNode ), m_srcPid(srcPid), 
-            m_destNode(destNode), m_destPid(destPid), m_state( GetUnit), m_type( NicCmd::Type::Shmem ), m_netEvent(NULL), m_handle(0)
+            m_destNode(destNode), m_destPid(destPid), m_state( GetUnit), m_type( NicCmd::Type::Shmem ), m_netEvent(NULL), m_handle(0), m_callback(NULL)
         {
-            m_callback = new MemRequest::Callback;
-            *m_callback = std::bind( &ShmemNic::ShmemCmd::setMemEvent, this, std::placeholders::_1 );
+			if ( nic->m_nicId == m_destNode ) {
+            	m_callback = new MemRequest::Callback;
+            	*m_callback = std::bind( &ShmemNic::ShmemCmd::setMemEvent, this, std::placeholders::_1 );
+			}
         }
 
         virtual ~ShmemCmd() { 
-            delete m_callback; 
+			if ( m_callback ) {
+            	delete m_callback; 
+			}
             if ( m_netEvent ) {
                 delete m_netEvent;
             }
