@@ -26,7 +26,7 @@
 using namespace SST::MemHierarchy;
 
 GupsCpu::GupsCpu(SST::ComponentId_t id, SST::Params& params) :
-	Component(id), m_count(0), m_state(Quiet)
+	Component(id), m_count(0), m_state(Quiet), m_shmemQ(NULL)
 {
 
     m_myPe = params.find<int>("pe",-1 );
@@ -138,7 +138,7 @@ bool GupsCpu::clockTick(SST::Cycle_t cycle) {
             if ( ! m_quietReq.done ) {
                 break;
             }
-            if ( m_myPe ==0  ) {
+            if ( m_myPe == 0  ) {
                 double startSeconds = 0;
                 double endSeconds = getCurrentSimTimeNano() * 1.0e-9;
                 double updateTotal = (double) m_totalGups * (double) (m_activeThreadsPerNode * m_numNodes);
