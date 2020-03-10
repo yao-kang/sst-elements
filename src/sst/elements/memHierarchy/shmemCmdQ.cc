@@ -179,7 +179,7 @@ void GupsCpu::ShmemQueue<T>::checkForResp(  ){
 
                     m_respState = RespState::WaitReadCmd;
                 } else {
-                     m_respRead = read( hostQueueAddr + 4, 4 );
+                     m_respRead = read( hostQueueInfoAddr + 4, 4 );
                     break;
                 }
             }

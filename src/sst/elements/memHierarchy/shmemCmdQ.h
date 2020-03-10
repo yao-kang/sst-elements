@@ -13,7 +13,7 @@ struct MyRequest {
     SimpleMem::Request* resp;
 
     void copyData( void* dest, size_t length ) {
-        assert( length <= resp->data.size() );
+        assert( length == resp->data.size() );
         memcpy( dest, resp->data.data(), length );
     }
 
@@ -48,6 +48,9 @@ class ShmemQueue {
     void quiet( ShmemReq* );
     void inc( int pe, uint64_t addr );
     void handleEvent( SimpleMem::Request* ev );
+	void printInfo() {
+		printf("pending=%zu %zu %zu\n",m_pending.size(),m_cmdQ.size(), m_pendingReq.size());
+	}
 
   private:
 
@@ -92,7 +95,7 @@ class ShmemQueue {
             req->flags = SimpleMem::Request::F_NONCACHEABLE;
         }
         m_pending[ req->id ] = new MyRequest;
-        m_cpu->m_dbg.debug(CALL_INFO,1,0,"id=%" PRIu64 " addr=0x%" PRIx64 " num=%d\n",req->id, addr, size);
+        m_cpu->m_dbg.debug(CALL_INFO,1,0,"id=%" PRIu64 " addr=0x%" PRIx64 " num=%d %s\n",req->id, addr, size, notCached(addr) ? "":"cached" );
         m_cpu->cache_link->sendRequest(req);
         return m_pending[ req->id ];
     }
