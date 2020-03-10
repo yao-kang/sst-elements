@@ -79,6 +79,7 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
     m_threadInfo.resize( m_pesPerNode );
 
     for ( int i = 0; i < m_pesPerNode; i++ ) {
+
         auto& info = m_threadInfo[i];
         info.pendingCnt = 0;
 
@@ -191,6 +192,7 @@ void ShmemNic::handleTargetEvent(SST::Event* event) {
         case Command::GetX: {
             int thread = ( ev->getAddr() - m_ioBaseAddr ) / m_perPeMemSize;
 
+            NicCmd* cmd = reinterpret_cast<NicCmd*>(ev->getPayload().data());
 #if 0
             std::ostringstream tmp(std::ostringstream::ate);
             tmp << std::hex;
@@ -198,9 +200,8 @@ void ShmemNic::handleTargetEvent(SST::Event* event) {
                 tmp << "0x" << (int) ev->getPayload().at(i)  << ",";
             }
 #endif
-
-            dbg.debug( CALL_INFO,1,0,"Write size=%zu addr=%" PRIx64 " offset=%llu thread=%d\n",
-                    ev->getPayload().size(), ev->getAddr(), ev->getAddr() - m_ioBaseAddr, thread );
+            dbg.debug( CALL_INFO,1,0,"Write size=%zu addr=%" PRIx64 " offset=%llu thread=%d handle=%d\n",
+                    ev->getPayload().size(), ev->getAddr(), ev->getAddr() - m_ioBaseAddr, thread, cmd->handle );
 
             // we need to increment the pending count now because the host reads it to see if the NIC is idle for this thread
             // the host could read it before the clock() function could update it
@@ -411,8 +412,10 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
     case Write:
 
         if ( getUnit() ) {
+            int thread = getDestPid();
+            ShmemMemRegion& region = Nic().m_threadInfo[thread].shmemRegion;
             Nic().dbg.debug( CALL_INFO,1,0,"write %" PRIx64 "\n", getAddr() );
-            Nic().m_memReqQ->write( Nic().m_shmemOpQnum, getAddr(), Nic().dataTypeSize(getDataType()), m_data, m_callback );
+            Nic().m_memReqQ->write( Nic().m_shmemOpQnum, region.baseAddr + getAddr(), Nic().dataTypeSize(getDataType()), m_data, m_callback );
             m_state = WriteWait; 
         }
         break;
@@ -623,7 +626,7 @@ void ShmemNic::processThreadCmdQs( ) {
             }
             ++info.localTailIndex;
             info.localTailIndex %= m_cmdQSize;		
-            dbg.debug( CALL_INFO,1,0,"write tail=%d at %#" PRIX64 "\n",info.localTailIndex, info.tailAddr );
+            dbg.debug( CALL_INFO,1,0,"write tail=%d at %#" PRIx64 "\n",info.localTailIndex, info.tailAddr );
             m_memReqQ->write( m_tailWriteQnum, info.tailAddr, 4, info.localTailIndex );
         }
     }
