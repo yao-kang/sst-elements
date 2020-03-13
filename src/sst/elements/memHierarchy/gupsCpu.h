@@ -26,6 +26,8 @@ using namespace SST;
 using namespace SST::Interfaces;
 using namespace SST::Statistics;
 
+#include "shmemCmdQ.h"
+
 namespace SST {
 namespace MemHierarchy {
 
@@ -61,6 +63,11 @@ public:
 	void init(unsigned int phase) {
         cache_link->init(phase);
     }
+
+    Output& dbg() { return m_dbg; }
+    int myPe() { return m_myPe; }
+    int threadsPerNode() { return m_threadsPerNode; }
+    void sendRequest( SimpleMem::Request* req ) { cache_link->sendRequest(req); }
 
 	SST_ELI_REGISTER_COMPONENT(
         	GupsCpu,
@@ -112,8 +119,6 @@ private:
 	TimeConverter* timeConverter;
 	Clock::HandlerBase* clockHandler;
 	SimpleMem* cache_link;
-
-#include "shmemCmdQ.h"
 
     ShmemQueue<GupsCpu>* m_shmemQ;
 

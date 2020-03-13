@@ -61,9 +61,6 @@ GupsCpu::GupsCpu(SST::ComponentId_t id, SST::Params& params) :
 	prefix << "@t:" <<getName() << ":GupsCpu[@p:@l]: ";
 	out = new Output( prefix.str(), verbose, 0, SST::Output::STDOUT);
         
-    //if ( m_myPe == 36 ) {
-    //if ( m_myPe == 0 ) {
-    //if ( m_myPe == 0 || m_myPe == 1 ) {
     if ( (m_myPe % numThreadsPerNode) < m_activeThreadsPerNode ) {
 
         m_dbg.debug(CALL_INFO,1,0,"myPe=%d numPes=%d threadsPerNode=%d\n", m_myPe, m_numPes, m_threadsPerNode );
@@ -74,7 +71,6 @@ GupsCpu::GupsCpu(SST::ComponentId_t id, SST::Params& params) :
             params.find<int>("cmdQSize", 64),
             params.find<int>("respQSize", params.find<int>("cmdQSize", 64) ),
             params.find<uint64_t>( "nicBaseAddr", 0x100000000 ),
-            params.find<size_t>( "nicMemLength", 4096 ),
             params.find<uint64_t>("hostQueueInfoBaseAddr", 0 ),
             params.find<size_t>("hostQueueInfoSizePerPe", 64 ),
             params.find<uint64_t>("hostQueueBaseAddr", 0x10000 ),
@@ -158,5 +154,3 @@ bool GupsCpu::clockTick(SST::Cycle_t cycle) {
  	
 	return false;
 }
-
-#include "shmemCmdQ.cc"
