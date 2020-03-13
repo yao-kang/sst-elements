@@ -64,12 +64,17 @@ cpu_params = {
     "iterations": 1000,
     "debug": 1,
     "debug_level": 10,
+    #"debug_mask": 1 << 0 | 1<< 2 ,
+    "debug_mask": 1<<2, 
 }
 
 nic_params = {
     "clock" : "8GHz",
     "debug":1,
     "debug_level": 10,
+    #"debug_mask": 1<<1 | 1 << 2,
+    #"debug_mask": 1<<1,
+    "debug_mask": -1,
     "maxPendingCmds" : 128,
     "maxMemReqs" : 256,
     "maxCmdQSize" : 128,
@@ -316,13 +321,12 @@ class DDRDCBuilder:
 
 class TileBuilder:
     def __init__(self):
-        self.init(0,0,0)
+        self.init(0,0)
         self.pesPerNode = 36
 
-    def init(self,nicId,nicBaseAddr,perPeMemSize):
+    def init(self,nicId,nicBaseAddr):
         self.nicId = nicId
         self.nicBaseAddr = nicBaseAddr 
-        self.perPeMemSize = perPeMemSize 
         self.next_tile_id = 0
         self.next_core_id = 0
         self.next_addr_id = 0
@@ -514,19 +518,16 @@ class NicBuilder:
     def __init__(self ):
         self.cmdQ = 1 
 
-    def build(self, nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize, perPeMemSize, gupsMemSize, link_bw, input_buf_size, output_buf_size ):
+    def build(self, nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize, gupsMemSize, link_bw, input_buf_size, output_buf_size ):
 
         nic = sst.Component( "nic", "memHierarchy.ShmemNic")
 
-        print('nodeId={} numNodes={} pesPerNode={} nicBaseAddr={} cmdQsize={} perPeMemSize={} gupsMemSize={}').format( nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize, perPeMemSize, gupsMemSize )
+        print('nodeId={} numNodes={} pesPerNode={} nicBaseAddr={} cmdQsize={} gupsMemSize={}').format( nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize, gupsMemSize )
         nic.addParams( nic_params )
         nic.addParam( 'nicId', nodeID )
         nic.addParam( 'cmdQSize', cmdQsize)
         nic.addParam( 'baseAddr', nicBaseAddr )
         nic.addParam( 'pesPerNode', pesPerNode )
-        nic.addParam( 'perPeMemSize', perPeMemSize )
-        nic.addParam( 'addr_range_start', nicBaseAddr )
-        nic.addParam( "addr_range_end", nicBaseAddr + perPeMemSize * pesPerNode );
         
         memNIC = nic.setSubComponent("cpulink", "memHierarchy.MemNICFour")
         memNIC.addParams(shmemNic_nic_params)
@@ -538,11 +539,6 @@ class NicBuilder:
         memreq.addParams(ctrl_net_params)
         memfwd.addParams(ctrl_net_params)
         memack.addParams(ctrl_net_params)
-
-        nic.addParams({
-            "addr_range_start" : nicBaseAddr,
-            "addr_range_end" : nicBaseAddr + perPeMemSize * pesPerNode,
-        })
 
         netLink = nic.setSubComponent( "rtrLink", "merlin.linkcontrol" )
         netLink.addParam("link_bw",link_bw)
@@ -561,9 +557,6 @@ class Endpoint():
         self.numPes = numNodes * pesPerNode
         self.nicBaseAddr = nicBaseAddr
         self.cmdQsize = cmdQsize
-        self.perPeMemSize = cmdQsize * 16 + 64
-        if self.perPeMemSize % 0x1000 != 0:
-            self.perPeMemSize += 0x1000 - self.perPeMemSize % 0x1000
         self.gupsMemSize = gupsMemSize
         self.link_bw = link_bw
         self.input_buf_size = input_buf_size
@@ -581,7 +574,7 @@ class Endpoint():
 
     def build( self, nicId, extraKeys ):
 
-        tileBuilder.init(nicId,self.nicBaseAddr,self.perPeMemSize)
+        tileBuilder.init(nicId,self.nicBaseAddr)
         memBuilder.init()
         DCBuilder.init(nicId)
         #print 'build node', nicId
@@ -640,7 +633,7 @@ class Endpoint():
                 setNodeDist(i, kRtrReq[i], kRtrAck[i], kRtrFwd[i], kRtrData[i])
                 i = i + 1
 
-        req,ack,fwd,data,netLink = nicBuilder.build(nicId,self.numNodes, self.pesPerNode, self.nicBaseAddr, self.cmdQsize, self.perPeMemSize, self.gupsMemSize, self.link_bw, self.input_buf_size, self.output_buf_size)
+        req,ack,fwd,data,netLink = nicBuilder.build(nicId,self.numNodes, self.pesPerNode, self.nicBaseAddr, self.cmdQsize, self.gupsMemSize, self.link_bw, self.input_buf_size, self.output_buf_size)
 
         port = "north"
         
