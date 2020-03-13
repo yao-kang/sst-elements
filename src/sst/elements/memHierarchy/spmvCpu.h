@@ -25,6 +25,8 @@ using namespace SST;
 using namespace SST::Interfaces;
 using namespace SST::Statistics;
 
+#include "shmemCmdQ.h"
+
 namespace SST {
 namespace MemHierarchy {
 
@@ -32,8 +34,22 @@ class SpmvCpu : public SST::Component {
 public:
 
 	SpmvCpu(SST::ComponentId_t id, SST::Params& params);
-	void finish();
-	void init(unsigned int phase);
+	void finish() { }
+	void init(unsigned int phase) {
+        cache_link->init(phase);
+    }
+
+    Output& dbg() { return m_dbg; }
+    int myPe() { return m_myPe; }
+    int threadsPerNode() { return m_threadsPerNode; }
+    void sendRequest( SimpleMem::Request* req ) { cache_link->sendRequest(req); }
+
+    int calcNode( uint64_t addr ) {
+        return 1;
+    }	
+    uint64_t calcAddr( uint64_t addr ) {
+        return addr;
+    }	
 
 	SST_ELI_REGISTER_COMPONENT(
         	SpmvCpu,
@@ -67,13 +83,16 @@ public:
 
 private:
 
-
 	SpmvCpu();  // for serialization only
 	SpmvCpu(const SpmvCpu&); // do not implement
 	void operator=(const SpmvCpu&); // do not implement
-	~SpmvCpu();
+	~SpmvCpu() {
+        delete out;
+    }
 
-	void handleEvent( SimpleMem::Request* ev );
+	void handleEvent( SimpleMem::Request* ev ) {
+        m_shmemQ->handleEvent( ev );
+    }
 	bool clockTick( SST::Cycle_t );
 
  	Output* out;
@@ -82,127 +101,10 @@ private:
 	Clock::HandlerBase* clockHandler;
 	SimpleMem* cache_link;
 
-	struct MyRequest {
-		MyRequest() : resp( NULL ) { }
-		~MyRequest() {
-			delete resp;
-		}
-		bool isDone() { return resp != NULL; }
-		SimpleMem::Request* resp;
-		uint64_t data() {
-			uint64_t tmp = 0;
-			for ( int i = 0; i < resp->data.size(); i++) {
-                tmp |= resp->data[i] << i * 8;
-			}
-			//printf("%s() size=%zu data=0x%" PRIx64 "\n",__func__, resp->data.size(), tmp);
-			return tmp;
-		}
-	};
+    ShmemQueue<SpmvCpu>* m_shmemQ;
 
-    struct ShmemReq {
-        ShmemReq(): done(true) {}
-        bool done;
-    };
+    ShmemReq m_quietReq;
 
-    class ShmemQueue {
-
-        enum Op { ShmemInc, ShmemPut, FamGet, FamPut };
-	    struct ShmemCmd {
-    
-            ShmemCmd( Op op, int node, uint64_t remoteAddr, uint64_t localAddr, ShmemReq* req ) : 
-                    op(op), node(node), remoteAddr(remoteAddr), localAddr(localAddr), req(req) {}
-            Op op;
-            int node;
-            uint64_t remoteAddr;
-            uint64_t localAddr;
-            ShmemReq* req; 
-	    };
-
-      public:
-        ShmemQueue( SpmvCpu* cpu, int qSize, uint64_t hostTailAddr, uint64_t nicHeadAddr, uint64_t pendingAddr, uint64_t qAddr, size_t nicMemLength  );
-        bool process( Cycle_t );
-        void get( uint64_t, uint64_t, ShmemReq* );
-        void put( uint64_t, uint64_t, ShmemReq* );
-        bool quiet();
-        void handleEvent( SimpleMem::Request* ev );
-        std::queue<ShmemCmd*> m_cmdQ;
-     private:
-        SpmvCpu* m_cpu;
-        uint32_t m_head;
-        uint32_t m_tail;
-        int m_qSize;
-    	uint64_t hostTailAddr;
-    	uint64_t nicHeadAddr;
-    	uint64_t nicPendingCntAddr;
-    	uint64_t nicCmdQAddr;
-        size_t   nicMemLength;
-        enum State { Init, ReadHeadTail, WaitRead, CheckHeadTail, Fence, WriteHead, Quiet, WaitReadQuiet  } m_state;
-        std::map<SimpleMem::Request::id_t, MyRequest*> m_pending;
-
-        MyRequest* write64( uint64_t addr, uint64_t* data ) {
-            return write( addr, *data, 8 );
-        }
-        MyRequest* write64( uint64_t addr, uint64_t data ) {
-            return write( addr, data, 8 );
-        }
-
-        MyRequest* write32( uint64_t addr, uint32_t data ) {
-            return write( addr, data, 4 );
-        }
-
-        uint64_t cmdQAddr( int pos ) {
-            return nicCmdQAddr + pos * sizeof(NicCmd);
-        }
-
-        MyRequest* write( uint64_t addr, uint64_t data, int num ) {
-
-            SimpleMem::Request* req = new SimpleMem::Request( SimpleMem::Request::Write, addr, num );
-            if ( notCached( addr ) ) {
-                req->flags = SimpleMem::Request::F_NONCACHEABLE;
-            }
-
-            m_cpu->m_dbg.debug(CALL_INFO,1,0,"addr=0x%" PRIx64 " data=%llu id=%llu\n",addr,data,req->id);
-
-            for ( int i = 0; i < num; i++ ) {
-                req->data.push_back( (data >> i*8) & 0xff );
-            }
-
-            m_pending[ req->id ] = new MyRequest;
-            m_cpu->cache_link->sendRequest(req);
-            return m_pending[ req->id ];
-        }
-
-        MyRequest* read( uint64_t addr, int size ) {
-            SimpleMem::Request* req = new SimpleMem::Request( SimpleMem::Request::Read, addr, size );
-    	    if ( notCached( addr ) ) {
-			    req->flags = SimpleMem::Request::F_NONCACHEABLE;
-		    }
-		    m_pending[ req->id ] = new MyRequest;
-		    m_cpu->m_dbg.debug(CALL_INFO,1,0,"addr=0x%" PRIx64 " id=%llu\n",addr,req->id);
-		    m_cpu->cache_link->sendRequest(req);
-		    return m_pending[ req->id ];
-	    }
-
-	    bool notCached( uint64_t addr ) {
-		    return  addr >= nicHeadAddr  && addr < nicHeadAddr + nicMemLength;
-	    }
-
-	
-        State m_nextState;
-        MyRequest* m_readReq;
-        ShmemCmd*  m_activeReq;
-        int m_handle;
-    };
-
-    int calcNode( uint64_t addr ) {
-        return 1;
-    }	
-
-    uint64_t calcAddr( uint64_t addr ) {
-        return addr;
-    }	
-
-    ShmemQueue* m_shmemQ;
     ShmemReq readStart;
     ShmemReq readEnd;
     ShmemReq readCol;
@@ -211,14 +113,15 @@ private:
     ShmemReq writeResult;
     ShmemReq writeCurValue;
 
-    enum State { OuterLoopRead, OuterLoopReadWait, InnerLoop, ReadColWait, QuietWait, Finish  } m_state;
+    enum State { OuterLoopRead, OuterLoopReadWait, InnerLoop, ReadColWait, QuietWait, Finish } m_state;
 
     Output m_dbg;
 
     int m_myPe;
     int m_numPes;
     int m_numNodes;
-    int m_numActiveThreadsPerNode;
+    int m_activeThreadsPerNode;
+    int m_threadsPerNode;
 
     uint64_t m_curRow, m_curCol;
     uint64_t iterations;
