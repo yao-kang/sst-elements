@@ -28,6 +28,11 @@
 #include <sst/core/interfaces/simpleNetwork.h>
 
 #include <shmemNicCmds.h>
+
+#define DBG_X_FLAG (1<<0)
+#define DBG_MEMEVENT_FLAG (1<<1)
+#define DBG_FAM_FLAG (1<<2)
+
 namespace SST {
 namespace MemHierarchy {
 
@@ -253,20 +258,21 @@ class ShmemNic : public SST::Component {
 
             switch ( req->m_op ) {
               case MemRequest::Read:
-                Nic().dbg.debug(CALL_INFO,1,0,"read addr=%#" PRIx64 " baseAddr=%#" PRIx64 "\n",req->addr,baseAddr);
+                Nic().dbg.debug(CALL_INFO,1,DBG_MEMEVENT_FLAG,"read addr=%#" PRIx64 " baseAddr=%#" PRIx64 " dataSize=%d\n",req->addr,baseAddr, req->dataSize);
                 ev = new MemEvent(Nic().getName(), req->addr, baseAddr, Command::PrRead, req->dataSize);
                 break;
 
               case MemRequest::Write:
 
                 if ( req->buf.empty() ) {
-                    Nic().dbg.debug(CALL_INFO,1,0,"write addr=%#" PRIx64 " baseAddr=%#" PRIx64 " data=%llu dataSize=%d\n",req->addr,baseAddr,req->data,req->dataSize);
+                    Nic().dbg.debug(CALL_INFO,1,DBG_MEMEVENT_FLAG,"write addr=%#" PRIx64 " baseAddr=%#" PRIx64 " data=%llu dataSize=%d\n",
+                                    req->addr,baseAddr,req->data,req->dataSize);
                     for ( int i = 0; i < req->dataSize; i++ ) {
                         payload.push_back( (req->data >> i*8) & 0xff );
                     }
                     ev = new MemEvent(Nic().getName(), req->addr, baseAddr, Command::PrWrite, payload);
                 } else {
-                    Nic().dbg.debug(CALL_INFO,1,0,"write addr=%#" PRIx64 " baseAddr=%#" PRIx64 " dataSize=%d\n",req->addr,baseAddr,req->dataSize);
+                    Nic().dbg.debug(CALL_INFO,1,DBG_MEMEVENT_FLAG,"write addr=%#" PRIx64 " baseAddr=%#" PRIx64 " dataSize=%d\n",req->addr,baseAddr,req->dataSize);
                     ev = new MemEvent(Nic().getName(), req->addr, baseAddr, Command::PrWrite, req->buf);
                 }
                 break;
@@ -288,17 +294,17 @@ class ShmemNic : public SST::Component {
         } 
 
         void write( int srcNum, uint64_t addr, int dataSize, uint8_t* data, MemRequest::Callback* callback = NULL ) {
-            Nic().dbg.debug(CALL_INFO,1,0,"srcNum=%d addr=%#" PRIx64 " dataSize=%d\n",srcNum,addr,dataSize);
+            Nic().dbg.debug(CALL_INFO,1,DBG_X_FLAG,"srcNum=%d addr=%#" PRIx64 " dataSize=%d\n",srcNum,addr,dataSize);
             m_reqSrcQs[srcNum].queue.push( new MemRequest( srcNum, addr, dataSize, data, callback ) );
         }
 
         void write( int srcNum, uint64_t addr, int dataSize, uint64_t data, MemRequest::Callback* callback = NULL ) {
-            Nic().dbg.debug(CALL_INFO,1,0,"srcNum=%d addr=%#" PRIx64 " data=%llu dataSize=%d\n",srcNum,addr,data,dataSize);
+            Nic().dbg.debug(CALL_INFO,1,DBG_X_FLAG,"srcNum=%d addr=%#" PRIx64 " data=%llu dataSize=%d\n",srcNum,addr,data,dataSize);
             m_reqSrcQs[srcNum].queue.push( new MemRequest( srcNum, addr, dataSize, data, callback ) );
         }
 
         void read( int srcNum, uint64_t addr, int dataSize, MemRequest::Callback* callback = NULL  ) {
-            Nic().dbg.debug(CALL_INFO,1,0,"srcNum=%d addr=%#" PRIx64 " dataSize=%d\n",srcNum,addr,dataSize);
+            Nic().dbg.debug(CALL_INFO,1,DBG_X_FLAG,"srcNum=%d addr=%#" PRIx64 " dataSize=%d\n",srcNum,addr,dataSize);
             m_reqSrcQs[srcNum].queue.push( new MemRequest( srcNum, addr, dataSize, callback ) );
         }
 
@@ -309,7 +315,7 @@ class ShmemNic : public SST::Component {
         void handleResponse( MemEvent* event ) {
             try {
                 MemRequest* req = m_pendingReq.at( event->getID() );
-                Nic().dbg.debug(CALL_INFO,1,0,"cycles=%" PRIu64 "\n", Simulation::getSimulation()->getCurrentSimCycle()-req->reqTime );
+                Nic().dbg.debug(CALL_INFO,1,DBG_X_FLAG,"cycles=%" PRIu64 "\n", Simulation::getSimulation()->getCurrentSimCycle()-req->reqTime );
 
                 bool drop = false;
                 try {
@@ -442,7 +448,7 @@ class ShmemNic : public SST::Component {
             tailPtr(tailPtr), queueAddr(queueAddr), headAddr(headAddr), localHeadIndex(0) {}
 
         uint64_t cmdAddr( int index ) {
-            return queueAddr + index * 4;
+            return queueAddr + index * sizeof(NicResp);
         }
         uint32_t* tailPtr;
         uint64_t  queueAddr;
@@ -475,9 +481,10 @@ class ShmemNic : public SST::Component {
     };
 
     struct RespInfo {
-        RespInfo( DataType dataType, uint64_t dataAddr ) : dataType(dataType), dataAddr(dataAddr) {}
+        RespInfo( DataType dataType, uint64_t dataAddr, size_t numData ) : dataType(dataType), dataAddr(dataAddr), numData(numData) {}
         DataType dataType;
         uint64_t dataAddr;
+        size_t   numData;
     };
 
     struct ThreadInfo {
@@ -546,7 +553,7 @@ class ShmemNic : public SST::Component {
         MemRequest::Callback* m_callback;
         virtual bool process( Cycle_t ) = 0;
         void setMemEvent( MemEvent* ev ) { 
-            Nic().dbg.debug( CALL_INFO,1,0,"\n");
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"\n");
             assert( NULL == m_memEvent);  
             m_memEvent = ev; 
         } 
@@ -579,7 +586,7 @@ class ShmemNic : public SST::Component {
             switch ( m_state ) {
               case GetUnit:
                 if ( Nic().m_memReqQ->full( Nic().m_shmemOpQnum ) ) {
-                    Nic().dbg.debug( CALL_INFO,1,0,"reserve unit %" PRIx64 "\n", getAddr() );
+                    Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"reserve unit %" PRIx64 "\n", getAddr() );
                     Nic().m_memReqQ->reserve(  Nic().m_shmemOpQnum, this );
                     m_state = WaitUnit;
                 } else {
@@ -590,7 +597,7 @@ class ShmemNic : public SST::Component {
               case WaitUnit:
 
                 if ( Nic().m_memReqQ->reservationReady(  Nic().m_shmemOpQnum, this ) ) {
-                    Nic().dbg.debug( CALL_INFO,1,0,"reservation ready %" PRIx64 "\n", getAddr() );
+                    Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"reservation ready %" PRIx64 "\n", getAddr() );
                     m_state = GetUnit;
                     retval = true;
                 }
@@ -621,7 +628,7 @@ class ShmemNic : public SST::Component {
         IncCmd( ShmemNic* nic, ShmemOp op, DataType dataType, int srcNode, int srcPid, int destNode, int destPid, uint64_t addr ) :
             ShmemCmd( nic, op, dataType, srcNode, srcPid, destNode, destPid, addr ), m_state( Read ) 
         {
-            Nic().dbg.debug( CALL_INFO,1,0,"datatype %d srcNode=%d srcPid=%d destNode=%d destPid=%d addr=%#" PRIx64 "\n",
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"datatype %d srcNode=%d srcPid=%d destNode=%d destPid=%d addr=%#" PRIx64 "\n",
                     getDataType(), srcNode, srcPid, destNode, destPid, addr );
         } 
 
@@ -655,7 +662,7 @@ class ShmemNic : public SST::Component {
         {
             setNetEvent(event);
             setHandle( handle );
-            Nic().dbg.debug( CALL_INFO,1,0,"datatype %d srcNode=%d srcPid=%d destNode=%d addr=%#" PRIx64 "\n",
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"datatype %d srcNode=%d srcPid=%d destNode=%d addr=%#" PRIx64 "\n",
                        getDataType(), srcNode, srcPid, destNode, addr );
         } 
 
@@ -674,7 +681,7 @@ class ShmemNic : public SST::Component {
             ShmemCmd( nic, op, dataType, srcNode, srcPid, destNode, addr ), m_state( Write ) 
         {
             setNetEvent(event);
-            Nic().dbg.debug( CALL_INFO,1,0,"datatype %d\n",getDataType() );
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"datatype %d\n",getDataType() );
         } 
 
         bool process( Cycle_t );
@@ -694,7 +701,7 @@ class ShmemNic : public SST::Component {
 
         auto ret = tmp.insert(std::pair<uint32_t,RespInfo*>(handle,info) );
         if ( ret.second == false ) {
-            out.fatal(CALL_INFO,-1,"Can't find RespInfo for pid %d handle=%d\n",pid,handle);
+            out.fatal(CALL_INFO,-1,"Can't insert RespInfo for pid %d handle=%d\n",pid,handle);
         }
     }
     RespInfo* clearRespInfo( int pid, uint32_t handle ) {
@@ -715,7 +722,7 @@ class ShmemNic : public SST::Component {
 
     ShmemCmd* createCmd( int thread, int pos ) {
         NicCmd* cmd = (NicCmd*) (m_backing.data() + thread * m_perPeMemSize);
-        dbg.debug( CALL_INFO,1,0,"thread=%d pos=%d addr=%#lx\n", thread, pos, thread * m_perPeMemSize );
+        dbg.debug( CALL_INFO,1,DBG_X_FLAG,"thread=%d pos=%d addr=%#lx\n", thread, pos, thread * m_perPeMemSize );
         return createCmd( cmd[pos], thread );
     }
 
@@ -747,6 +754,7 @@ class ShmemNic : public SST::Component {
     void feedThePendingQ();
     void processAck(ShmemNicNetworkEvent* event);
     void sendRespToHost( NicResp&,int thread );
+    void processFamResp( ShmemNicNetworkEvent* ); 
 
     void processQuiet(); 
 

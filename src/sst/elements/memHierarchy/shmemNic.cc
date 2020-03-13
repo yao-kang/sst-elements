@@ -31,7 +31,12 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
     m_pesPerNode = params.find<int>("pesPerNode", 0);
 
     m_ioBaseAddr = params.find<uint64_t>( "baseAddr", 0x100000000 );
-    m_perPeMemSize = params.find<size_t>("perPeMemSize", 4096 );
+
+    m_cmdQSize = params.find<int>("cmdQSize", 64);
+
+    size_t tmp = m_cmdQSize * sizeof(NicCmd) + 64;
+    tmp =  ((tmp-1u) & ~(4096-1u)) + 4096;
+    m_perPeMemSize = params.find<size_t>("perPeMemSize", tmp );
 
     uint64_t hostQueueInfoBaseAddr  = params.find<uint64_t>("hostQueueInfoBaseAddr", 0 );
     size_t   hostQueueInfoSizePerPe = params.find<size_t>("hostQueueInfoSizePerPe", 64 );
@@ -39,18 +44,19 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
     m_hostQueueBaseAddr   = params.find<uint64_t>("hostQueueBaseAddr", 0x10000 );
     size_t   hostQueueSizePerPe  = params.find<size_t>("hostQueueSizePerPe", 4096 );
 
-    uint64_t shmemBaseAddr = params.find<uint64_t>("shmemBaseAddr", 1048576 );
+    uint64_t shmemBaseAddr = params.find<uint64_t>("shmemBaseAddr", 1048576 * 2 );
     size_t   shmemMemPerPe = params.find<size_t>("shmemMemPerPe", 0x100000 );
 
     m_maxHostCmdQSize = params.find<int>("maxCmdQSize",256);
-    m_cmdQSize = params.find<int>("cmdQSize", 64);
     m_respQSize = params.find<int>("respQSize", m_cmdQSize);
     m_maxPendingCmds = params.find<size_t>("maxPendingCmds", m_pesPerNode ); 
 
     assert( m_hostQueueBaseAddr >= hostQueueInfoBaseAddr + hostQueueInfoSizePerPe * m_pesPerNode );
     assert( shmemBaseAddr >= m_hostQueueBaseAddr + hostQueueSizePerPe * m_pesPerNode );
     assert( sizeof(NicResp) * m_respQSize <= hostQueueSizePerPe );
-    assert( sizeof(NicCmd) * m_cmdQSize <= m_perPeMemSize + 64 );// last 64 bytes of this block of memory is for queue info
+    assert( sizeof(NicCmd) * m_cmdQSize <= m_perPeMemSize - 64 );// last 64 bytes of this block of memory is for queue info
+
+    printf("sizeof(NicCmd)=%zu sizeof(NicResp)=%zu\n",sizeof(NicCmd),sizeof(NicResp));
 
     // Output for debug
     char buffer[100];
@@ -67,11 +73,11 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
     assert( m_perPeMemSize );
 
     if ( m_nicId == 0 ) {
-        dbg.debug(CALL_INFO,1,0,"nicId=%d cmdQSize=%d respQSize=%d pesPerNode=%d\n", m_nicId, m_cmdQSize, m_respQSize, m_pesPerNode );
-        dbg.debug(CALL_INFO,1,0,"nicBaseAddr=%#" PRIx64 " sizerPerThread=%zu\n",  m_ioBaseAddr, m_perPeMemSize ); 
-        dbg.debug(CALL_INFO,1,0,"hostQueueInfoBaseAddr=%#" PRIx64 " hostQueueInfoSizePerPe=%zu\n", hostQueueInfoBaseAddr, hostQueueInfoSizePerPe ); 
-        dbg.debug(CALL_INFO,1,0,"hostQueueBaseAddr=%#" PRIx64 " hostQueueSizePerPe=%zu\n",  m_hostQueueBaseAddr, hostQueueSizePerPe);
-        dbg.debug(CALL_INFO,1,0,"shmemBaseAddr=%#" PRIx64 " shmemMemPerPe=%zu\n", shmemBaseAddr, shmemMemPerPe );
+        dbg.debug(CALL_INFO,1,DBG_X_FLAG,"nicId=%d cmdQSize=%d respQSize=%d pesPerNode=%d\n", m_nicId, m_cmdQSize, m_respQSize, m_pesPerNode );
+        dbg.debug(CALL_INFO,1,DBG_X_FLAG,"nicBaseAddr=%#" PRIx64 " sizerPerThread=%zu\n",  m_ioBaseAddr, m_perPeMemSize ); 
+        dbg.debug(CALL_INFO,1,DBG_X_FLAG,"hostQueueInfoBaseAddr=%#" PRIx64 " hostQueueInfoSizePerPe=%zu\n", hostQueueInfoBaseAddr, hostQueueInfoSizePerPe ); 
+        dbg.debug(CALL_INFO,1,DBG_X_FLAG,"hostQueueBaseAddr=%#" PRIx64 " hostQueueSizePerPe=%zu\n",  m_hostQueueBaseAddr, hostQueueSizePerPe);
+        dbg.debug(CALL_INFO,1,DBG_X_FLAG,"shmemBaseAddr=%#" PRIx64 " shmemMemPerPe=%zu\n", shmemBaseAddr, shmemMemPerPe );
     }
 
     m_backing.resize( m_perPeMemSize * m_pesPerNode );
@@ -89,7 +95,8 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
         uint64_t tailAddr = hostQueueInfoBaseAddr + i * hostQueueInfoSizePerPe;
         m_hostCmdQueueV.push_back( HostCmdQueueInfo( tailAddr ) );
 
-        uint32_t* tailPtr = (uint32_t*) (m_backing.data() + m_perPeMemSize * i  + 4); 
+        // put it at the end of the thread nic memory space 
+        uint32_t* tailPtr = (uint32_t*) (m_backing.data() + m_perPeMemSize * i + m_perPeMemSize  - 4); 
         uint64_t queueAddr = m_hostQueueBaseAddr + i * hostQueueSizePerPe;
         uint64_t headAddr =  hostQueueInfoBaseAddr + i * hostQueueInfoSizePerPe + 4;
         m_hostRespQueueV.push_back( HostRespQueueInfo( tailPtr, queueAddr, headAddr ) );
@@ -129,14 +136,10 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
 
     bool found;
     bool gotRegion = false;
-    m_region.start = params.find<uint64_t>("addr_range_start", 0, gotRegion);
-    m_region.end = params.find<uint64_t>("addr_range_end", (uint64_t) - 1, found);
-
-    string ilSize = params.find<std::string>("interleave_size", "0B", found);
-    string ilStep = params.find<std::string>("interleave_step", "0B", found);
-
-    m_region.interleaveSize = UnitAlgebra(ilSize).getRoundedValue();
-    m_region.interleaveStep = UnitAlgebra(ilStep).getRoundedValue();
+    m_region.start = m_ioBaseAddr; 
+    m_region.end = m_ioBaseAddr + m_perPeMemSize * m_pesPerNode;
+    m_region.interleaveSize = 0;
+    m_region.interleaveStep = 0;
 
     m_link->setRegion(m_region);
 
@@ -180,7 +183,7 @@ void ShmemNic::handleTargetEvent(SST::Event* event) {
     Command cmd = meb->getCmd();
     MemEvent * ev = static_cast<MemEvent*>(meb);
 #if 0
-    dbg.debug( CALL_INFO,1,0,"(%s) Received: '%s'\n", getName().c_str(), meb->getBriefString().c_str());
+    dbg.debug( CALL_INFO,1,DBG_X_FLAG,"(%s) Received: '%s'\n", getName().c_str(), meb->getBriefString().c_str());
 #endif
 
     //printf("baseAddr=%" PRIx64 "\n",ev->getBaseAddr());
@@ -193,21 +196,21 @@ void ShmemNic::handleTargetEvent(SST::Event* event) {
             int thread = ( ev->getAddr() - m_ioBaseAddr ) / m_perPeMemSize;
 
             NicCmd* cmd = reinterpret_cast<NicCmd*>(ev->getPayload().data());
-#if 0
+#if 1 
             std::ostringstream tmp(std::ostringstream::ate);
             tmp << std::hex;
             for ( int i = 0; i < ev->getSize(); i++ ) {
                 tmp << "0x" << (int) ev->getPayload().at(i)  << ",";
             }
 #endif
-            dbg.debug( CALL_INFO,1,0,"Write size=%zu addr=%" PRIx64 " offset=%llu thread=%d handle=%d\n",
-                    ev->getPayload().size(), ev->getAddr(), ev->getAddr() - m_ioBaseAddr, thread, cmd->handle );
+            dbg.debug( CALL_INFO,1,DBG_X_FLAG,"Write size=%zu addr=%" PRIx64 " offset=%llu thread=%d handle=%d, %s\n",
+                    ev->getPayload().size(), ev->getAddr(), ev->getAddr() - m_ioBaseAddr, thread, cmd->handle, tmp.str().c_str() );
 
             // we need to increment the pending count now because the host reads it to see if the NIC is idle for this thread
             // the host could read it before the clock() function could update it
             if ( 0 == ( ev->getAddr() - m_ioBaseAddr ) % sizeof(NicCmd) ) {
 
-                dbg.debug( CALL_INFO,1,0,"new command from thread %d\n",thread);
+                dbg.debug( CALL_INFO,1,DBG_X_FLAG,"new command from thread %d\n",thread);
                 ++m_threadInfo[thread].pendingCnt;
                 m_headUpdateQ.push( thread );
                 m_statHeadUpdateQ->addData( m_headUpdateQ.size() );
@@ -251,7 +254,7 @@ bool ShmemNic::FamGetRespCmd::process( Cycle_t cycle ) {
       case Write:
 
         if ( getUnit() ) {
-            Nic().dbg.debug( CALL_INFO,1,0,"write %#" PRIx64 " dataType=%d\n", m_valueAddr, getDataType()  );
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"write %#" PRIx64 " dataType=%d\n", m_valueAddr, getDataType()  );
 
 			m_data = 0;
             Nic().m_memReqQ->write( Nic().m_shmemOpQnum, m_valueAddr, Nic().dataTypeSize(getDataType()), m_data, m_callback );
@@ -264,7 +267,7 @@ bool ShmemNic::FamGetRespCmd::process( Cycle_t cycle ) {
             break;
         }
 
-        Nic().dbg.debug( CALL_INFO,1,0,"back from write value %" PRIx64 "\n", m_valueAddr );
+        Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from write value %" PRIx64 "\n", m_valueAddr );
 
         delete getMemEvent();
 #if 0
@@ -274,7 +277,7 @@ bool ShmemNic::FamGetRespCmd::process( Cycle_t cycle ) {
       case WriteFlag:
 
         if ( getUnit() ) {
-            Nic().dbg.debug( CALL_INFO,1,0," write %#" PRIx64 " dataType=%d\n", m_flagAddr, getDataType()  );
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG," write %#" PRIx64 " dataType=%d\n", m_flagAddr, getDataType()  );
 
             m_data = 1;
             Nic().m_memReqQ->write( Nic().m_shmemOpQnum, m_flagAddr, Nic().dataTypeSize(getDataType()), m_data, m_callback );
@@ -287,7 +290,7 @@ bool ShmemNic::FamGetRespCmd::process( Cycle_t cycle ) {
             break;
         }
 
-        Nic().dbg.debug( CALL_INFO,1,0,"back from write flag %" PRIx64 "\n", m_flagAddr );
+        Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from write flag %" PRIx64 "\n", m_flagAddr );
 
         delete getMemEvent();
 #endif
@@ -306,7 +309,7 @@ bool ShmemNic::FamGetCmd::process( Cycle_t cycle ) {
         if ( getUnit() ) {
             int thread = 0;
             ShmemMemRegion& region = Nic().m_threadInfo[thread].shmemRegion;
-            Nic().dbg.debug( CALL_INFO,1,0,"srcNode=%d srcPid=%d, read %#" PRIx64 " + %#" PRIx64"  dataType=%d\n",
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"srcNode=%d srcPid=%d, read %#" PRIx64 " + %#" PRIx64"  dataType=%d\n",
                         getSrcNode(), getSrcPid(), region.baseAddr, getAddr(), getDataType()  );
 
             Nic().m_memReqQ->read( Nic().m_shmemOpQnum,  region.baseAddr + getAddr(), Nic().dataTypeSize(getDataType()), m_callback );
@@ -319,7 +322,7 @@ bool ShmemNic::FamGetCmd::process( Cycle_t cycle ) {
             break; 
         }
 
-        Nic().dbg.debug( CALL_INFO,1,0,"back from read %" PRIx64 " numBytes=%d\n", getAddr(), getMemEvent()->getSize() );
+        Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from read %" PRIx64 " numBytes=%d\n", getAddr(), getMemEvent()->getSize() );
 
         memcpy( &m_data, getMemEvent()->getPayload().data(), getMemEvent()->getSize() ); 
 
@@ -341,7 +344,7 @@ bool ShmemNic::FamPutCmd::process( Cycle_t cycle ) {
         if ( getUnit() ) {
             int thread = 0;
             ShmemMemRegion& region = Nic().m_threadInfo[thread].shmemRegion;
-            Nic().dbg.debug( CALL_INFO,1,0,"srcNode=%d srcPid=%d, write %#" PRIx64 " + %#" PRIx64"  dataType=%d\n",
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"srcNode=%d srcPid=%d, write %#" PRIx64 " + %#" PRIx64"  dataType=%d\n",
                         getSrcNode(), getSrcPid(), region.baseAddr, getAddr(), getDataType()  );
 
 			m_data = 0;
@@ -355,7 +358,7 @@ bool ShmemNic::FamPutCmd::process( Cycle_t cycle ) {
             break;
         }
 
-        Nic().dbg.debug( CALL_INFO,1,0,"back from write %" PRIx64 "\n", getAddr() );
+        Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from write %" PRIx64 "\n", getAddr() );
 
         delete getMemEvent();
         retval = true;
@@ -376,7 +379,7 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
             ShmemMemRegion& region = Nic().m_threadInfo[thread].shmemRegion;
             setIssueTime( Nic().getCurrentSimTimeNano() );
 
-            Nic().dbg.debug( CALL_INFO,1,0,"srcNode=%d destPid=%d destThread=%d, read %#" PRIx64 " + %#" PRIx64"  dataType=%d\n",
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"srcNode=%d destPid=%d destThread=%d, read %#" PRIx64 " + %#" PRIx64"  dataType=%d\n",
                         getSrcNode(), getDestPid(), thread, region.baseAddr, getAddr(), getDataType()  );
 
             Nic().m_memReqQ->read( Nic().m_shmemOpQnum,  region.baseAddr + getAddr(), Nic().dataTypeSize(getDataType()), m_callback );
@@ -390,7 +393,7 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
         }
         Nic().m_statCyclesPerIncOpRead->addData( Nic().getCurrentSimTimeNano() - getIssueTime() );
 
-        Nic().dbg.debug( CALL_INFO,1,0,"back from read %" PRIx64 " numBytes=%d\n", getAddr(), getMemEvent()->getSize() );
+        Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from read %" PRIx64 " numBytes=%d\n", getAddr(), getMemEvent()->getSize() );
         m_endCycle = cycle + 2;
 
         memcpy( &m_data, getMemEvent()->getPayload().data(), getMemEvent()->getSize() ); 
@@ -406,7 +409,7 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
         if ( cycle != m_endCycle ) { 
             break; 
         }
-        Nic().dbg.debug( CALL_INFO,1,0,"back from inc wait %" PRIx64 "\n", getAddr() );
+        Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from inc wait %" PRIx64 "\n", getAddr() );
         m_state = Write;
 
     case Write:
@@ -414,7 +417,7 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
         if ( getUnit() ) {
             int thread = getDestPid();
             ShmemMemRegion& region = Nic().m_threadInfo[thread].shmemRegion;
-            Nic().dbg.debug( CALL_INFO,1,0,"write %" PRIx64 "\n", getAddr() );
+            Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"write %" PRIx64 "\n", getAddr() );
             Nic().m_memReqQ->write( Nic().m_shmemOpQnum, region.baseAddr + getAddr(), Nic().dataTypeSize(getDataType()), m_data, m_callback );
             m_state = WriteWait; 
         }
@@ -425,7 +428,7 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
             break;
         }
 
-        Nic().dbg.debug( CALL_INFO,1,0,"back from write %" PRIx64 "\n", getAddr() );
+        Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from write %" PRIx64 "\n", getAddr() );
         Nic().m_statCyclesPerIncOp->addData( Nic().getCurrentSimTimeNano() - getIssueTime() );
 
         delete getMemEvent();
@@ -437,7 +440,7 @@ bool ShmemNic::IncCmd::process( Cycle_t cycle ) {
 
 ShmemNic::ShmemCmd* ShmemNic::createCmd( NicCmd& cmd, int thread ) {
 
-    dbg.debug( CALL_INFO,1,0,"thread=%d type=%d handle=%d\n", thread, cmd.type, cmd.handle);
+    dbg.debug( CALL_INFO,1,DBG_X_FLAG,"thread=%d type=%d handle=%d\n", thread, cmd.type, cmd.handle);
 
     if ( cmd.type == NicCmd::Type::Shmem ) {
         switch ( cmd.data.shmem.op ) {
@@ -456,15 +459,17 @@ ShmemNic::ShmemCmd* ShmemNic::createCmd( NicCmd& cmd, int thread ) {
             assert(0);
         }
     } else {
-        dbg.debug( CALL_INFO,1,0,"op=%d, destNode=%d, addr=%#" PRIx64 "\n",cmd.data.fam.op, cmd.data.fam.destNode, cmd.data.fam.destAddr);
+        dbg.debug( CALL_INFO,1,DBG_FAM_FLAG,"op=%d, destNode=%d, addr=%#" PRIx64 "\n",cmd.data.fam.op, cmd.data.fam.destNode, cmd.data.fam.destAddr);
         switch ( cmd.data.fam.op ) {
-            case FamGet: 
-                saveRespInfo( thread, cmd.handle, new RespInfo( Int64, cmd.respAddr ) );
+            case NicCmd::Data::Fam::Get:
+                saveRespInfo( thread, cmd.handle, new RespInfo( Int64, cmd.respAddr, cmd.numData ) );
             
-                return new FamGetCmd( this, (ShmemOp) cmd.data.fam.op, Int64, m_nicId, thread, cmd.data.fam.destNode, cmd.data.fam.destAddr, 
+                return new FamGetCmd( this, (ShmemOp) FamGet, Int64, m_nicId, thread, cmd.data.fam.destNode, cmd.data.fam.destAddr, 
                      cmd.handle );
-            case FamPut:
-                return new FamPutCmd( this, (ShmemOp) cmd.data.fam.op, Int64, m_nicId, thread, cmd.data.fam.destNode, cmd.data.fam.destAddr, cmd.data.fam.value );
+
+            case NicCmd::Data::Fam::Put:
+                return new FamPutCmd( this, (ShmemOp) FamPut, Int64, m_nicId, thread, cmd.data.fam.destNode, cmd.data.fam.destAddr, cmd.value );
+
             default:
                 assert(0);
         }
@@ -474,7 +479,7 @@ ShmemNic::ShmemCmd* ShmemNic::createCmd( NicCmd& cmd, int thread ) {
 
 ShmemNic::ShmemCmd* ShmemNic::createCmd( ShmemNicNetworkEvent* event ) {
 
-    dbg.debug( CALL_INFO,1,0,"%d\n",event->getOp());
+    dbg.debug( CALL_INFO,1,DBG_X_FLAG,"%d\n",event->getOp());
 
     if ( event->getType() == NicCmd::Type::Shmem ) {
 
@@ -487,9 +492,9 @@ ShmemNic::ShmemCmd* ShmemNic::createCmd( ShmemNicNetworkEvent* event ) {
         }
 
     } else {
-        dbg.debug( CALL_INFO,1,0,"op=%d, srcNode=%d, srcPid=%d addr=%#" PRIx64 "\n",event->getOp(), event->getSrcNode(), event->getSrcPid(), event->getAddress());
+        dbg.debug( CALL_INFO,1,DBG_X_FLAG,"op=%d, srcNode=%d, srcPid=%d addr=%#" PRIx64 "\n",event->getOp(), event->getSrcNode(), event->getSrcPid(), event->getAddress());
         switch ( event->getOp() ) {
-          case FamGet:
+           case FamGet:
             return new FamGetCmd( this, (ShmemOp) event->getOp(), (DataType) event->getDataType(), event->getSrcNode(), event->getSrcPid(), 
                     m_nicId, event->getAddress(), event->getHandle(), event );
           case FamPut:
@@ -503,7 +508,7 @@ ShmemNic::ShmemCmd* ShmemNic::createCmd( ShmemNicNetworkEvent* event ) {
 
 bool ShmemNic::sendRemoteCmd( int vc, ShmemCmd* cmd ) 
 {
-    dbg.debug( CALL_INFO,1,0,"op=%d node=%d addr=%" PRIu64 " \n",
+    dbg.debug( CALL_INFO,1,DBG_X_FLAG,"op=%d node=%d addr=%" PRIu64 " \n",
                         cmd->getOp(),cmd->getDestNode(),cmd->getAddr());
 
     if ( ! m_linkControl->spaceToSend( vc, ShmemNicNetworkEvent::getMaxSizeBytes() * 8 ) ) {
@@ -569,7 +574,7 @@ void  ShmemNic::processQuiet() {
     auto iter = m_waitQuiet.begin();
     for ( ; iter != m_waitQuiet.end(); ++iter ) {
         if ( 0 == m_threadInfo[iter->first].pendingCnt ) {
-            dbg.debug( CALL_INFO,1,0,"thread %d is quiet, handle %d\n",iter->first,iter->second);
+            dbg.debug( CALL_INFO,1,DBG_X_FLAG,"thread %d is quiet, handle %d\n",iter->first,iter->second);
             NicResp resp;
             resp.handle = iter->second;
             sendRespToHost( resp, iter->first );
@@ -584,11 +589,11 @@ void  ShmemNic::processQuiet() {
 void ShmemNic::completeCmd( ShmemCmd* cmd ) 
 {
     if ( cmd->isResp()  ) {
-        dbg.debug( CALL_INFO,1,0,"response\n" );
+        dbg.debug( CALL_INFO,1,DBG_X_FLAG,"response\n" );
         m_hostRespQ.push( cmd );
     } else if ( cmd->isLocal()  ) {
         int thread = cmd->getSrcPid();
-        dbg.debug( CALL_INFO,1,0,"thread=%d command is complete\n",thread );
+        dbg.debug( CALL_INFO,1,DBG_X_FLAG,"thread=%d command is complete\n",thread );
 
         --m_threadInfo[thread].pendingCnt;
         ++m_finishLocalCmdCnt;
@@ -598,7 +603,7 @@ void ShmemNic::completeCmd( ShmemCmd* cmd )
         --m_pendingCmdCnt[1];
         assert( m_remoteCmdQ[1].size() < m_maxRemoteCmdQSize );
 
-        dbg.debug( CALL_INFO,1,0,"remote command is complete\n"); 
+        dbg.debug( CALL_INFO,1,DBG_X_FLAG,"remote command is complete\n"); 
 
         cmd->setDestPid( cmd->getSrcPid() );
         cmd->setDestNode( cmd->getSrcNode() );
@@ -617,7 +622,7 @@ void ShmemNic::processThreadCmdQs( ) {
 
             HostCmdQueueInfo& info = m_hostCmdQueueV[thread]; 
 
-            dbg.debug( CALL_INFO,1,0,"thread %d cmd available tail=%d\n",thread,info.localTailIndex);
+            dbg.debug( CALL_INFO,1,DBG_X_FLAG,"thread %d cmd available tail=%d\n",thread,info.localTailIndex);
 
             ShmemCmd* cmd = createCmd( thread, info.localTailIndex );
             if ( cmd ) {
@@ -626,7 +631,7 @@ void ShmemNic::processThreadCmdQs( ) {
             }
             ++info.localTailIndex;
             info.localTailIndex %= m_cmdQSize;		
-            dbg.debug( CALL_INFO,1,0,"write tail=%d at %#" PRIx64 "\n",info.localTailIndex, info.tailAddr );
+            dbg.debug( CALL_INFO,1,DBG_X_FLAG,"write tail=%d at %#" PRIx64 "\n",info.localTailIndex, info.tailAddr );
             m_memReqQ->write( m_tailWriteQnum, info.tailAddr, 4, info.localTailIndex );
         }
     }
@@ -643,21 +648,53 @@ void ShmemNic::processHostRespQ( ) {
     }
 }
 
+void ShmemNic::processFamResp( ShmemNicNetworkEvent* event )
+{
+    dbg.debug(CALL_INFO,1,DBG_X_FLAG,"destPid=%d handle=%d\n", event->getDestPid(), event->getHandle());
+    switch( event->getOp()  ) {
+        case FamGet: {
+            RespInfo* info = clearRespInfo( event->getDestPid(), event->getHandle() );
+            dbg.debug(CALL_INFO,1,DBG_X_FLAG,"FamGet destPid=%d handle=%d\n",event->getDestPid(),event->getHandle());
+            if ( info->numData == 1 ) {
+
+                NicResp resp;
+                resp.handle = event->getHandle();
+                resp.value = 0xdeadbeef;
+                sendRespToHost( resp, event->getDestPid() );
+            } else {
+                assert(0);
+#if 0
+                m_localCmdQ[0].push( new FamGetRespCmd( this, info->dataType, event->getHandle() ) );
+#endif
+            }
+            delete info;
+            break;
+        }
+        case FamPut: 
+            dbg.debug(CALL_INFO,1,DBG_X_FLAG,"FamPut pid=%d handl=%d\n",event->getDestPid(), event->getHandle());
+            break;
+        default:
+            assert(0);
+    }
+    delete event;
+}
+
 void ShmemNic::sendRespToHost( NicResp& resp, int thread )
 {
     HostRespQueueInfo& info = m_hostRespQueueV[thread];
-    dbg.debug( CALL_INFO,1,0,"%d %d\n", *info.tailPtr, info.localHeadIndex  );
+    dbg.debug( CALL_INFO,1,DBG_X_FLAG,"tailPointer=%d localHeadIndex=%d\n", *info.tailPtr, info.localHeadIndex  );
     if ( *info.tailPtr != ( info.localHeadIndex + 1 ) % m_respQSize ) {
 
-         dbg.debug( CALL_INFO,1,0,"good\n" );
+         dbg.debug( CALL_INFO,1,DBG_X_FLAG,"write command to %#" PRIx64 "\n", info.cmdAddr(info.localHeadIndex) );
          m_memReqQ->write( m_respQueueMemChannel, info.cmdAddr(info.localHeadIndex), sizeof(resp), reinterpret_cast<uint8_t*>(&resp) );
          m_memReqQ->fence( m_respQueueMemChannel );
          ++info.localHeadIndex;
          info.localHeadIndex %= m_respQSize;		
          m_memReqQ->write( m_respQueueMemChannel, info.headAddr, 4, info.localHeadIndex );
-     }
+     } else {
+        assert(0);
+    }
 }
-
 
 void ShmemNic::processPendingQ( Cycle_t cycle ) {
     std::deque< ShmemCmd* >::iterator iter = m_pendingCmd.begin();
@@ -666,7 +703,7 @@ void ShmemNic::processPendingQ( Cycle_t cycle ) {
 
             completeCmd( *iter );
 
-            dbg.debug( CALL_INFO,1,0,"move command to completing \n");
+            dbg.debug( CALL_INFO,1,DBG_X_FLAG,"move command to completing \n");
             iter = m_pendingCmd.erase(iter);
         } else {
             ++iter;
@@ -719,7 +756,7 @@ void ShmemNic::feedThePendingQ() {
             ++m_nextInVc;
 
             if ( ! m_localCmdQ[pos].empty() && canSched(pos) ) {
-                dbg.debug( CALL_INFO,1,0,"issue shmem command\n");
+                dbg.debug( CALL_INFO,1,DBG_X_FLAG,"issue shmem command\n");
                 ++m_pendingCmdCnt[pos];
                 m_pendingCmd.push_back( m_localCmdQ[pos].front() );
                 m_statPendingCmds->addData( m_pendingCmd.size() );
@@ -738,7 +775,7 @@ void ShmemNic::processReqVC()
             Event* payload;
             if ( ( payload = req->takePayload() ) ) {
 
-                dbg.debug(CALL_INFO,2,0,"got packet\n");
+                dbg.debug(CALL_INFO,1,DBG_X_FLAG,"got packet\n");
 
                 ShmemNicNetworkEvent* event = static_cast<ShmemNicNetworkEvent*>(payload);
             
@@ -765,7 +802,7 @@ void ShmemNic::processAckVC()
     
             assert(m_threadInfo[thread].pendingCnt);
             --m_threadInfo[thread].pendingCnt;
-            dbg.debug(CALL_INFO,2,0,"ACK for thread %d, pendingCnt %d\n",thread, m_threadInfo[thread].pendingCnt);
+            dbg.debug(CALL_INFO,1,DBG_X_FLAG,"ACK for thread %d, pendingCnt %d\n",thread, m_threadInfo[thread].pendingCnt);
             
             ++m_finishRemoteCmdCnt;
         }
@@ -775,7 +812,7 @@ void ShmemNic::processAckVC()
 
 void ShmemNic::processAck(ShmemNicNetworkEvent* event) {
     int thread = event->getDestPid();
-    dbg.debug( CALL_INFO,1,0,"thread=%d command got ACK for %s %d\n",thread, event->getType() == NicCmd::Type::Shmem ?"Shmem":"Fam",event->getOp() );
+    dbg.debug( CALL_INFO,1,DBG_X_FLAG,"thread=%d command got ACK for %s %d\n",thread, event->getType() == NicCmd::Type::Shmem ?"Shmem":"Fam",event->getOp() );
 
     if ( event->getType() == NicCmd::Type::Shmem ) {
         switch( event->getOp()) {
@@ -786,28 +823,13 @@ void ShmemNic::processAck(ShmemNicNetworkEvent* event) {
             assert(0);
         }
     } else if ( event->getType() == NicCmd::Type::Fam ) {
-        switch( event->getOp()  ) {
-          case FamGet: {
+        processFamResp( event );
 
-            dbg.debug(CALL_INFO,2,0,"FamGet Response destPid=%d handle=%d\n", event->getDestPid(), event->getHandle());
-            RespInfo* info = clearRespInfo( event->getDestPid(), event->getHandle() );
-
-            m_localCmdQ[0].push( new FamGetRespCmd( this, info->dataType, event->getHandle() ) );
-            delete info;
-
-            delete event;
-            break;
-          }
-          case FamPut: 
-            dbg.debug(CALL_INFO,2,0,"FamPut\n");
-            break;
-          default:
-            assert(0);
-        }
     } else {
         assert(0);
     }
 }
+
 
 void ShmemNic::init(unsigned int phase) {
     m_link->init(phase);
