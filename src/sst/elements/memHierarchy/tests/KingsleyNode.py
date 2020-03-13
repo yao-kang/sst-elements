@@ -49,8 +49,8 @@ debugLev = 0
 # Verbose
 verbose = 0 
 
-#cpuName = "memHierarchy.spmvCpu"
-cpuName = "memHierarchy.gupsCpu"
+cpuName = "memHierarchy.spmvCpu"
+#cpuName = "memHierarchy.gupsCpu"
 
 #hostMemAddrSize=0x400
 #hostMemAddrSize=0x800
@@ -63,17 +63,16 @@ cpu_params = {
     "printStats" : 1,
     "iterations": 1000,
     "debug": 1,
-    "debug_level": 0,
+    "debug_level": 10,
 }
 
 nic_params = {
     "clock" : "8GHz",
     "debug":1,
-    "debug_level": 0,
+    "debug_level": 10,
     "maxPendingCmds" : 128,
     "maxMemReqs" : 256,
     "maxCmdQSize" : 128,
-    #"hostThreadMemSize" :hostMemAddrSize, 
     "cache_line_size"    : 64,
 }
 
@@ -388,16 +387,7 @@ class TileBuilder:
 
         cpuL0.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id )
 
-        #cpuL0.addParam( "nicMemAddr", self.nicBaseAddr + self.perPeMemSize * self.next_core_id )
-        #cpuL0.addParam( "nicMemLength", self.perPeMemSize )
-        #cpuL0.addParam( "hostMemAddr",  hostMemAddrSize * self.next_core_id );
-        #cpuL0.addParam( "hostMemAddr",  4096 * self.next_core_id );
-
         cpuL1.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id + 18 )
-        #cpuL1.addParam( "nicMemAddr", self.nicBaseAddr + self.perPeMemSize * (self.next_core_id + 18) )
-        #cpuL1.addParam( "nicMemLength", self.perPeMemSize )
-        #cpuL1.addParam( "hostMemAddr",  hostMemAddrSize * (self.next_core_id + 18));
-        #cpuL1.addParam( "hostMemAddr",  4096 * (self.next_core_id + 18));
 
         # Thread 0
         leftSMTCPUlink0 = sst.Link("smt_cpu_" + str(self.next_core_id))
@@ -442,16 +432,8 @@ class TileBuilder:
         cpuR1.addParams(cpu_params)
 
         cpuR0.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id )
-        #cpuR0.addParam( "nicMemAddr", self.nicBaseAddr + self.perPeMemSize * self.next_core_id )
-        #cpuR0.addParam( "nicMemLength", self.perPeMemSize )
-        #cpuR0.addParam( "hostMemAddr",  hostMemAddrSize * self.next_core_id );
-        #cpuR0.addParam( "hostMemAddr",  4096 * self.next_core_id );
 
         cpuR1.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id + 18 )
-        #cpuR1.addParam( "nicMemAddr", self.nicBaseAddr + self.perPeMemSize * (self.next_core_id + 18) )
-        #cpuR1.addParam( "nicMemLength", self.perPeMemSize )
-        #cpuR1.addParam( "hostMemAddr",  hostMemAddrSize * (self.next_core_id + 18));
-        #cpuR1.addParam( "hostMemAddr",  4096 * (self.next_core_id + 18));
 
         # Thread 0
         rightSMTCPUlink0 = sst.Link("smt_cpu_" + str(self.next_core_id))
