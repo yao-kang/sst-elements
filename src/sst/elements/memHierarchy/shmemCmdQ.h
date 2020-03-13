@@ -1,16 +1,24 @@
 
+#define DBG_SHMEM_FLAG (1<<0)
+#define DBG_SHMEM_LL_FLAG (1<<1)
+#define DBG_SHMEM_CMD_FLAG (1<<2)
+#define DBG_APP_FLAG (1<<3)
+
 struct ShmemReq {
     ShmemReq(): done(true) {}
     bool done;
 };
 
 struct MyRequest {
-    MyRequest() : resp( NULL ) { }
+    MyRequest( bool keep = false ) : resp( NULL ), keep(keep) { }
     ~MyRequest() {
-        delete resp;
+        if ( resp ) {
+            delete resp;
+        }
     }
     bool isDone() { return resp != NULL; }
     SimpleMem::Request* resp;
+    bool keep;
 
     void copyData( void* dest, size_t length ) {
         assert( length == resp->data.size() );
@@ -37,7 +45,7 @@ class ShmemQueue {
     };
 
   public:
-    ShmemQueue( T* cpu, int qSize, int respQsize, uint64_t nicBaseAddr, size_t nicMemLength, uint64_t hostQueueInfoBaseAddr, 
+    ShmemQueue( T* cpu, int qSize, int respQsize, uint64_t nicBaseAddr, uint64_t hostQueueInfoBaseAddr, 
             size_t hostQueueInfoSizePerPe, uint64_t hostQueueBaseAddr, size_t hostQueueSizePerPe );
 
     bool process( Cycle_t );
@@ -54,7 +62,7 @@ class ShmemQueue {
 
   private:
 
-    enum State { ReadHeadTail, WaitRead, CheckHeadTail, Fence, CmdDone  } m_state;
+    enum State { ReadHeadTail, WaitRead, CheckHeadTail, WaitWrite, CmdDone  } m_state;
     enum RespState { WaitReadHead, WaitReadCmd } m_respState;
 
     std::map<SimpleMem::Request::id_t, MyRequest*> m_pending;
@@ -63,7 +71,7 @@ class ShmemQueue {
         return nicCmdQAddr + pos * sizeof(NicCmd);
     }
 
-    MyRequest* write( uint64_t addr, uint8_t* data, int num ) {
+    MyRequest* write( uint64_t addr, uint8_t* data, int num, bool keep = false ) {
 
         SimpleMem::Request* req = new SimpleMem::Request( SimpleMem::Request::Write, addr, num );
         if ( notCached( addr ) ) {
@@ -82,10 +90,10 @@ class ShmemQueue {
 #endif
         }
 
-        m_cpu->m_dbg.debug(CALL_INFO,1,0,"id=%" PRIu64 " addr=%#" PRIx64 " num=%d\n",req->id, addr, num);
+        m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_LL_FLAG,"id=%" PRIu64 " addr=%#" PRIx64 " num=%d %s\n",req->id, addr, num, notCached(addr) ? "":"cached");
 
-        m_pending[ req->id ] = new MyRequest;
-        m_cpu->cache_link->sendRequest(req);
+        m_pending[ req->id ] = new MyRequest(keep);
+        m_cpu->sendRequest(req);
         return m_pending[ req->id ];
     }
 
@@ -95,13 +103,13 @@ class ShmemQueue {
             req->flags = SimpleMem::Request::F_NONCACHEABLE;
         }
         m_pending[ req->id ] = new MyRequest;
-        m_cpu->m_dbg.debug(CALL_INFO,1,0,"id=%" PRIu64 " addr=0x%" PRIx64 " num=%d %s\n",req->id, addr, size, notCached(addr) ? "":"cached" );
-        m_cpu->cache_link->sendRequest(req);
+        m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_LL_FLAG,"id=%" PRIu64 " addr=0x%" PRIx64 " num=%d %s\n",req->id, addr, size, notCached(addr) ? "":"cached" );
+        m_cpu->sendRequest(req);
         return m_pending[ req->id ];
     }
 
     bool notCached( uint64_t addr ) {
-        return  addr >= nicBaseAddr  && addr < nicBaseAddr + nicMemLength * m_cpu->m_threadsPerNode;
+        return  addr >= nicBaseAddr  && addr < nicBaseAddr + nicMemLength * m_cpu->threadsPerNode();
     }
 
     uint32_t genHandle() { return m_handle++; }
@@ -113,7 +121,7 @@ class ShmemQueue {
     uint32_t m_head;
     uint32_t m_tail;
 
-    uint32_t m_respHead;
+    uint32_t m_respTail;
 
     int      m_qSize;
     int      m_respQsize;
@@ -125,9 +133,11 @@ class ShmemQueue {
     uint64_t nicCmdQAddr;
     Cmd*     m_activeReq;
     int      m_handle;
+    MyRequest* m_cmdWrite;
+    MyRequest* m_cmdTailRead;
 
     std::map< uint32_t, ShmemReq* > m_pendingReq;
-    MyRequest* m_cmdTailRead;
     MyRequest* m_respRead;
 };
 
+#include "shmemCmdQ.cc"
