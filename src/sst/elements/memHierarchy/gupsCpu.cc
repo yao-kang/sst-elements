@@ -67,15 +67,7 @@ GupsCpu::GupsCpu(SST::ComponentId_t id, SST::Params& params) :
         m_dbg.debug(CALL_INFO,1,0,"numNodes=%d activeThreadsPerNode=%d\n", m_numNodes, m_activeThreadsPerNode );
         m_dbg.debug(CALL_INFO,1,0,"totalGups=%d gupsMemSize=%zu\n", m_totalGups, m_gupsMemSize );
 
-        m_shmemQ = new ShmemQueue<GupsCpu>( this,
-            params.find<int>("cmdQSize", 64),
-            params.find<int>("respQSize", params.find<int>("cmdQSize", 64) ),
-            params.find<uint64_t>( "nicBaseAddr", 0x100000000 ),
-            params.find<uint64_t>("hostQueueInfoBaseAddr", 0 ),
-            params.find<size_t>("hostQueueInfoSizePerPe", 64 ),
-            params.find<uint64_t>("hostQueueBaseAddr", 0x10000 ),
-            params.find<size_t>("hostQueueSizePerPe", 4096 )
-        );
+        m_shmemQ = new ShmemQueue<GupsCpu>( this, params );
 
         std::string cpuClock = params.find<std::string>("clock", "2GHz");
 	    clockHandler = new Clock::Handler<GupsCpu>(this, &GupsCpu::clockTick);

@@ -66,6 +66,7 @@ public:
 
     Output& dbg() { return m_dbg; }
     int myPe() { return m_myPe; }
+    int myThread() { return m_myPe % m_threadsPerNode; }
     int threadsPerNode() { return m_threadsPerNode; }
     void sendRequest( SimpleMem::Request* req ) { cache_link->sendRequest(req); }
 
