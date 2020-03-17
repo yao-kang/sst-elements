@@ -5,8 +5,11 @@
 #define DBG_APP_FLAG (1<<3)
 
 struct ShmemReq {
-    ShmemReq(): done(true) {}
+    ShmemReq(): done(true), type(Invalid) {}
     bool done;
+    
+    enum Type { FamGet, Foobar, Total, Invalid=Total } type;
+    uint64_t startTime;
 };
 
 struct MyRequest {
@@ -39,7 +42,12 @@ template < class T >
 class ShmemQueue {
 
     struct Cmd {
-        Cmd( ShmemReq* req = NULL ) : req(req) { bzero(&cmd, sizeof(NicCmd) ); }
+        Cmd( ShmemReq* req, ShmemReq::Type type = ShmemReq::Type::Invalid ) : req(req) { bzero(&cmd, sizeof(NicCmd) ); 
+            if ( req ) {
+                req->done = false;
+                req->type = type;
+            }
+        }
         NicCmd cmd;
         ShmemReq* req; 
     };

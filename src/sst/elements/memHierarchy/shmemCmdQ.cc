@@ -34,7 +34,7 @@ void ShmemQueue<T>::inc( int pe, uint64_t addr )
 {
     m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_CMD_FLAG,"pe=%d addr=%#" PRIx64 "\n", pe, addr );
 
-    Cmd* cmd = new Cmd();
+    Cmd* cmd = new Cmd(NULL);
     cmd->cmd.type = NicCmd::Shmem;
     cmd->cmd.numData = 1;
     cmd->cmd.data.shmem.op = NicCmd::Data::Shmem::Op::Inc; 
@@ -48,7 +48,6 @@ void ShmemQueue<T>::quiet( ShmemReq* req) {
 
     m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_CMD_FLAG,"\n");
 
-    req->done = false;
     Cmd* cmd = new Cmd(req);
     cmd->cmd.type = NicCmd::Shmem;
     cmd->cmd.data.shmem.op = NicCmd::Data::Shmem::Op::Quiet; 
@@ -58,9 +57,8 @@ void ShmemQueue<T>::quiet( ShmemReq* req) {
 template< class T> 
 void ShmemQueue<T>::get( uint64_t dstAddr, uint64_t srcAddr, ShmemReq* req ) {
     m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_CMD_FLAG,"dstAddr=%#" PRIx64 " srcAddr=%#" PRIx64 "\n", dstAddr, srcAddr );
-    req->done = false;
 
-    Cmd* cmd = new Cmd(req);
+    Cmd* cmd = new Cmd(req,ShmemReq::FamGet);
     cmd->cmd.type = NicCmd::Fam;
     cmd->cmd.numData = 1;
     cmd->cmd.data.fam.op = NicCmd::Data::Fam::Op::Get; 
@@ -72,7 +70,6 @@ void ShmemQueue<T>::get( uint64_t dstAddr, uint64_t srcAddr, ShmemReq* req ) {
 
 template< class T> 
 void ShmemQueue<T>::put( uint64_t dstAddr, uint64_t srcAddr, ShmemReq* req ) {
-    req->done = false;
     m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_CMD_FLAG,"dstAddr=%#" PRIx64 " srcAddr=%#" PRIx64 "\n", dstAddr, srcAddr );
 
     Cmd* cmd = new Cmd(req);
@@ -162,8 +159,11 @@ bool ShmemQueue<T>::process( Cycle_t cycle ){
             NicCmd& cmd = m_activeReq->cmd;
             cmd.handle = genHandle();
 
+            cmd.timeStamp = m_cpu->getCurrentSimTimeNano();
+
             m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"Write command handle=%d\n",cmd.handle);
             m_cmdWrite = write( cmdQAddr(m_head), reinterpret_cast<uint8_t*>(&cmd), sizeof(cmd), true );
+            m_activeReq->req->startTime=m_cpu->getCurrentSimTimeNano();
 
             m_state = WaitWrite;
         }
@@ -237,7 +237,9 @@ void ShmemQueue<T>::checkForResp(  ){
                  
                 try {
                     auto tmp = m_pendingReq.at( resp.handle );
+                    m_cpu->addData( ShmemReq::Type::Foobar, m_cpu->getCurrentSimTimeNano() - resp.timeStamp );
                     tmp->done = true; 
+                    m_cpu->addData( tmp->type, m_cpu->getCurrentSimTimeNano() - tmp->startTime );
                 } catch (const std::out_of_range& oor) {
                     assert(0);  
                 }
