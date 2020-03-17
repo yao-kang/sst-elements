@@ -146,7 +146,9 @@ class ShmemNic : public SST::Component {
         { "remoteQ_0",  "",   "request", 1 },
         { "remoteQ_1",  "",   "request", 1 },
         { "hostCmdQ",  "",   "request", 1 },
-        { "headUpdateQ",  "",   "request", 1 }
+        { "headUpdateQ",  "",   "request", 1 },
+        { "FamGetLatency",  "",   "request", 1 },
+        { "hostToNicLatency",  "",   "request", 1 }
     )
 
     SST_ELI_DOCUMENT_PORTS( MEMCONTROLLER_ELI_PORTS )
@@ -792,6 +794,8 @@ class ShmemNic : public SST::Component {
     uint64_t m_finishLocalCmdCnt;
     uint64_t m_finishRemoteCmdCnt;
 
+    Statistic<uint64_t>* m_hostToNicLatency;
+    Statistic<uint64_t>* m_famGetLatency;
     Statistic<uint64_t>* m_statCyclesPerIncOp;
     Statistic<uint64_t>* m_statCyclesPerIncOpRead;
     Statistic<uint64_t>* m_statAddrIncOp;

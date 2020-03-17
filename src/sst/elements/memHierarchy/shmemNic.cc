@@ -164,6 +164,8 @@ ShmemNic::ShmemNic(ComponentId_t id, Params &params) : Component(id), m_maxLocal
     int maxPending = params.find<int>("maxMemReqs",128);
     m_memReqQ = new MemRequestQ( this, maxPending, maxPending/numSrc, numSrc );
 
+    m_hostToNicLatency = registerStatistic<uint64_t>("hostToNicLatency");
+    m_famGetLatency = registerStatistic<uint64_t>("FamGetLatency");
     m_statCyclesPerIncOp = registerStatistic<uint64_t>("cyclePerIncOp");
     m_statCyclesPerIncOpRead = registerStatistic<uint64_t>("cyclePerIncOpRead");
     m_statAddrIncOp = registerStatistic<uint64_t>("addrIncOp");
@@ -206,9 +208,8 @@ void ShmemNic::handleTargetEvent(SST::Event* event) {
             dbg.debug( CALL_INFO,1,DBG_X_FLAG,"Write size=%zu addr=%" PRIx64 " offset=%llu thread=%d handle=%d, %s\n",
                     ev->getPayload().size(), ev->getAddr(), ev->getAddr() - m_ioBaseAddr, thread, cmd->handle, tmp.str().c_str() );
 
-            // we need to increment the pending count now because the host reads it to see if the NIC is idle for this thread
-            // the host could read it before the clock() function could update it
             if ( 0 == ( ev->getAddr() - m_ioBaseAddr ) % sizeof(NicCmd) ) {
+                m_hostToNicLatency->addData( getCurrentSimTimeNano() - cmd->timeStamp);
 
                 dbg.debug( CALL_INFO,1,DBG_X_FLAG,"new command from thread %d\n",thread);
                 ++m_threadInfo[thread].pendingCnt;
@@ -313,6 +314,7 @@ bool ShmemNic::FamGetCmd::process( Cycle_t cycle ) {
                         getSrcNode(), getSrcPid(), region.baseAddr, getAddr(), getDataType()  );
 
             Nic().m_memReqQ->read( Nic().m_shmemOpQnum,  region.baseAddr + getAddr(), Nic().dataTypeSize(getDataType()), m_callback );
+            setIssueTime( Nic().getCurrentSimTimeNano() );
             m_state = ReadWait; 
         }
         break;
@@ -323,6 +325,7 @@ bool ShmemNic::FamGetCmd::process( Cycle_t cycle ) {
         }
 
         Nic().dbg.debug( CALL_INFO,1,DBG_X_FLAG,"back from read %" PRIx64 " numBytes=%d\n", getAddr(), getMemEvent()->getSize() );
+        Nic().m_famGetLatency->addData( Nic().getCurrentSimTimeNano() - getIssueTime() );
 
         memcpy( &m_data, getMemEvent()->getPayload().data(), getMemEvent()->getSize() ); 
 
@@ -685,6 +688,7 @@ void ShmemNic::sendRespToHost( NicResp& resp, int thread )
     dbg.debug( CALL_INFO,1,DBG_X_FLAG,"tailPointer=%d localHeadIndex=%d\n", *info.tailPtr, info.localHeadIndex  );
     if ( *info.tailPtr != ( info.localHeadIndex + 1 ) % m_respQSize ) {
 
+         resp.timeStamp = getCurrentSimTimeNano(); 
          dbg.debug( CALL_INFO,1,DBG_X_FLAG,"write command to %#" PRIx64 "\n", info.cmdAddr(info.localHeadIndex) );
          m_memReqQ->write( m_respQueueMemChannel, info.cmdAddr(info.localHeadIndex), sizeof(resp), reinterpret_cast<uint8_t*>(&resp) );
          m_memReqQ->fence( m_respQueueMemChannel );
