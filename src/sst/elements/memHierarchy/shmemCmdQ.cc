@@ -1,19 +1,27 @@
 
-template< class T> 
-ShmemQueue<T>::ShmemQueue( T* cpu, int qSize, int respQsize, 
-                    uint64_t nicBaseAddr,
-                    uint64_t hostQueueInfoBaseAddr, size_t hostQueueInfoSizePerPe,
-                    uint64_t hostQueueBaseAddr, size_t hostQueueSizePerPe ) :
-	m_cpu(cpu), m_qSize(qSize), m_respQsize(respQsize), 
-    nicBaseAddr(nicBaseAddr),
+template< class T>
+ShmemQueue<T>::ShmemQueue( T* cpu, Params& params ) : m_cpu( cpu ), 
     m_head(0),m_respTail(0), m_state(ReadHeadTail),m_activeReq(NULL), m_handle(0),m_respRead(NULL)
 {
+    m_qSize = params.find<int>("cmdQSize", 64);
+    m_respQsize = params.find<int>("respQSize", params.find<int>("cmdQSize", 64) );
+    nicBaseAddr = params.find<uint64_t>( "nicBaseAddr", 0x100000000 );
+
+
+    uint64_t hostQueueInfoBaseAddr = params.find<uint64_t>("hostQueueInfoBaseAddr", 0 );
+    size_t hostQueueInfoSizePerPe = params.find<size_t>("hostQueueInfoSizePerPe", 64 );
+    uint64_t hostQueueBaseAddr = params.find<uint64_t>("hostQueueBaseAddr", 0x10000 );
+    size_t hostQueueSizePerPe = params.find<size_t>("hostQueueSizePerPe", 4096 );
+    m_blockSize = params.find<uint64_t>("famBlockSize", 64);
+    m_numFamNodes = params.find<uint64_t>("numFamNodes", 1);
+    m_firstFamNode = params.find<uint64_t>("firstFamNode", 1);
+
     nicMemLength = m_qSize * sizeof(NicCmd) + 64;
     nicMemLength = ((nicMemLength-1u) & ~(4096-1u)) + 4096;
 
-    nicCmdQAddr = nicBaseAddr  + ( m_cpu->myPe() % m_cpu->threadsPerNode() ) * nicMemLength; 
-    hostQueueInfoAddr = hostQueueInfoBaseAddr + ( m_cpu->myPe() % m_cpu->threadsPerNode() ) * hostQueueInfoSizePerPe;
-    hostQueueAddr = hostQueueBaseAddr + ( m_cpu->myPe() % m_cpu->threadsPerNode() ) *  hostQueueSizePerPe;
+    nicCmdQAddr = nicBaseAddr  + m_cpu->myThread() * nicMemLength; 
+    hostQueueInfoAddr = hostQueueInfoBaseAddr + m_cpu->myThread() * hostQueueInfoSizePerPe;
+    hostQueueAddr = hostQueueBaseAddr + m_cpu->myThread() *  hostQueueSizePerPe;
 
     m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"cmdQSize=%d respQSize=%d\n", m_qSize, m_respQsize );
     m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"nicCmdQAddr=%#" PRIx64 " sizerPerThread=%zu\n",  nicCmdQAddr, nicMemLength );
@@ -56,8 +64,8 @@ void ShmemQueue<T>::get( uint64_t dstAddr, uint64_t srcAddr, ShmemReq* req ) {
     cmd->cmd.type = NicCmd::Fam;
     cmd->cmd.numData = 1;
     cmd->cmd.data.fam.op = NicCmd::Data::Fam::Op::Get; 
-    cmd->cmd.data.fam.destNode = m_cpu->calcNode( srcAddr );
-    cmd->cmd.data.fam.destAddr = m_cpu->calcAddr( srcAddr ); 
+    cmd->cmd.data.fam.destNode = calcNode( srcAddr );
+    cmd->cmd.data.fam.destAddr = calcAddr( srcAddr ); 
      
     m_cmdQ.push( cmd );
 }
@@ -71,8 +79,8 @@ void ShmemQueue<T>::put( uint64_t dstAddr, uint64_t srcAddr, ShmemReq* req ) {
     cmd->cmd.type = NicCmd::Fam;
     cmd->cmd.numData = 1;
     cmd->cmd.data.fam.op = NicCmd::Data::Fam::Op::Put; 
-    cmd->cmd.data.fam.destNode = m_cpu->calcNode( dstAddr );
-    cmd->cmd.data.fam.destAddr = m_cpu->calcAddr( dstAddr ); 
+    cmd->cmd.data.fam.destNode = calcNode( dstAddr );
+    cmd->cmd.data.fam.destAddr = calcAddr( dstAddr ); 
 
     m_cmdQ.push( cmd );
 }

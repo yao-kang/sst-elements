@@ -45,8 +45,7 @@ class ShmemQueue {
     };
 
   public:
-    ShmemQueue( T* cpu, int qSize, int respQsize, uint64_t nicBaseAddr, uint64_t hostQueueInfoBaseAddr, 
-            size_t hostQueueInfoSizePerPe, uint64_t hostQueueBaseAddr, size_t hostQueueSizePerPe );
+    ShmemQueue( T* cpu, Params& Params );
 
     bool process( Cycle_t );
     bool full() { return m_cmdQ.size() == 16; } 
@@ -110,6 +109,36 @@ class ShmemQueue {
 
     bool notCached( uint64_t addr ) {
         return  addr >= nicBaseAddr  && addr < nicBaseAddr + nicMemLength * m_cpu->threadsPerNode();
+    }
+
+    size_t m_blockSize;
+    int    m_numFamNodes;
+    int    m_firstFamNode;
+
+    size_t calcBlockNum( uint64_t addr ) {
+        return addr/m_blockSize;
+    }
+
+    int calcNode( uint64_t addr ) {
+        uint64_t globalBlockNum = calcBlockNum(addr);
+        
+        int node = (globalBlockNum % m_numFamNodes) + m_firstFamNode;
+#if 0
+        printf("%s() gBlock=%" PRIu64" node=%d\n",__func__,globalBlockNum, node);
+#endif
+        return node;
+    }
+
+    uint64_t calcAddr( uint64_t addr ) {
+        uint64_t globalBlockNum = calcBlockNum(addr);
+        uint64_t nodeBlockNum = globalBlockNum / m_numFamNodes;  
+        uint64_t tmp = addr & (m_blockSize - 1);
+        uint64_t nodeAddr = nodeBlockNum * m_blockSize + tmp;
+#if 0
+        printf("%s() gBlock=%" PRIu64 " nodeBLock=%" PRIu64 " addr=%#" PRIx64" %#" PRIx64 " nodeAddr=%#" PRIx64 "\n",
+            __func__, globalBlockNum, nodeBlockNum, addr, tmp, nodeAddr );
+#endif
+        return nodeAddr;
     }
 
     uint32_t genHandle() { return m_handle++; }
