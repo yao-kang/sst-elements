@@ -49,29 +49,68 @@ debugLev = 0
 # Verbose
 verbose = 0 
 
-cpuName = "memHierarchy.spmvCpu"
-#cpuName = "memHierarchy.gupsCpu"
-
-#hostMemAddrSize=0x400
-#hostMemAddrSize=0x800
-#hostMemAddrSize=0x1000
-hostMemAddrSize=64
+#cpuName = "memHierarchy.spmvCpu"
+cpuName = "memHierarchy.gupsCpu"
 
 cpu_params = {
     "verbose" : 0,
     "clock" : core_clock,
     "printStats" : 1,
-    "iterations": 1000,
+    "iterations": 100,
     "debug": 1,
-    "debug_level": 10,
+    "debug_level": 0,
     #"debug_mask": 1 << 0 | 1<< 2 ,
     "debug_mask": 1<<2, 
+    "activeThreadsPerNode" : 36,
 }
+
+NumComputeNodes = 1
+NumFamNodes = 1 
+NumComputeThreads = 1 #36*NumComputeNodes
+
+SpmvMatrixSize = 36 # 144*1
+
+def calcMyComputeThread( nodeId, threadsPerNode, coreNum ):
+    return nodeId * threadsPerNode + coreNum
+
+def configureSpmv( params, myThread ):    
+    params[ "matrix_nx"] = SpmvMatrixSize 
+    params[ "matrix_ny"] = SpmvMatrixSize 
+
+    localRowStart = SpmvMatrixSize / NumComputeThreads * myThread
+    params[ "local_row_start" ] = localRowStart 
+    params[ "local_row_end" ] = localRowStart + SpmvMatrixSize  / NumComputeThreads
+    params[ "firstFamNode" ] = NumComputeNodes 
+    params[ "numFamNodes" ] = NumFamNodes 
+    return params
+
+
+def createCpuParams( nicId, threadsPerNode, coreNum ):
+    #print('nicId={} numThreads={} core={}').format( nicId, threadsPerNode, coreNum )
+    params = cpu_params
+    params[ "nodeNum"] =  nicId 
+    params[ "threadNum"] = coreNum
+
+    # for SHMEM
+    params[ "pe"] =  nicId * threadsPerNode + coreNum
+
+    params[ "gupsMemSize" ] = 0x100000
+
+    myThread = calcMyComputeThread( nicId, threadsPerNode, coreNum )
+    params = configureSpmv( params, myThread )
+
+    if myThread < NumComputeThreads:
+        params[ "computeNode"] = "yes" 
+    else:
+        params[ "computeNode"] = "no" 
+    
+    #print params
+    return params
 
 nic_params = {
     "clock" : "8GHz",
     "debug":1,
-    "debug_level": 10,
+    "debug_level": 0,
     #"debug_mask": 1<<1 | 1 << 2,
     #"debug_mask": 1<<1,
     "debug_mask": -1,
@@ -386,12 +425,8 @@ class TileBuilder:
         # Left Core
         cpuL0 = sst.Component("thread_" + str(self.next_core_id), cpuName )
         cpuL1 = sst.Component("thread_" + str(self.next_core_id + 18), cpuName )
-        cpuL0.addParams(cpu_params)
-        cpuL1.addParams(cpu_params)
-
-        cpuL0.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id )
-
-        cpuL1.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id + 18 )
+        cpuL0.addParams( createCpuParams( self.nicId, self.pesPerNode, self.next_core_id ) )
+        cpuL1.addParams( createCpuParams( self.nicId, self.pesPerNode, self.next_core_id + 18 ) )
 
         # Thread 0
         leftSMTCPUlink0 = sst.Link("smt_cpu_" + str(self.next_core_id))
@@ -406,7 +441,6 @@ class TileBuilder:
         leftSMTCPUlink0.setNoCut()
         leftSMTCPUlink1.setNoCut()
         leftSMTL1link.setNoCut()
-
 
         leftL1L2link = sst.Link("l1cache_link_" + str(self.next_core_id))
         leftL1L2link.connect( (l2bus, "high_network_0", mesh_link_latency),
@@ -432,12 +466,8 @@ class TileBuilder:
         # Right Core
         cpuR0 = sst.Component("thread_" + str(self.next_core_id), cpuName )
         cpuR1 = sst.Component("thread_" + str(self.next_core_id + 18), cpuName )
-        cpuR0.addParams(cpu_params)
-        cpuR1.addParams(cpu_params)
-
-        cpuR0.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id )
-
-        cpuR1.addParam( "pe", self.nicId * self.pesPerNode + self.next_core_id + 18 )
+        cpuR0.addParams( createCpuParams( self.nicId, self.pesPerNode, self.next_core_id ) )
+        cpuR1.addParams( createCpuParams( self.nicId, self.pesPerNode, self.next_core_id + 18 ) )
 
         # Thread 0
         rightSMTCPUlink0 = sst.Link("smt_cpu_" + str(self.next_core_id))
@@ -518,11 +548,11 @@ class NicBuilder:
     def __init__(self ):
         self.cmdQ = 1 
 
-    def build(self, nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize, gupsMemSize, link_bw, input_buf_size, output_buf_size ):
+    def build(self, nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize, link_bw, input_buf_size, output_buf_size ):
 
         nic = sst.Component( "nic", "memHierarchy.ShmemNic")
 
-        print('nodeId={} numNodes={} pesPerNode={} nicBaseAddr={} cmdQsize={} gupsMemSize={}').format( nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize, gupsMemSize )
+        print('nodeId={} numNodes={} pesPerNode={} nicBaseAddr={} cmdQsize={}').format( nodeID, numNodes, pesPerNode, nicBaseAddr, cmdQsize )
         nic.addParams( nic_params )
         nic.addParam( 'nicId', nodeID )
         nic.addParam( 'cmdQSize', cmdQsize)
@@ -551,22 +581,19 @@ class NicBuilder:
 nicBuilder = NicBuilder()
 
 class Endpoint():
-    def __init__( self, numNodes, pesPerNode, nicBaseAddr, cmdQsize, gupsMemSize, link_bw, input_buf_size, output_buf_size, activeThreadPerNode ):
+    def __init__( self, numNodes, pesPerNode, nicBaseAddr, cmdQsize, link_bw, input_buf_size, output_buf_size ):
         self.numNodes = numNodes
         self.pesPerNode = pesPerNode
         self.numPes = numNodes * pesPerNode
         self.nicBaseAddr = nicBaseAddr
         self.cmdQsize = cmdQsize
-        self.gupsMemSize = gupsMemSize
         self.link_bw = link_bw
         self.input_buf_size = input_buf_size
         self.output_buf_size = output_buf_size
 
         cpu_params['numPes'] = self.numPes
         cpu_params['cmdQSize'] = cmdQsize
-        cpu_params['gupsMemSize'] = gupsMemSize
         cpu_params['numNodes'] = numNodes
-        cpu_params['activeThreadsPerNode'] = activeThreadPerNode
         cpu_params['threadsPerNode'] = pesPerNode 
 
     def prepParams( self ):
@@ -633,7 +660,7 @@ class Endpoint():
                 setNodeDist(i, kRtrReq[i], kRtrAck[i], kRtrFwd[i], kRtrData[i])
                 i = i + 1
 
-        req,ack,fwd,data,netLink = nicBuilder.build(nicId,self.numNodes, self.pesPerNode, self.nicBaseAddr, self.cmdQsize, self.gupsMemSize, self.link_bw, self.input_buf_size, self.output_buf_size)
+        req,ack,fwd,data,netLink = nicBuilder.build(nicId,self.numNodes, self.pesPerNode, self.nicBaseAddr, self.cmdQsize, self.link_bw, self.input_buf_size, self.output_buf_size)
 
         port = "north"
         

@@ -11,6 +11,8 @@ networkParams = {
     "packetSize" : "2048B",
     "link_bw" : "16GB/s",
     "xbar_bw" : "16GB/s",
+#    "link_bw" : ".5GB/s",
+#    "xbar_bw" : ".5GB/s",
     "link_lat" : "40ns",
     "input_latency" : "50ns",
     "output_latency" : "50ns",
@@ -30,7 +32,7 @@ sst.merlin._params["output_latency"] = networkParams['output_latency']
 sst.merlin._params["input_buf_size"] = networkParams['input_buf_size']
 sst.merlin._params["output_buf_size"] = networkParams['output_buf_size']
 sst.merlin._params["num_dims"] = "2"
-sst.merlin._params["torus:shape"] = "2x1" 
+sst.merlin._params["torus:shape"] = "1x2" 
 sst.merlin._params["torus:width"] = "1x1"
 sst.merlin._params["torus:local_ports"] = "1" 
 
@@ -40,11 +42,10 @@ topo.prepParams()
 numNodes=2
 pesPerNode=36
 nicAddr=0x100000000
-cmdQsize =64 
-gupsMemSize=0x100000
+cmdQsize=64 
 
-ep = KingsleyNode.Endpoint( numNodes, pesPerNode, nicAddr, cmdQsize, gupsMemSize, 
-	networkParams['link_bw'], networkParams['input_buf_size'], networkParams['output_buf_size'], 36 )
+ep = KingsleyNode.Endpoint( numNodes, pesPerNode, nicAddr, cmdQsize,
+	networkParams['link_bw'], networkParams['input_buf_size'], networkParams['output_buf_size'] )
 
 def setNode( nodeId ):
     print 'setNode', nodeId
