@@ -11,11 +11,11 @@ networkParams = {
     "packetSize" : "2048B",
     "link_bw" : "16GB/s",
     "xbar_bw" : "16GB/s",
-#    "link_bw" : ".5GB/s",
-#    "xbar_bw" : ".5GB/s",
+
     "link_lat" : "40ns",
     "input_latency" : "50ns",
     "output_latency" : "50ns",
+
     "flitSize" : "8B",
     #"input_buf_size" : "30KB",
     #"output_buf_size" : "30KB",
@@ -64,6 +64,10 @@ sst.setStatisticOutputOptions({
     "separator" : ", "
 })
 
+sst.enableStatisticForComponentType("memHierarchy.spmvCpu",'FamGetLatency', {"type":"sst.AccumulatorStatistic","rate":"0ns"})
+sst.enableStatisticForComponentType("memHierarchy.spmvCpu",'RespLatency', {"type":"sst.AccumulatorStatistic","rate":"0ns"})
+sst.enableStatisticForComponentType("memHierarchy.ShmemNic",'FamGetLatency', {"type":"sst.AccumulatorStatistic","rate":"0ns"})
+sst.enableStatisticForComponentType("memHierarchy.ShmemNic",'hostToNicLatency', {"type":"sst.AccumulatorStatistic","rate":"0ns"})
 #sst.enableStatisticForComponentType("memHierarchy.DirectoryController",'directory_cache_hits', {"type":"sst.AccumulatorStatistic","rate":"0ns"})
 #sst.enableStatisticForComponentType("memHierarchy.DirectoryController",'mshr_hits', {"type":"sst.AccumulatorStatistic","rate":"0ns"})
 
@@ -104,18 +108,18 @@ sst.setStatisticOutputOptions({
 #"numbins":"20"}
 #)
 
-sst.enableStatisticForComponentType("memHierarchy.ShmemNic",'cyclePerIncOpRead',#{"type":"sst.AccumulatorStatistic","rate":"0ns"})
-{"type":"sst.HistogramStatistic",
-"rate":"0ns",
-"binwidth":"10",
-"numbins":"400"}
-)
-sst.enableStatisticForComponentType("memHierarchy.ShmemNic",'cyclePerIncOp',#{"type":"sst.AccumulatorStatistic","rate":"0ns"})
-{"type":"sst.HistogramStatistic",
-"rate":"0ns",
-"binwidth":"10",
-"numbins":"400"}
-)
+#sst.enableStatisticForComponentType("memHierarchy.ShmemNic",'cyclePerIncOpRead',#{"type":"sst.AccumulatorStatistic","rate":"0ns"})
+#{"type":"sst.HistogramStatistic",
+#"rate":"0ns",
+#"binwidth":"10",
+#"numbins":"400"}
+#)
+#sst.enableStatisticForComponentType("memHierarchy.ShmemNic",'cyclePerIncOp',#{"type":"sst.AccumulatorStatistic","rate":"0ns"})
+#{"type":"sst.HistogramStatistic",
+#"rate":"0ns",
+#"binwidth":"10",
+#"numbins":"400"}
+#)
 
 #sst.enableStatisticForComponentType("memHierarchy.ShmemNic",'addrIncOp',{"type":"sst.AccumulatorStatistic","rate":"0ns"})
 
