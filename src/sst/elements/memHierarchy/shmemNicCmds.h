@@ -18,11 +18,13 @@ struct NicCmd {
         } fam;
     } data;
     uint64_t value;
-    uint64_t pad;
+    SST::SimTime_t timeStamp; // 8 bytes is need to pad to 64 bytes so we use it for statistics 
 };
 
 struct NicResp {
     uint32_t handle;
     uint32_t retval; // not currently used
     uint64_t value;
+    uint64_t pad; 
+    uint64_t timeStamp;
 };
