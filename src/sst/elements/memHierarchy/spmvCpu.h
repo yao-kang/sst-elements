@@ -40,16 +40,9 @@ public:
     }
 
     Output& dbg() { return m_dbg; }
-    int myPe() { return m_myPe; }
+    int myThread() { return m_myThread; }
     int threadsPerNode() { return m_threadsPerNode; }
     void sendRequest( SimpleMem::Request* req ) { cache_link->sendRequest(req); }
-
-    int calcNode( uint64_t addr ) {
-        return 1;
-    }	
-    uint64_t calcAddr( uint64_t addr ) {
-        return addr;
-    }	
 
 	SST_ELI_REGISTER_COMPONENT(
         	SpmvCpu,
@@ -117,8 +110,8 @@ private:
 
     Output m_dbg;
 
-    int m_myPe;
-    int m_numPes;
+    int m_myNode;
+    int m_myThread;
     int m_numNodes;
     int m_activeThreadsPerNode;
     int m_threadsPerNode;

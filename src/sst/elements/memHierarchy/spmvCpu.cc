@@ -27,14 +27,14 @@ using namespace SST::MemHierarchy;
 
 SpmvCpu::SpmvCpu(SST::ComponentId_t id, SST::Params& params) : Component(id), m_state(OuterLoopRead) {
 
-    m_myPe = params.find<int>("pe",-1 );
-    m_numPes = params.find<int>("numPes",-1 );
-    assert( m_myPe != -1 );
-    assert( m_numPes != -1 );
+    m_myThread = params.find<int>("threadNum",-1 );
+    m_myNode = params.find<int>("nodeNum",-1 );
+    assert( m_myThread != -1 );
+    assert( m_myNode != -1 );
 
     // Output for debug
     char buffer[100];
-    snprintf(buffer,100,"@t:%d:SpmvCpu::@p():@l ",m_myPe);
+    snprintf(buffer,100,"@t:%d:%d:SpmvCpu::@p():@l ",m_myNode,m_myThread);
     m_dbg.init( buffer,
         params.find<int>("debug_level", 0),
         params.find<int>("debug_mask",0),
@@ -43,11 +43,10 @@ SpmvCpu::SpmvCpu(SST::ComponentId_t id, SST::Params& params) : Component(id), m_
     m_numNodes = params.find<int>( "numNodes", 0 );
     assert( m_numNodes );
     m_threadsPerNode = params.find<int>( "threadsPerNode", 1 );
-    int numThreadsPerNode = m_numPes/m_numNodes;
-    m_activeThreadsPerNode = params.find<int>("activeThreadsPerNode", numThreadsPerNode );
+    m_activeThreadsPerNode = params.find<int>("activeThreadsPerNode", m_threadsPerNode );
 
-    matrixNx        = params.find<uint64_t>("matrix_nx", 10);
-    matrixNy        = params.find<uint64_t>("matrix_ny", 10);
+    matrixNx        = params.find<uint64_t>("matrix_nx", 36);
+    matrixNy        = params.find<uint64_t>("matrix_ny", 36);
     elementWidth    = params.find<uint64_t>("element_width", 8);
     uint64_t nextStartAddr = 0;
     lhsVecStartAddr = params.find<uint64_t>("lhs_start_addr", nextStartAddr);
@@ -64,8 +63,9 @@ SpmvCpu::SpmvCpu(SST::ComponentId_t id, SST::Params& params) : Component(id), m_
     nextStartAddr  += (matrixNy * ordinalWidth * matrixNNZPerRow);
     matrixElementsStartAddr = params.find<uint64_t>("matrix_element_start_addr", nextStartAddr);
     iterations = params.find<uint64_t>("iterations", 1);
+    bool isCompute = params.find<std::string>("computeNode").compare("yes") == 0;
 
-    if ( 0 ==m_myPe ) { 
+    if ( isCompute &&  0 == m_myThread ) { 
         m_dbg.output("%s: matrixNx %" PRIu64 ", matrixNy %" PRIu64 "\n", __func__, matrixNx, matrixNy);
         m_dbg.output("%s: elementWidthu %" PRIu64 "\n", __func__, elementWidth);   	
         m_dbg.output("%s: lhsVecStartAddr %" PRIu64 ", rhsVecStartAddr %" PRIu64"\n",__func__,lhsVecStartAddr,rhsVecStartAddr);
@@ -77,27 +77,21 @@ SpmvCpu::SpmvCpu(SST::ComponentId_t id, SST::Params& params) : Component(id), m_
     	m_dbg.output("%s: matrixElementsStartAddr %" PRIu64 "\n",__func__,matrixElementsStartAddr );
     }
 
-
     const int verbose = params.find<int>("verbose", 0);
     std::stringstream prefix;
     prefix << "@t:" <<getName() << ":SpmvCpu[@p:@l]: ";
     out = new Output( prefix.str(), verbose, 0, SST::Output::STDOUT);
 
-    if ( m_myPe == 0 ) {
-    //if ( (m_myPe % numThreadsPerNode) < m_activeThreadsPerNode ) {
+    if ( isCompute ) {
+        printf("%d:%d: start=%" PRIu64 " end=%" PRIu64 "\n",m_myNode, m_myThread, localRowStart,localRowEnd);
+    }
 
-        m_dbg.debug(CALL_INFO,1,DBG_APP_FLAG,"myPe=%d numPes=%d threadsPerNode=%d\n", m_myPe, m_numPes, m_threadsPerNode );
+    if ( isCompute ) { 
+
+        m_dbg.debug(CALL_INFO,1,DBG_APP_FLAG,"threadsPerNode=%d\n", m_threadsPerNode );
         m_dbg.debug(CALL_INFO,1,DBG_APP_FLAG,"numNodes=%d activeThreadsPerNode=%d\n", m_numNodes, m_activeThreadsPerNode );
 
-        m_shmemQ = new ShmemQueue<SpmvCpu>( this,
-            params.find<int>("cmdQSize", 64),
-            params.find<int>("respQSize", params.find<int>("cmdQSize", 64) ),
-            params.find<uint64_t>( "nicBaseAddr", 0x100000000 ),
-            params.find<uint64_t>("hostQueueInfoBaseAddr", 0 ),
-            params.find<size_t>("hostQueueInfoSizePerPe", 64 ),
-            params.find<uint64_t>("hostQueueBaseAddr", 0x10000 ),
-            params.find<size_t>("hostQueueSizePerPe", 4096 )
-        );
+        m_shmemQ = new ShmemQueue<SpmvCpu>( this, params );
 
         std::string cpuClock = params.find<std::string>("clock", "2GHz");
         clockHandler = new Clock::Handler<SpmvCpu>(this, &SpmvCpu::clockTick);
