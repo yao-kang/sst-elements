@@ -43,6 +43,11 @@ public:
     int myThread() { return m_myThread; }
     int threadsPerNode() { return m_threadsPerNode; }
     void sendRequest( SimpleMem::Request* req ) { cache_link->sendRequest(req); }
+    void addData( int type, uint64_t val ) {
+        if ( type != ShmemReq::Invalid ) {
+            m_stats[type]->addData( val );
+        }
+    }
 
 	SST_ELI_REGISTER_COMPONENT(
         	SpmvCpu,
@@ -60,10 +65,8 @@ public:
     	)
 
 	SST_ELI_DOCUMENT_STATISTICS(
-        { "addrIncOp",    "addr of memory access",     "addr", 1 },
-        { "fenceLatency",    "time to quiesce",     "ns", 1 },
-        { "loopLatency",    "",     "ns", 1 },
-        { "readLatency",    "",     "ns", 1 }
+        { "FamGetLatency",    "",     "ns", 1 },
+        { "RespLatency",    "",     "ns", 1 }
 	)
 
 	SST_ELI_DOCUMENT_PORTS(
@@ -87,6 +90,7 @@ private:
         m_shmemQ->handleEvent( ev );
     }
 	bool clockTick( SST::Cycle_t );
+
 
  	Output* out;
 
@@ -130,6 +134,8 @@ private:
     uint64_t localRowEnd;
     uint64_t matrixColumnIndicesStartAddr;
     uint64_t matrixElementsStartAddr;
+
+    std::vector< Statistic<uint64_t>* > m_stats;
 };
 
 

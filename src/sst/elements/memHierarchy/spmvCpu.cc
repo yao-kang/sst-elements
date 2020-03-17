@@ -99,7 +99,12 @@ SpmvCpu::SpmvCpu(SST::ComponentId_t id, SST::Params& params) : Component(id), m_
         registerAsPrimaryComponent();
         primaryComponentDoNotEndSim();
         out->verbose(CALL_INFO, 1, 0, "CPU clock configured for %s\n", cpuClock.c_str());
+
+        m_stats.resize( ShmemReq::Total );
+        m_stats[0] = registerStatistic<uint64_t>("FamGetLatency");
+        m_stats[1] = registerStatistic<uint64_t>("RespLatency");
     }
+
 
     cache_link = loadUserSubComponent<Interfaces::SimpleMem>("memory", ComponentInfo::SHARE_NONE, timeConverter, new SimpleMem::Handler<SpmvCpu>(this, &SpmvCpu::handleEvent) );
     if (!cache_link) {
@@ -117,6 +122,7 @@ SpmvCpu::SpmvCpu(SST::ComponentId_t id, SST::Params& params) : Component(id), m_
 
     out->verbose(CALL_INFO, 1, 0, "Loaded memory interface successfully.\n");
     m_curRow = localRowStart;
+
 }
 
 bool SpmvCpu::clockTick(SST::Cycle_t cycle) {
