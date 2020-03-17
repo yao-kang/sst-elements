@@ -69,6 +69,7 @@ public:
     int myThread() { return m_myPe % m_threadsPerNode; }
     int threadsPerNode() { return m_threadsPerNode; }
     void sendRequest( SimpleMem::Request* req ) { cache_link->sendRequest(req); }
+    void addData( int, uint64_t ) {}
 
 	SST_ELI_REGISTER_COMPONENT(
         	GupsCpu,
