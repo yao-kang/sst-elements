@@ -110,7 +110,7 @@ private:
     ShmemReq writeResult;
     ShmemReq writeCurValue;
 
-    enum State { OuterLoopRead, OuterLoopReadWait, InnerLoop, ReadColWait, QuietWait, Finish } m_state;
+    enum State { OuterLoopRead, OuterLoopReadWait, InnerLoop, ReadColWait, WaitForLoop, QuietWait, Finish } m_state;
 
     Output m_dbg;
 

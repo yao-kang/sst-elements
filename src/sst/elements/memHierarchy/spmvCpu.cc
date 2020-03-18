@@ -82,9 +82,11 @@ SpmvCpu::SpmvCpu(SST::ComponentId_t id, SST::Params& params) : Component(id), m_
     prefix << "@t:" <<getName() << ":SpmvCpu[@p:@l]: ";
     out = new Output( prefix.str(), verbose, 0, SST::Output::STDOUT);
 
+#if 0
     if ( isCompute ) {
         printf("%d:%d: start=%" PRIu64 " end=%" PRIu64 "\n",m_myNode, m_myThread, localRowStart,localRowEnd);
     }
+#endif
 
     if ( isCompute ) { 
 
@@ -166,6 +168,13 @@ bool SpmvCpu::clockTick(SST::Cycle_t cycle) {
 
         m_shmemQ->get( dstAddr, lhsVecStartAddr + (m_curRow * matrixNNZPerRow + m_curCol) * elementWidth, &readLHS );
     	++m_curCol;
+        m_state = WaitForLoop;
+        break;
+
+    case WaitForLoop:
+        if ( ! readMat.done || ! readLHS.done ) {
+            break;
+        }
 
         m_dbg.debug(CALL_INFO,1,DBG_APP_FLAG,"bottom of InnerLoop row=%" PRIu64 " col=%" PRIu64 "\n",m_curRow,m_curCol);
         if ( m_curCol < m_curRow + matrixNNZPerRow) {
