@@ -56,7 +56,7 @@ void ShmemQueue<T>::quiet( ShmemReq* req) {
 
 template< class T> 
 void ShmemQueue<T>::get( uint64_t dstAddr, uint64_t srcAddr, ShmemReq* req ) {
-    m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_CMD_FLAG,"dstAddr=%#" PRIx64 " srcAddr=%#" PRIx64 "\n", dstAddr, srcAddr );
+    m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_CMD_FLAG,"dstAddr=%#" PRIx64 " srcAddr=%#" PRIx64 " %p\n", dstAddr, srcAddr, req );
 
     Cmd* cmd = new Cmd(req,ShmemReq::FamGet);
     cmd->cmd.type = NicCmd::Fam;
@@ -92,16 +92,16 @@ void ShmemQueue<T>::handleEvent( Interfaces::SimpleMem::Request* ev) {
 
     std::string cmd;
     if ( ev->cmd == Interfaces::SimpleMem::Request::Command::ReadResp ) { 
-        m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"ReadResp\n");
+        m_cpu->dbg().debug(CALL_INFO,2,DBG_SHMEM_FLAG,"ReadResp\n");
         m_pending[ev->id]->resp = ev;			
         m_pending.erase(ev->id);
     } else if ( ev->cmd == Interfaces::SimpleMem::Request::Command::WriteResp ) { 
-        m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"WriteResp\n" );
+        m_cpu->dbg().debug(CALL_INFO,2,DBG_SHMEM_FLAG,"WriteResp\n" );
         if ( m_pending[ev->id]->keep ) {
-            m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"WriteResp keep\n" );
+            m_cpu->dbg().debug(CALL_INFO,2,DBG_SHMEM_FLAG,"WriteResp keep\n" );
             m_pending[ev->id]->resp = ev;			
         } else {
-            m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"WriteResp delete\n" );
+            m_cpu->dbg().debug(CALL_INFO,2,DBG_SHMEM_FLAG,"WriteResp delete\n" );
             delete m_pending[ev->id];
             delete ev;
         }
@@ -135,7 +135,7 @@ bool ShmemQueue<T>::process( Cycle_t cycle ){
     switch ( m_state ) {
 
       case ReadHeadTail:
-        m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"ReadHeadTail\n");
+        m_cpu->dbg().debug(CALL_INFO,2,DBG_SHMEM_FLAG,"ReadHeadTail\n");
         m_cmdTailRead = read( hostQueueInfoAddr, 4 );
         m_state = WaitRead;	
 		break;	
@@ -144,14 +144,14 @@ bool ShmemQueue<T>::process( Cycle_t cycle ){
 
 		if ( m_cmdTailRead->isDone() ) {
 			m_tail = m_cmdTailRead->data();
-			m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"read of head and tail done head=%d tail=%d\n",m_head,m_tail);
+			m_cpu->dbg().debug(CALL_INFO,2,DBG_SHMEM_FLAG,"read of head and tail done head=%d tail=%d\n",m_head,m_tail);
 			delete m_cmdTailRead;
 			m_state = CheckHeadTail;
 		} 
 		break;
 
 	case CheckHeadTail:
-		m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"CheckHeadTail m_head=%d m_tail=%d\n",m_head,m_tail);
+		m_cpu->dbg().debug(CALL_INFO,2,DBG_SHMEM_FLAG,"CheckHeadTail m_head=%d m_tail=%d\n",m_head,m_tail);
 		if ( ( m_head + 1 ) % m_qSize  == m_tail ) {
 			m_state = ReadHeadTail;
 		} else {
@@ -161,9 +161,9 @@ bool ShmemQueue<T>::process( Cycle_t cycle ){
 
             cmd.timeStamp = m_cpu->getCurrentSimTimeNano();
 
-            m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"Write command handle=%d\n",cmd.handle);
+            m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"Write command handle=%d %p\n",cmd.handle, m_activeReq->req);
             m_cmdWrite = write( cmdQAddr(m_head), reinterpret_cast<uint8_t*>(&cmd), sizeof(cmd), true );
-            m_activeReq->req->startTime=m_cpu->getCurrentSimTimeNano();
+            m_activeReq->req->startTime = m_cpu->getCurrentSimTimeNano();
 
             m_state = WaitWrite;
         }
@@ -233,10 +233,11 @@ void ShmemQueue<T>::checkForResp(  ){
                 delete m_respRead;
                 m_respRead = NULL;
 
-                m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"got response body, handle=%d\n",resp.handle);
                  
                 try {
                     auto tmp = m_pendingReq.at( resp.handle );
+                    m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"got response body, handle=%d timeStamp=%" PRIu64 " startTime=%" PRIu64 " %p\n",
+                            resp.handle, resp.timeStamp, tmp->startTime, tmp );
                     m_cpu->addData( ShmemReq::Type::Foobar, m_cpu->getCurrentSimTimeNano() - resp.timeStamp );
                     tmp->done = true; 
                     m_cpu->addData( tmp->type, m_cpu->getCurrentSimTimeNano() - tmp->startTime );
