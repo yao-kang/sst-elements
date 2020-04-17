@@ -163,7 +163,9 @@ bool ShmemQueue<T>::process( Cycle_t cycle ){
 
             m_cpu->dbg().debug(CALL_INFO,1,DBG_SHMEM_FLAG,"Write command handle=%d %p\n",cmd.handle, m_activeReq->req);
             m_cmdWrite = write( cmdQAddr(m_head), reinterpret_cast<uint8_t*>(&cmd), sizeof(cmd), true );
-            m_activeReq->req->startTime = m_cpu->getCurrentSimTimeNano();
+            if ( m_activeReq->req ) {
+                m_activeReq->req->startTime = m_cpu->getCurrentSimTimeNano();
+            }
 
             m_state = WaitWrite;
         }
